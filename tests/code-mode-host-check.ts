@@ -301,7 +301,7 @@ try {
       assert.equal(turn.calls.length, 2, "Gemini must complete the native read round trip");
     } else {
       assert.equal(readFileSync(join(cwd, `${turn.evalCall}.txt`), "utf8"), `NATIVE_PATCH:${turn.evalCall}\n`, "native patch must reach the scratch filesystem");
-      assert.equal(turn.calls.length, 2 + directProbeNames.length, `${scenario.name}: every code-mode model must complete eval and reserved-name direct tool round trips`);
+      assert.equal(turn.calls.length, 2 + directProbeNames.length, `${scenario.name}: every code-mode model must complete eval and direct tool round trips`);
     }
   }
   let presetRegions = 0;
@@ -354,7 +354,7 @@ try {
       const guidance = description.split("<omp-code-mode>")[1]!.split("\n\nawait tool")[0]!;
       assert(!/parallel|sequential|Promise\.all/.test(guidance), `${current.name}: code-mode guidance must not duplicate concurrency policy`);
       assert(description.includes(`JSON Schema: ${JSON.stringify(read.function.parameters)}`), `${current.name}: catalog must contain the actual native read wire schema`);
-      for (const name of directProbeNames) assert(!description.includes(`await tool.${name}(args)`), `${name}: must not advertise a reserved eval accessor`);
+      for (const name of directProbeNames) assert(!description.includes(`await tool.${name}(args)`), `${name}: must only advertise direct invocation`);
       assert(!/\beval\b|await tool\./i.test(regions[0]![1]!), `${current.name}: the preset must leave eval steering to the tool catalog`);
     });
   }

@@ -4,7 +4,7 @@ export const provider = "omp-code-mode-probe";
 export const geminiModel = "localGeMiNiPreview";
 // Representative model families and an unsupported Gemini model on one transport.
 export const models = ["gpt-6.1-sol", "claude-haiku-5.5", "kimi-k3", geminiModel, "grok-4.5"];
-export const directProbeNames = ["defined", "undefine"] as const;
+export const directProbeNames = ["defined", "undefine", "result_attach"] as const;
 export const bridgeProbe = {
   name: "code-mode-probe",
   label: "Code-mode bridge probe",

@@ -35,6 +35,8 @@ const BRIDGE_EXCLUDED = new Set([
 	// Completion/rollover consume direct result events; checkpoint/rewind also
 	// have native bridge guards. think's private rendering is a direct surface.
 	"yield", "think", "checkpoint", "rewind", "new_context",
+	// Superagent verifies result-file delivery against the outer native execution.
+	"result_attach",
 	// Native plan approval and staged-preview decisions are commands when mounted,
 	// direct tools otherwise. Do not replace their advertised decision route.
 	"propose", "resolve", "reject",
