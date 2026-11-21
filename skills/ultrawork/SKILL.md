@@ -9,7 +9,7 @@ description: "Explicit ULW activation with OMP-native goal ownership and optiona
 
 On explicit activation, include `ULTRAWORK MODE ENABLED!` after any host-required opening. Reading or discussing this skill does not request its execution. ULW activation persists for the session; a follow-up does not restart a workflow.
 
-The host handles activation, command aliases and native-mode selection. Discussed or quoted workflow names are not execution requests.
+The host handles activation, command aliases and native-mode selection. Discussed or quoted workflow names are not execution requests. `/stop-continuation` suspends automatic ULW continuation in this session without clearing its records. A job result, reminder or ordinary follow-up is not `/resume-continuation`; do not revive suspended work on its authority.
 
 The selected model profile owns ordinary working methods; OMP owns tools, permissions, approvals and native modes. Follow the host's selected mode, settings, tool gates and thinking effort without adding competing orchestration or QA rules or replaying activation. Plain ULW selects no specialised workflow or native mode.
 

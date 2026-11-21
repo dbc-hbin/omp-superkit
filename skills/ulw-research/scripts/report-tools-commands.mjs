@@ -4,9 +4,10 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 
-import { CliError, parseArgs, readJsonFile, writeJsonAtomic } from "./cli-support.mjs"
+import { CliError, parseArgs, readJsonFile, sessionDirFrom, writeJsonAtomic } from "./cli-support.mjs"
 import { REPAIR_DEFAULTS } from "./contracts.mjs"
 import { parseLineageMode, parsePalette, renderDesignSpec } from "./design-spec.mjs"
+import { verifyFidelity } from "./fidelity-receipts.mjs"
 import { extractFromHtml, extractFromPath, fetchHtml } from "./format-extract.mjs"
 import { checkLayout } from "./gates-layout.mjs"
 import { checkStatic } from "./gates-static.mjs"
@@ -40,12 +41,6 @@ function nowFrom(flags) {
 	const date = new Date(flags.now)
 	if (Number.isNaN(date.getTime())) throw new CliError("--now requires an ISO timestamp")
 	return date
-}
-
-function sessionDirFrom(flags) {
-	const dir = flags["session-dir"] ?? process.env.SESSION_DIR
-	if (!dir) throw new CliError("--session-dir is required (or set SESSION_DIR)")
-	return resolve(dir)
 }
 
 export function runCheck(argv) {
@@ -134,6 +129,13 @@ function manifestPath(flags) {
 	return join(sessionDirFrom(flags), outcome.MANIFEST_FILENAME)
 }
 
+function verifyOutcome(file, manifest) {
+	const delivery = outcome.verifyManifest(manifest)
+	const fidelity = verifyFidelity(dirname(file), manifest)
+	const problems = [...delivery.problems, ...fidelity.problems]
+	return { ok: problems.length === 0, problems, editions: fidelity.editions }
+}
+
 export function runOutcome(argv) {
 	const [sub, ...rest] = argv
 	const args = parseArgs(rest, { booleans: ["json"] })
@@ -181,11 +183,15 @@ export function runOutcome(argv) {
 			return { json: { command: "outcome state", state }, summary: `state: ${state}`, exitCode: 0 }
 		}
 		case "verify": {
-			const result = outcome.verifyManifest(outcome.readManifest(file))
+			const result = verifyOutcome(file, outcome.readManifest(file))
 			return { json: { command: "outcome verify", ...result }, summary: `verify: ${result.ok ? "OK" : `${result.problems.length} problem(s)`}`, exitCode: result.ok ? 0 : 1 }
 		}
 		case "finish": {
 			const manifest = outcome.readManifest(file)
+			const result = verifyOutcome(file, manifest)
+			if (!result.ok) {
+				return { json: { command: "outcome finish", ...result }, summary: `finish: ${result.problems.length} delivery problem(s); outcome not changed`, exitCode: 1 }
+			}
 			const ledgerPath = args.flags.ledger ?? join(sessionDirFrom(args.flags), "sources-ledger.md")
 			const now = nowFrom(args.flags)
 			const facts = outcome.briefingFacts(manifest, existsSync(ledgerPath) ? readText(ledgerPath) : "", now)
@@ -193,15 +199,20 @@ export function runOutcome(argv) {
 			manifest.elapsedMinutes = facts.minutes
 			manifest.sources = { total: facts.sources, domains: facts.domains }
 			outcome.writeManifest(file, manifest)
-			return { json: { command: "outcome finish", finishedAt: manifest.finishedAt, elapsedMinutes: facts.minutes, sources: manifest.sources }, exitCode: 0 }
+			return { json: { command: "outcome finish", finishedAt: manifest.finishedAt, elapsedMinutes: facts.minutes, sources: manifest.sources, editions: result.editions }, exitCode: 0 }
 		}
 		case "briefing": {
 			const manifest = outcome.readManifest(file)
 			const ledgerPath = args.flags.ledger ?? join(sessionDirFrom(args.flags), "sources-ledger.md")
 			const ledger = existsSync(ledgerPath) ? readText(ledgerPath) : ""
 			const now = nowFrom(args.flags)
-			if (args.flags.json) return { json: { command: "outcome briefing", ...outcome.briefingFacts(manifest, ledger, now) }, exitCode: 0 }
-			return { text: outcome.buildBriefing(manifest, ledger, now), exitCode: 0 }
+			const fidelity = verifyFidelity(dirname(file), manifest)
+			if (args.flags.json) return { json: { command: "outcome briefing", ...outcome.briefingFacts(manifest, ledger, now), fidelity }, exitCode: 0 }
+			const status = [
+				...fidelity.editions.map((edition) => `${edition.format} ${edition.fidelity}`),
+				...fidelity.problems.map((problem) => `${problem.format} unverified (${problem.code})`),
+			]
+			return { text: `${outcome.buildBriefing(manifest, ledger, now)}\n- Edition fidelity: ${status.join(", ") || "no delivered editions"}.`, exitCode: 0 }
 		}
 		default:
 			throw new CliError("usage: outcome <init|set|gate|render|state|verify|finish|briefing> ...")

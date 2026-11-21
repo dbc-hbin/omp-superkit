@@ -6,7 +6,11 @@
 const NAMED_ENTITIES = {
 	amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0", mdash: "\u2014", ndash: "\u2013",
 	hellip: "\u2026", copy: "\u00a9", reg: "\u00ae", times: "\u00d7", middot: "\u00b7",
+	QUOT: '"', ldquo: "“", rdquo: "”", rdquor: "”", lsquo: "‘", rsquo: "’", rsquor: "’",
+	OpenCurlyDoubleQuote: "“", CloseCurlyDoubleQuote: "”", OpenCurlyQuote: "‘", CloseCurlyQuote: "’",
+	laquo: "«", raquo: "»", lsaquo: "‹", rsaquo: "›", dollar: "$", pound: "£", euro: "€", yen: "¥",
 }
+const MAX_REFERENCE_BODY = Math.max(8, ...Object.keys(NAMED_ENTITIES).map((name) => name.length))
 
 function decodeOne(body) {
 	if (Object.hasOwn(NAMED_ENTITIES, body)) return NAMED_ENTITIES[body]
@@ -26,7 +30,7 @@ export function decodeEntities(text) {
 	let at = source.indexOf("&")
 	while (at !== -1) {
 		const semi = source.indexOf(";", at + 1)
-		const decoded = semi !== -1 && semi - at <= 12 ? decodeOne(source.slice(at + 1, semi)) : null
+		const decoded = semi !== -1 && semi - at - 1 <= MAX_REFERENCE_BODY ? decodeOne(source.slice(at + 1, semi)) : null
 		if (decoded !== null) {
 			out += source.slice(last, at) + decoded
 			last = semi + 1

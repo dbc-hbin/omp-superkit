@@ -1,13 +1,33 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerContinuationControls } from "./ulw-control";
+
+export type UlwSessionEntry = { readonly type: string; readonly customType?: string; readonly data?: unknown; readonly mode?: string };
+export type UlwGoalEvent = {
+  readonly goal?: { readonly id?: string; readonly objective?: string; readonly status?: string } | null;
+};
+type NativeModes = { readonly goal: { readonly status: "inactive" | "active" | "paused"; readonly objective?: string } };
 
 export interface UlwContext {
   cwd: string;
   model?: { id: string };
+  mode?: string;
   agent: { kind: "main" | "sub" };
-  sessionManager: { getSessionId(): string; getBranch(): Array<{ type: string; customType?: string; data?: unknown; content?: unknown }> };
-  ui: { notify(message: string, level: "warning"): void };
+  sessionManager: {
+    getSessionId(): string;
+    getBranch(): readonly UlwSessionEntry[];
+    getEntries?(): readonly UlwSessionEntry[];
+    ensureOnDisk?(): Promise<void>;
+  };
+  sessionModes?: {
+    getState(): NativeModes;
+    set(request: { readonly mode: "goal"; readonly action: "pause" | "resume" }): Promise<
+      { readonly ok: true; readonly changed: boolean; readonly state: NativeModes } |
+      { readonly ok: false; readonly code: string; readonly message: string }
+    >;
+  };
+  ui: { notify(message: string, level: "warning" | "info"): void };
 }
 interface InputEvent { text: string; source: "interactive" | "rpc" | "extension" }
 interface InputEventResult { text?: string }
@@ -19,7 +39,7 @@ export interface UlwApi {
   getFlag(name: string): boolean | string | undefined;
   appendEntry(customType: string, data: unknown): void;
   on(event: "input", handler: (event: InputEvent, ctx: UlwContext) => InputEventResult | void): void;
-  on(event: "goal_updated", handler: (event: { goal?: { status?: string } | null; state?: { enabled?: boolean } }, ctx: UlwContext) => void): void;
+  on(event: "goal_updated", handler: (event: UlwGoalEvent, ctx: UlwContext) => void): void;
   on(event: "session_start" | "session_switch" | "session_branch" | "session_tree" | "session_compact", handler: (event: unknown, ctx: UlwContext) => void): void;
   on(event: "before_agent_start", handler: (event: { prompt: string; systemPrompt: string[] }, ctx: UlwContext) => { systemPrompt: string[]; message?: UlwMessage } | undefined): void;
   on(event: "session_stop", handler: (event: { signal: AbortSignal }, ctx: UlwContext) => { continue: true; additionalContext: string } | undefined): void;
@@ -36,6 +56,7 @@ const invocationStart = String.raw`^\s*\/?`;
 const ulwInvocation = new RegExp(String.raw`${invocationStart}(?:ultrawork|ulw)\b${notIntoIdentifier}`, "i");
 const nativeGoalInvocation = new RegExp(String.raw`${invocationStart}(?:ultrawork|ulw)\b${segmentEnd}(?=[\s:.,!?]|$)`, "i");
 const nativeKeyword = /(?<![\p{L}\p{N}_./\\-])(?<!::)(?:ultrathink|orchestrate|workflowz|jevify)(?![\p{L}\p{N}_/\\-])(?!\.[\p{L}\p{N}_-])(?!\()/u;
+const ulwPolicyBlock = /^<(?:om[op]-ulw-policy|omp-ulw-continuation-paused)>/;
 const workflows: Array<{ name: string; pattern: RegExp; nativeKeyword?: string }> = [
   { name: "mass-ulw", pattern: /\b(?:mass[\s-]*ulw|ulw[\s-]*mass|mulw|meth)\b/i, nativeKeyword: "workflowz" },
   { name: "ulw-plan", pattern: /\bulw[\s-]*plan\b/i, nativeKeyword: "ultrathink" },
@@ -106,14 +127,14 @@ export function ulwRequest(prompt: string): { text: string; workflow?: string; i
 export function registerUlw(pi: UlwApi): void {
   pi.registerFlag("omo-ultrawork-disabled", { description: "Disable automatic Native ULW arming", type: "boolean", default: false });
   pi.registerFlag("omo-ulw-workflows-disabled", { description: "Disable OMP workflow skill pointers", type: "boolean", default: false });
-  pi.registerFlag("omo-ulw-continuation-disabled", { description: "Disable ULW loop/execute continuation", type: "boolean", default: false });
   let armed = false;
   let rearmed = false;
   let inputSource: InputEvent["source"] | undefined;
   let commandPending = false;
-  let nativeGoalOwned = false;
   let continuationFingerprint: string | undefined;
   let consecutiveContinuations = 0;
+  const resetProgress = (fingerprint?: string) => { continuationFingerprint = fingerprint; consecutiveContinuations = 0; };
+  const continuation = registerContinuationControls(pi, resetProgress);
 
   const withNativeKeyword = (text: string, ctx: UlwContext): InputEventResult | undefined => {
     if (ctx.agent.kind !== "main" || pi.getFlag("omo-ulw-workflows-disabled")) return;
@@ -136,35 +157,34 @@ export function registerUlw(pi: UlwApi): void {
   };
 
   const restore = (_event: unknown, ctx: UlwContext) => {
+    continuation.restore(ctx);
     armed = false;
     rearmed = false;
     inputSource = undefined;
     commandPending = false;
-    nativeGoalOwned = false;
-    continuationFingerprint = undefined;
-    consecutiveContinuations = 0;
+    resetProgress();
     for (const entry of ctx.sessionManager.getBranch()) {
       if (entry.type === "custom" && entry.customType === stateType && typeof entry.data === "boolean") armed = entry.data;
     }
   };
   for (const event of ["session_start", "session_switch", "session_branch", "session_tree"] as const) pi.on(event, restore);
-  pi.on("goal_updated", event => {
-    // Native creation rejects every existing nonterminal goal, including paused work.
-    nativeGoalOwned = event.goal?.status !== undefined && event.goal.status !== "complete" && event.goal.status !== "dropped";
-  });
   pi.on("session_compact", () => { rearmed = armed; });
   pi.on("input", (event, ctx) => {
     inputSource = event.source;
-    if (event.source !== "extension") { continuationFingerprint = undefined; consecutiveContinuations = 0; }
+    if (event.source !== "extension") {
+      resetProgress();
+      continuation.expectGoal(ctx, undefined);
+    }
     const connected = event.source === "extension" ? undefined : withNativeKeyword(event.text, ctx);
     if (connected) return connected;
     // Native /goal is a TUI command; RPC text would only persist a fake command.
-    if (ctx.agent.kind !== "main" || event.source !== "interactive" || nativeGoalOwned) return;
+    if (ctx.agent.kind !== "main" || event.source !== "interactive" || continuation.isStopped(ctx) || continuation.hasNativeGoal(ctx)) return;
     // Route the slash alias before its handler calls sendUserMessage(), which
     // bypasses command expansion and cannot create a native goal.
     const text = event.text.replace(/^(\s*)\/(ulw)(?=\s|$)/i, "$1$2");
     const visible = visibleUlwText(text);
     if (nativeGoalInvocation.test(visible) && !workflows.some(workflow => workflow.pattern.test(visible)) && !/^\s*\/goal(?:\s|$)/i.test(event.text)) {
+      continuation.expectGoal(ctx, text.trim());
       return { text: `/goal ${text}` };
     }
   });
@@ -174,8 +194,7 @@ export function registerUlw(pi: UlwApi): void {
       description: `Run the OMP-adapted ${name} workflow`,
       handler: async (args, ctx) => {
         commandPending = true;
-        continuationFingerprint = undefined;
-        consecutiveContinuations = 0;
+        resetProgress();
         // OMP's sendUserMessage() disables slash-command expansion. A
         // `/goal ...` payload would therefore be persisted as ordinary user
         // text instead of creating a native goal.
@@ -186,10 +205,11 @@ export function registerUlw(pi: UlwApi): void {
   }
 
   pi.on("before_agent_start", (event, ctx) => {
+    continuation.expectGoal(ctx, undefined);
     if (ctx.agent.kind !== "main") {
       inputSource = undefined;
       commandPending = false;
-      const blocks = event.systemPrompt.filter(block => !/^<om[op]-ulw-policy>/.test(block));
+      const blocks = event.systemPrompt.filter(block => !ulwPolicyBlock.test(block));
       return blocks.length === event.systemPrompt.length ? undefined : { systemPrompt: blocks };
     }
     let { text } = ulwRequest(event.prompt);
@@ -204,14 +224,20 @@ export function registerUlw(pi: UlwApi): void {
     if (!pi.getFlag("omo-ultrawork-disabled") && eligible && ulwInvocation.test(text)) {
       if (!armed) { armed = true; pi.appendEntry(stateType, true); }
     }
-    if ((!armed || pi.getFlag("omo-ultrawork-disabled")) && selected.length === 0) return;
-    const blocks = event.systemPrompt.filter(block => !/^<om[op]-ulw-policy>/.test(block));
-    if (armed && !pi.getFlag("omo-ultrawork-disabled")) {
+    const stopped = continuation.isStopped(ctx);
+    if (!stopped && (!armed || pi.getFlag("omo-ultrawork-disabled")) && selected.length === 0) {
+      const blocks = event.systemPrompt.filter(block => !block.startsWith("<omp-ulw-continuation-paused>"));
+      return blocks.length === event.systemPrompt.length ? undefined : { systemPrompt: blocks };
+    }
+    const blocks = event.systemPrompt.filter(block => !ulwPolicyBlock.test(block));
+    if (stopped) {
+      blocks.push("<omp-ulw-continuation-paused>The operator stopped automatic ULW continuation in this session. Keep existing work and evidence intact. Ordinary follow-ups, worker results and earlier continuation messages do not resume it. Answer the current request without continuing the stopped work unless the operator explicitly authorizes it.</omp-ulw-continuation-paused>");
+    } else if (armed && !pi.getFlag("omo-ultrawork-disabled")) {
       // Keep one current policy across compaction and provider fallback.
       blocks.push(`<omp-ulw-policy>\n<ultrawork-mode>${ulwDirective}</ultrawork-mode>\n</omp-ulw-policy>`);
     }
     const pointers = selected.map(workflow => `<omp-${workflow.name}-pointer>The user explicitly invoked ${workflow.name}. Read ${join(skillRoot, workflow.name, "SKILL.md")} and follow its workflow contract. This session's run id is ${ctx.sessionManager.getSessionId()}.</omp-${workflow.name}-pointer>`);
-    if (rearmed) {
+    if (rearmed && !stopped) {
       pointers.unshift("<omp-ultrawork-reminder>ULW is already active. Resume the existing OMP goal or selected workflow state; do not create a duplicate goal or repeat completed work.</omp-ultrawork-reminder>");
       rearmed = false;
     }
@@ -219,64 +245,12 @@ export function registerUlw(pi: UlwApi): void {
   });
 
   pi.on("session_stop", (event, ctx) => {
-    if (event.signal.aborted || ctx.agent.kind !== "main" || pi.getFlag("omo-ulw-continuation-disabled") || consecutiveContinuations >= 8) return;
-    const id = ctx.sessionManager.getSessionId();
-    const loopPath = join(ctx.cwd, "doc/ulw-loop", id, "goals.json");
-    const boulderPath = join(ctx.cwd, "doc/boulder.json");
-    let fingerprint: string | undefined;
-    let reason: string | undefined;
-    try {
-      if (existsSync(boulderPath)) {
-        const raw = readFileSync(boulderPath, "utf8");
-        const boulder: unknown = JSON.parse(raw);
-        if (typeof boulder === "object" && boulder !== null && "works" in boulder && typeof boulder.works === "object" && boulder.works !== null) {
-          for (const work of Object.values(boulder.works)) {
-            if (typeof work !== "object" || work === null || !("status" in work) || work.status !== "active" || !("session_ids" in work) || !Array.isArray(work.session_ids) || !work.session_ids.includes("omp:" + id) || !("active_plan" in work) || typeof work.active_plan !== "string") continue;
-            const nativePlan = work.active_plan.startsWith("local://");
-            const planPath = nativePlan ? work.active_plan : join(ctx.cwd, work.active_plan);
-            let plan = "";
-            let statuses: string[];
-            if (nativePlan) {
-              if (!("execution_tasks" in work) || !Array.isArray(work.execution_tasks)) continue;
-              const tasks: unknown[] = work.execution_tasks;
-              if (!tasks.every((task): task is { plan_ref: string; status: "pending" | "complete" | "blocked" } =>
-                typeof task === "object" && task !== null && "plan_ref" in task && typeof task.plan_ref === "string" && task.plan_ref.trim() !== "" &&
-                "status" in task && (task.status === "pending" || task.status === "complete" || task.status === "blocked"))) continue;
-              statuses = tasks.map(task => task.status);
-            } else {
-              if (!existsSync(planPath)) continue;
-              plan = readFileSync(planPath, "utf8");
-              statuses = [...visibleUlwText(plan).matchAll(/^- \[([ xX~])\] /gm)].map(task => task[1] === " " ? "pending" : task[1] === "~" ? "blocked" : "complete");
-            }
-            if (statuses.length === 0) continue;
-            const pending = statuses.includes("pending");
-            const blocked = statuses.includes("blocked");
-            if (!pending && blocked) continue;
-            fingerprint = raw + plan;
-            reason = `Resume ulw-execute from ${boulderPath} and ${planPath}; ${nativePlan ? "preserve the approved local plan and use this work's execution_tasks for progress; reuse its authoritative inline copy or read the URI through OMP, never as a filesystem path. " : ""}${pending
-              ? "integrate pending child results and execute the next dependency-ready pending task, including pending Final Verification Wave rows; capture evidence and update Boulder/ledger"
-              : "all execution tasks are verified; finish the approved verification and authorized delivery, then mark the Boulder work complete and finalize its ledger"}.${blocked ? " Treat blocked tasks ([~] rows or execution_tasks status blocked) and transitive dependents as terminal non-success; never reopen or re-queue them. Final verification checks delivered work and reports known gaps without treating those gaps alone as new failures. When pending work ends, report every unmet gap, mark Boulder blocked and stop without claiming success." : ""} Respect cancellation, approvals and blocked/paused state.`;
-            break;
-          }
-        }
-      }
-      if (fingerprint === undefined && existsSync(loopPath)) {
-        const raw = readFileSync(loopPath, "utf8");
-        const loop: unknown = JSON.parse(raw);
-        const goals: unknown[] = typeof loop === "object" && loop !== null && "goals" in loop && Array.isArray(loop.goals) ? loop.goals : [];
-        if (typeof loop === "object" && loop !== null && "status" in loop && loop.status === "active" && goals.some(goal => typeof goal === "object" && goal !== null && "status" in goal && (goal.status === "pending" || goal.status === "in_progress"))) {
-          fingerprint = raw;
-          reason = `Resume the owning workflow from ${loopPath} and its linked brief/ledger; continue the next eligible goal under that workflow's criteria, capture criterion evidence, and checkpoint only after all gates pass. Shared loop-format state does not select ulw-loop: preserve standalone research ownership and its source/citation requirements. Do not re-plan completed work. Respect cancellation, approvals and blocked/paused state.`;
-        }
-      }
-    } catch (error) {
-      ctx.ui.notify(`ULW continuation: state could not be read: ${error instanceof Error ? error.message : String(error)}`, "warning");
-      return;
-    }
+    if (event.signal.aborted || ctx.agent.kind !== "main" || !continuation.isEnabled() || continuation.isStopped(ctx) || consecutiveContinuations >= 8) return;
+    const work = continuation.read(ctx);
     // Native continuation stops on stale state, not an unbounded finish-claim loop.
-    if (fingerprint === undefined || fingerprint === continuationFingerprint || reason === undefined) return;
-    continuationFingerprint = fingerprint;
+    if (!work || work.fingerprint === continuationFingerprint) return;
+    continuationFingerprint = work.fingerprint;
     consecutiveContinuations++;
-    return { continue: true, additionalContext: reason };
+    return { continue: true, additionalContext: work.reason };
   });
 }

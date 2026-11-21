@@ -2,7 +2,7 @@
 // shared by every report-tools subcommand. node: builtins only.
 
 import { readFileSync, renameSync, writeFileSync } from "node:fs"
-import { basename, dirname, join } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 
 /** A usage or input error: always exit code 2. */
 export class CliError extends Error {
@@ -10,6 +10,12 @@ export class CliError extends Error {
 		super(message)
 		this.name = "CliError"
 	}
+}
+
+export function sessionDirFrom(flags) {
+	const dir = flags["session-dir"] ?? process.env.SESSION_DIR
+	if (!dir) throw new CliError("--session-dir is required (or set SESSION_DIR)")
+	return resolve(dir)
 }
 
 const IO_CODES = new Set(["ENOENT", "EACCES", "EISDIR", "ENOTDIR", "EPERM"])

@@ -40,7 +40,7 @@ export default function probe(pi: ProbeApi): void {
       mkdirSync(join(ctx.cwd, "doc/plans"), { recursive: true });
       path = join(ctx.cwd, "doc/plans/probe.md");
       writeFileSync(path, kind === "execute-blocked" ? "- [~] 1. Unmet criterion\n"
-        : kind === "execute-mixed" ? "- [~] 1. Unmet criterion\n- [~] 2. blocked by 1\n- [ ] 3. Independent task\n\n## Final verification wave\n- [ ] F1. Verify delivered work\n"
+        : kind === "execute-mixed" ? "## Scope\n- [ ] 1. Example only\n\n## Todos\n- [~] 1. Unmet criterion\n- [~] 2. blocked by 1\n- [ ] 3. Independent task\n\n## Final verification wave\n- [ ] F1. Verify delivered work\n"
           : "- [ ] 1. Local hook probe\n");
       writeFileSync(join(ctx.cwd, "doc/boulder.json"), JSON.stringify({ schema_version: 2, works: { probe: { status: "active", session_ids: ["omp:" + id], active_plan: "doc/plans/probe.md" } } }));
     }

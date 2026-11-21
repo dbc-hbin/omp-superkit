@@ -29,6 +29,8 @@ omp -e ./omp-superkit
 | `/mass-ulw` | 执行持久化依赖图 | `workflowz` |
 | `/ulw-research` | 包含来源与反证的研究 | `workflowz` |
 
+`/stop-continuation` 暂停当前会话的 ULW 自动续行，不删除计划或证据。`/resume-continuation` 重新允许符合条件的工作继续。这两个命令不会取消正在运行的子任务。在 TUI 中，它们还可以暂停当前会话通过 `/ulw` 创建的原生目标，并恢复由该命令暂停的同一目标；不会接管其他目标。如果 OMP 提示原生目标正忙，则仅停止了 ULW 自动续行；要暂停该目标，请在当前回合结束后再次运行 `/stop-continuation`。RPC 客户端须通过 goal API 单独控制原生目标。
+
 专业命令会在尚未指定关键词时添加默认关键词，并遵守 OMP 的关键词设置与工具要求。RPC 请使用带相应 `streamingBehavior` 的 `prompt`；独立的 `steer` 和 `follow_up` 请求会跳过关键词处理。直接调用 `/skill:` 或使用绕过输入钩子的初始 CLI 文本时，需要显式指定关键词。
 
 其他入口：

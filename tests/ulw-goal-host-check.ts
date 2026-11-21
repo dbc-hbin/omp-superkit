@@ -51,7 +51,7 @@ function journal(): RecordValue[] {
   return readFileSync(sessionFile, "utf8").split("\n").slice(0, -1).filter(Boolean).map(line => JSON.parse(line));
 }
 function goalRecords(rows: RecordValue[]): RecordValue[] {
-  return rows.filter(row => row.type === "mode_change" && row.mode === "goal" && row.data?.goal);
+  return rows.filter(row => row.type === "mode_change" && (row.mode === "goal" || row.mode === "goal_paused") && row.data?.goal);
 }
 const root = mkdtempSync(join(tmpdir(), "omo-ulw-goal-tui-"));
 let terminal: Bun.Terminal | undefined;
@@ -66,7 +66,7 @@ try {
   for (const path of [cwd, sessions, agentDir]) mkdirSync(path, { recursive: true });
   const config = join(root, "probe.yml");
   // The scripted provider handles goal turns, not the editor's side-channel predictions.
-  writeFileSync(config, "goal:\n  enabled: true\ncomposer:\n  predictions: false\ncompaction:\n  enabled: false\nstartup:\n  setupWizard: false\n  quiet: true\n");
+  writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: []\ncomposer:\n  predictions: false\ncompaction:\n  enabled: false\nstartup:\n  setupWizard: false\n  quiet: true\n");
   watcher = watch(sessions, { recursive: true }, () => {
     try { events.emit("journal", { rows: journal() }); } catch (error) { fail(error); }
   });
@@ -93,7 +93,7 @@ try {
         }
         assert.equal(path, "/v1/chat/completions", "only the local SSE model endpoint is permitted");
         const number = ++requestCount;
-        assert(number <= 5, "unexpected continuation or provider retry loop");
+        assert(number <= 6, "unexpected continuation or provider retry loop");
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             const send = (value: unknown) => controller.enqueue(new TextEncoder().encode(`data: ${typeof value === "string" ? value : JSON.stringify(value)}\n\n`));
@@ -122,7 +122,10 @@ try {
   const streaming = expectEvent("message_update", event => event.assistantMessageEvent?.type === "text_delta" && event.assistantMessageEvent.delta === firstChunk);
   terminal = new Bun.Terminal({
     cols: 120, rows: 40,
-    data(_terminal, data) { terminalOutput = (terminalOutput + new TextDecoder().decode(data)).slice(-16000); },
+    data(_terminal, data) {
+      terminalOutput = (terminalOutput + new TextDecoder().decode(data)).slice(-16000);
+      events.emit("terminal", { text: Bun.stripANSI(terminalOutput) });
+    },
   });
   child = Bun.spawn([
     "omp", "--no-extensions", "-e", join(repo, "index.ts"), "-e", join(repo, "tests/fixtures/ulw-goal-provider.ts"),
@@ -179,11 +182,12 @@ try {
   const thinkingNotice = expectEvent("message_end", event => event.message?.customType === "ultrathink-notice");
   const planningRequest = expectEvent("provider", event => JSON.stringify(event.body).includes("TUI-NATIVE-PLAN"));
   const planningInput = expectEvent("input", event => event.text === "/ulw-plan ultrathink TUI-NATIVE-PLAN");
+  drainingFollowup = false;
   terminal.write("/ulw-plan TUI-NATIVE-PLAN\r");
   await planningInput;
   streams.get(followupRequest.number)?.();
   await thinkingNotice;
-  await planningRequest;
+  const planning = await planningRequest;
   const records = goalRecords(journal());
   assert(records.length > 0, "success requires a persisted native mode_change, not an ULW policy marker");
   for (const row of records) {
@@ -195,7 +199,58 @@ try {
     assert.equal(event.goal?.objective, objective);
     assert.equal(event.goal?.status, "active");
   }
-  console.log(JSON.stringify({ status: "PASS", requests: requestCount, goalId: creation.goal.id, objective, nativeGoalEvents: goals.length, persistedGoalRecords: records.length, scenarios: ["PTY /ulw during active stream", "persisted mode_change goal", "later /ulw preserves goal", "PTY /ulw-plan activates native ultrathink"] }));
+  phase = "stopping during an active turn";
+  const busy = expectEvent("terminal", event => /native\s+goal\s+pause\s+not\s+confirmed/.test(event.text));
+  terminal.write("/stop-continuation\r");
+  await busy;
+  assert.equal(goals.at(-1)?.goal?.status, "active", "busy mode control must not claim to have paused the active goal");
+  assert(streams.has(planning.number), "stop must not abort the in-flight model turn");
+  const idle = expectEvent("probe_idle", event => event.label === "planning");
+  terminal.write("/ulw-probe-wait-idle planning\r");
+  streams.get(planning.number)?.();
+  await idle;
+
+  phase = "pausing the owned goal while idle";
+  const paused = expectEvent("goal_updated", event => event.goal?.status === "paused");
+  const stopFinished = expectEvent("terminal", event => /its\s+native\s+goal\s+was\s+paused/.test(event.text));
+  terminal.write("/stop-continuation\r");
+  assert.equal((await paused).goal.id, creation.goal.id);
+  // This acknowledgment is printed after the extension saves the stop. The
+  // directory watcher can miss later appends to an already existing journal.
+  await stopFinished;
+  phase = "observing the persisted stop";
+  assert(journal().some(row => row.customType === "omo-ultrawork:continuation" &&
+    row.data?.stopped === true && row.data?.pausedGoalId === creation.goal.id), "the stop must be journaled with the paused goal's identity");
+  assert.equal(requestCount, planning.number, "stopping while idle is not a model input");
+
+  phase = "leaving the goal paused across ordinary input";
+  const ordinary = expectEvent("provider", event => JSON.stringify(event.body).includes("TUI-ORDINARY-STOPPED"));
+  terminal.write("TUI-ORDINARY-STOPPED\r");
+  const ordinaryRequest = await ordinary;
+  assert(JSON.stringify(ordinaryRequest.body).includes("<omp-ulw-continuation-paused>"));
+  const ordinaryIdle = expectEvent("probe_idle", event => event.label === "ordinary");
+  terminal.write("/ulw-probe-wait-idle ordinary\r");
+  streams.get(ordinaryRequest.number)?.();
+  await ordinaryIdle;
+  assert.equal(goals.at(-1)?.goal.status, "paused");
+
+  phase = "explicitly resuming the same goal";
+  const resumed = expectEvent("goal_updated", event => event.goal?.status === "active");
+  const resumeFinished = expectEvent("terminal", event => /native\s+goal\s+resumed/.test(event.text));
+  terminal.write("/resume-continuation\r");
+  assert.equal((await resumed).goal.id, creation.goal.id);
+  await resumeFinished;
+  const rows = journal();
+  assert.equal(rows.findLast(row => row.customType === "omo-ultrawork:continuation")?.data?.stopped, false, "resume must lift the journaled stop");
+  const afterControls = goalRecords(rows);
+  for (const row of afterControls) {
+    assert.equal(row.data.goal.id, creation.goal.id, "controls must preserve goal ID");
+    assert.equal(row.data.goal.objective, objective, "controls must preserve objective");
+  }
+  assert(afterControls.some(row => row.mode === "goal_paused"));
+  assert.equal(afterControls.at(-1)?.data.goal.status, "active");
+  assert.equal(requestCount, ordinaryRequest.number, "the native bridge changes mode, not prompt delivery");
+  console.log(JSON.stringify({ status: "PASS", requests: requestCount, goalId: creation.goal.id, objective, nativeGoalEvents: goals.length, persistedGoalRecords: afterControls.length, scenarios: ["PTY /ulw during active stream", "persisted mode_change goal", "later /ulw preserves goal", "PTY /ulw-plan activates native ultrathink", "busy stop refusal; idle stop and explicit resume preserve the owned goal"] }));
 } catch (error) {
   console.error(`TUI goal probe failed at ${phase}\n${terminalOutput}`);
   throw error;

@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerUlw, visibleUlwText } from "./ulw";
-import type { UlwApi, UlwContext } from "./ulw";
+import type { UlwApi, UlwContext, UlwSessionEntry } from "./ulw";
 
 type Handler = (event: never, ctx: UlwContext) => unknown;
 interface Prepared { systemPrompt: string[]; message?: { content: string; display: boolean } }
@@ -11,7 +11,10 @@ interface Continued { continue: boolean; additionalContext: string }
 class Host {
   handlers = new Map<string, Handler>();
   flags = new Map<string, boolean>();
-  entries: Array<{ type: string; customType?: string; data?: unknown }> = [];
+  entries: UlwSessionEntry[] = [];
+  branch: UlwSessionEntry[] | undefined;
+  sessionId = "test-session";
+  notices: string[] = [];
   warnings: string[] = [];
   commands = new Map<string, (args: string, ctx: UlwContext) => Promise<void>>();
   submitted: string | undefined;
@@ -19,8 +22,8 @@ class Host {
   constructor(cwd = ".") {
     this.context = {
       cwd, agent: { kind: "main" },
-      sessionManager: { getSessionId: () => "test-session", getBranch: () => this.entries },
-      ui: { notify: message => { this.warnings.push(message); } },
+      sessionManager: { getSessionId: () => this.sessionId, getBranch: () => this.branch ?? this.entries, getEntries: () => this.entries },
+      ui: { notify: (message, level) => { (level === "warning" ? this.warnings : this.notices).push(message); } },
     };
     const api: UlwApi = {
       registerCommand: (name, options) => { this.commands.set(name, options.handler); },
@@ -34,6 +37,11 @@ class Host {
   }
   emit(event: string, payload: unknown = {}): unknown {
     return this.handlers.get(event)?.(payload as never, this.context);
+  }
+  async command(name: string, args = ""): Promise<void> {
+    const handler = this.commands.get(name);
+    if (!handler) throw new Error(`Command not registered: ${name}`);
+    await handler(args, this.context);
   }
   prepare(prompt: string, source: "interactive" | "rpc" | "extension" = "interactive", systemPrompt = ["host", "project rules"]): Prepared | undefined {
     const inputResult = this.emit("input", { text: prompt, source }) as { text?: string } | undefined;
@@ -367,7 +375,7 @@ describe("evidence-bound ULW continuations", () => {
       const work = { status: "active", session_ids: ["omp:test-session"], active_plan: "doc/plans/test.md" };
       writeFileSync(boulder, JSON.stringify({ works: { test: work } }));
       const signal = new AbortController().signal;
-      const blocked = "- [~] 1. Missing product behavior\n- [~] 2. blocked by 1\n";
+      const blocked = "## Todos\n- [~] 1. Missing product behavior\n- [~] 2. blocked by 1\n";
       for (const remaining of ["- [ ] 3. Independent task\n\n## Final verification wave\n- [ ] F1. Verify delivered work\n", "- [x] 3. Independent task\n\n## Final verification wave\n- [ ] F1. Verify delivered work\n", "- [x] 3. Independent task\n\n## Final verification wave\n- [x] F1. Verify delivered work\n", ""]) {
         writeFileSync(plan, blocked + remaining);
         const result = host.emit("session_stop", { signal });
@@ -383,6 +391,151 @@ describe("evidence-bound ULW continuations", () => {
       host.emit("session_switch");
       expect(host.emit("session_stop", { signal })).toBeUndefined();
     } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  test("structured plans count only labeled rows under the actual TODO and final headings", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "omo-ulw-test-"));
+    try {
+      mkdirSync(join(cwd, "doc/plans"), { recursive: true });
+      const plan = join(cwd, "doc/plans/test.md");
+      writeFileSync(join(cwd, "doc/boulder.json"), JSON.stringify({ works: { test: {
+        status: "active", session_ids: ["omp:test-session"], active_plan: "doc/plans/test.md",
+      } } }));
+      const host = new Host(cwd);
+      const signal = new AbortController().signal;
+      const notes = [
+        "## Scope", "- [ ] 1. Illustration not a task",
+        "## Todos ##", "### Wave A", "- [~] T1. Work blocked", "- [ ] Unnumbered note",
+        "  - [ ] 2. Nested acceptance", "- [ ] F2. Wrong section",
+        "<!--", "- [ ] T3. Commented example", "-->",
+        "````markdown", "```", "- [ ] T4. Fenced example", "`````",
+        "## Examples", "- [ ] 5. Under the examples heading",
+        "## FINAL VERIFICATION WAVE", "- [ ] 6. Not a final verification ID",
+      ].join("\r\n");
+      writeFileSync(plan, `${notes}\r\n- [X] F1. Verification was done\r\n`);
+      expect(host.emit("session_stop", { signal })).toBeUndefined();
+      writeFileSync(plan, `${notes}\r\n- [ ] F1. Verification remains\r\n`);
+      expect((host.emit("session_stop", { signal }) as Continued).continue).toBe(true);
+      writeFileSync(plan, "## Notes\n- [ ] 1. Example\n## Todos\n- [ ] Not a numbered task\n");
+      expect(host.emit("session_stop", { signal })).toBeUndefined();
+      writeFileSync(plan, "~~~markdown\n## Todos\n- [x] 1. Fake structure\n~~~\n* [ ] Legacy task\n");
+      expect((host.emit("session_stop", { signal }) as Continued).continue).toBe(true);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  test("stop persists across restore and tree navigation, and resumes only eligible work from the same session", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "omo-ulw-test-"));
+    try {
+      const host = new Host(cwd);
+      const paths = ["test-session", "other-session"].map(id => {
+        const dir = join(cwd, "doc/ulw-loop", id);
+        mkdirSync(dir, { recursive: true });
+        return join(dir, "goals.json");
+      });
+      const loop = JSON.stringify({ status: "active", goals: [{ status: "in_progress" }] });
+      for (const path of paths) writeFileSync(path, loop);
+      mkdirSync(join(cwd, "doc/plans"));
+      const boulder = join(cwd, "doc/boulder.json");
+      const plan = join(cwd, "doc/plans/test.md");
+      const boulderState = JSON.stringify({ works: { test: {
+        status: "active", session_ids: ["omp:test-session"], active_plan: "doc/plans/test.md",
+      } } });
+      writeFileSync(boulder, boulderState);
+      writeFileSync(plan, "- [ ] 1. Owned task\n");
+      const signal = new AbortController().signal;
+      expect((host.emit("session_stop", { signal }) as Continued).continue).toBe(true);
+
+      await host.command("stop-continuation");
+      await host.command("stop-continuation");
+      expect(host.entries).toHaveLength(1);
+      expect(host.submitted).toBeUndefined();
+      expect(host.emit("session_stop", { signal })).toBeUndefined();
+      expect(readFileSync(boulder, "utf8")).toBe(boulderState);
+      for (const path of paths) expect(readFileSync(path, "utf8")).toBe(loop);
+
+      const restored = new Host(cwd);
+      restored.entries = [...host.entries];
+      restored.branch = []; // Navigating before the journal record does not lift the stop.
+      restored.emit("session_start");
+      restored.emit("session_tree");
+      expect(restored.prepare("ordinary follow-up")?.message).toBeUndefined();
+      expect(restored.emit("session_stop", { signal })).toBeUndefined();
+      restored.sessionId = "other-session";
+      restored.emit("session_switch");
+      await restored.command("resume-continuation");
+      expect(restored.submitted).toBeUndefined();
+      expect((restored.emit("session_stop", { signal }) as Continued).additionalContext).toContain(paths[1]);
+
+      restored.sessionId = "test-session";
+      restored.emit("session_switch");
+      restored.flags.set("omo-ulw-continuation-disabled", true);
+      await restored.command("resume-continuation");
+      expect(restored.submitted).toBeUndefined();
+      restored.flags.set("omo-ulw-continuation-disabled", false);
+      expect(restored.emit("session_stop", { signal })).toBeUndefined();
+      await restored.command("resume-continuation");
+      expect(restored.submitted).toContain(plan);
+      expect(restored.emit("session_stop", { signal })).toBeUndefined();
+      expect(readFileSync(plan, "utf8")).toBe("- [ ] 1. Owned task\n");
+
+      restored.sessionId = "not-yet-owned";
+      restored.emit("session_switch");
+      restored.submitted = undefined;
+      await restored.command("stop-continuation");
+      await restored.command("resume-continuation");
+      expect(restored.submitted).toBeUndefined();
+      const later = join(cwd, "doc/ulw-loop", restored.sessionId);
+      mkdirSync(later);
+      writeFileSync(join(later, "goals.json"), loop);
+      expect((restored.emit("session_stop", { signal }) as Continued).additionalContext).toContain(later);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+
+  test("native control retries a host refusal and resumes only the same goal paused by this command", async () => {
+    const host = new Host();
+    const objective = "ulw preserve the goal";
+    expect(host.emit("input", { text: `/${objective}`, source: "interactive" })).toEqual({ text: `/goal ${objective}` });
+    let goal: { readonly id: string; readonly objective: string; readonly status: "active" | "paused" } = { id: "owned", objective, status: "active" };
+    host.emit("goal_updated", { goal });
+    const nativeCalls: string[] = [];
+    let busy = true;
+    host.context.sessionModes = {
+      getState: () => ({ goal }),
+      set: async request => {
+        nativeCalls.push(request.action);
+        if (busy) return { ok: false, code: "busy", message: "busy turn" };
+        goal = { ...goal, status: request.action === "pause" ? "paused" : "active" };
+        host.emit("goal_updated", { goal });
+        host.entries.push({ type: "mode_change", mode: goal.status === "paused" ? "goal_paused" : "goal", data: { goal } });
+        return { ok: true, changed: true, state: { goal } };
+      },
+    };
+    await host.command("stop-continuation");
+    expect(goal.status).toBe("active");
+    expect(host.warnings.at(-1)).toContain("/goal pause");
+    expect(host.notices).toHaveLength(0);
+    busy = false;
+    await host.command("stop-continuation");
+    expect(goal.status).toBe("paused");
+    host.emit("session_start");
+    host.prepare("ordinary follow-up");
+    expect(nativeCalls).toEqual(["pause", "pause"]);
+    await host.command("resume-continuation");
+    expect(nativeCalls).toEqual(["pause", "pause", "resume"]);
+    expect(goal).toEqual({ id: "owned", objective, status: "active" });
+    expect(host.submitted).toBeUndefined();
+
+    await host.command("stop-continuation");
+    goal = { id: "replacement", objective, status: "paused" };
+    host.emit("goal_updated", { goal });
+    await host.command("resume-continuation");
+    expect(nativeCalls).toEqual(["pause", "pause", "resume", "pause"]);
+    expect(goal.status).toBe("paused");
+    goal = { ...goal, status: "active" };
+    host.emit("goal_updated", { goal });
+    await host.command("stop-continuation");
+    expect(nativeCalls).toEqual(["pause", "pause", "resume", "pause"]);
+    expect(host.warnings.at(-1)).toContain("/goal pause");
   });
 
   test("loop continuation is session-owned, progress-sensitive, cancellation-aware and stops for paused/blocked/completed work", () => {

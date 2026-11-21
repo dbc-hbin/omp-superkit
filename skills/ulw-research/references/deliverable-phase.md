@@ -90,7 +90,77 @@ console.log(reportImage, reportErrors.entries, { dropped: reportErrors.dropped }
 
 Inspect the returned image and semantic report content at the desktop/mobile states relevant to the promised HTML, using separate desktop tabs after native mobile presets. These browser checks apply when this reference is reached through direct skill invocation too. The layout object alone does not establish visual correctness, and a browser screenshot does not replace the saved probe object. Release owned handles after evidence, unless a final report tab was explicitly retained for the user.
 
-Gate names are exactly `static`, `layout`, `visual`, `proofread`; stored statuses are `pass`, `fail`, `not_run`. The `check` command exits `1` and reports top-level `fail` only for blockers; major/minor defects still require inspection and an explicit repair/residual decision. `outcome gate` records a status; it does not run the check. `outcome verify` verifies deliverable rows, not claim validity or gate success.
+Gate names are exactly `static`, `layout`, `visual`, `proofread`; stored statuses are `pass`, `fail`, `not_run`. The `check` command exits `1` and reports top-level `fail` only for blockers; major/minor defects still require inspection and an explicit repair/residual decision. `outcome gate` records a status; it does not run the check. Edition fidelity is a separate delivery requirement, never a mutable gate label.
+
+### Edition fidelity
+
+**Retain what was read.** Save the original observed UTF-8 HTML, Markdown or text through the approved source-access route. Register it while collecting, not from report prose or a reconstructed quote. For a browser page save the observed rendered text/DOM and log the state and retrieval route. The command does not fetch or interact with the URL.
+
+```bash
+node "$SKILL_DIR/scripts/report-tools.mjs" source snapshot S1 \
+  --input "$SESSION_DIR/annual-review.html" \
+  --origin "https://example.org/annual-review" --session-dir "$SESSION_DIR"
+```
+
+The snapshot keeps `source-snapshots/S1/raw` and `meta.json` (content digest, projection format, origin, retention timestamp). A different capture under the same ID is rejected; give it a new ID and update the ledger/citations. In `sources-ledger.md`, start the line with `[S1] https://example.org/annual-review` and append title, actual access date and provenance. Use `<...>` around an origin path containing spaces. IDs must be unique; a report `[S1]` cannot be proven with `S2` or a different origin.
+
+**Bind the exact report text.** Each block containing bound numbers or quotes must identify one source. Split a paragraph or table row that mixes different sources into separately cited blocks; the verifier will not guess which citation belongs to which value.
+
+Suppose the retained source contains these two paragraphs:
+
+```html
+<p>The venue welcomed 12.5 million visitors.</p>
+<p>Demand exceeded expectations.</p>
+```
+
+The published HTML has:
+
+```html
+<p>The venue welcomed <strong>12.5 million visitors</strong> [S1].</p>
+<p>The review says <q>Demand exceeded expectations.</q> [S1].</p>
+```
+
+Save a UTF-8 JSON array as `$SESSION_DIR/report.bindings.json`:
+
+```json
+[
+  {
+    "kind": "number",
+    "block": "The venue welcomed 12.5 million visitors [S1].",
+    "value": "12.5 million visitors",
+    "source": "S1",
+    "excerpt": "The venue welcomed 12.5 million visitors."
+  },
+  {
+    "kind": "quote",
+    "block": "The review says “Demand exceeded expectations.” [S1].",
+    "value": "Demand exceeded expectations.",
+    "source": "S1",
+    "excerpt": "Demand exceeded expectations."
+  }
+]
+```
+
+```bash
+node "$SKILL_DIR/scripts/report-tools.mjs" fact verify "$SESSION_DIR/report.html" \
+  --bindings "$SESSION_DIR/report.bindings.json" --session-dir "$SESSION_DIR"
+```
+
+Use one binding per occurrence: `block` is the displayed paragraph, heading, table row or text block (including its citation); `value` is the complete displayed numeral with adjacent unit/scale or the verbatim quote without outer quotation marks; `excerpt` is exact, unique context from the cited snapshot containing the whole mention. `<q>` is projected with curly double quotes. For a block quote put `[S1]` at the end of the quoted block; it is not part of `value`. Split duplicate mentions in the same block into distinct blocks. Use a separate bindings file where editions project different blocks. Prose without numbers or direct quotes uses `[]`, not invented source rows. Dates and other digit runs in projected reader text can also require bindings; keep labels that are just citation markers or organize non-claim metadata outside the reading edition. An initial check with `[]` returns detected unbound mentions and their projected blocks.
+
+The scan rejects absent/unbound mentions, citation mismatches, ambiguous source context, altered quote text, or changed units/scales. For example, a report and a binding that both switch `12.5 million visitors` to `12.5 billion visitors` still fail with `number_mismatch`. A quote cannot silently shorten a numerical token or its unit. Whitespace and Unicode canonical composition are normalized; otherwise use the same literal value, spelling, sign, scale and unit as retained. It does not automatically recognize conversions, rounding, spelled-out numbers, qualifiers beyond the lexical mention, units inherited from headers, or relations between values. Display units beside numbers in each factual table row, keep the subject, period, denominator and qualification checked in the claim graph, and retain real executed results or explicitly labeled assumption records for published derived or assumed values. Stale or missing evidence is a failure, not a residual visual defect.
+
+The text projection is static, not the browser accessibility tree or a full Markdown renderer. It checks supported HTML/Markdown/TXT text (including inline SVG text), not raster or external chart labels, CSS-generated content/style visibility, dynamic data, TeX, or PDF text. Do not use hidden content as evidence. For unsupported representations, include the evidence in checked visible text and compare the actual visual/converted output separately. For a PDF or other binary source, retain the attributable text extraction, record how it was obtained and independently check it against the original; the snapshot only pins the material supplied. The receipt proves this local evidence/edition pairing, not that a remote site served the provided file or that the claim is true.
+
+**Review derivative bytes.** For PDF, DOCX, TeX and binary slides, run `fact verify` on the real HTML, Markdown or text reading edition used to produce or compare the output (it need not itself be a promised format). Inspect the actual derivative against that reading edition and relevant captures, comparing values, units, direct quotes, citations and any unsupported visual data. Save the actual review and its scope, then attach it to that derivative:
+
+```bash
+node "$SKILL_DIR/scripts/report-tools.mjs" fact derivative "$SESSION_DIR/report.pdf" \
+  --from "$SESSION_DIR/report.html" --inspection "$SESSION_DIR/pdf-inspection.txt" \
+  --session-dir "$SESSION_DIR"
+```
+
+The receipt pins the derivative bytes, verified source edition and review notes. `attested_derivative` means the inspection was recorded, not that the CLI parsed, rendered or cross-checked the derivative. Keep the inspection truthful; the CLI only checks its presence and digest. Reinspect and rebind after changing either edition or the review. A source-edition receipt alone never covers a derivative or a second HTML/Markdown file.
 
 ## 5. Report repair tracker
 
@@ -119,7 +189,7 @@ node "$SKILL_DIR/scripts/report-tools.mjs" outcome finish --session-dir "$SESSIO
 node "$SKILL_DIR/scripts/report-tools.mjs" outcome briefing --session-dir "$SESSION_DIR"
 ```
 
-Run the last three in order, continuing only when verification succeeds. `verify` fails on pending/unreasoned rows or missing/empty delivered files. `finish` records time and counts from `sources-ledger.md`; `briefing` prints sources, unique domains, elapsed minutes, deliverables, gate results, residual defects and repair summary. Include that printed block with the cited answer and artifact links, plus the synthesis's coverage/convergence and unresolved-claim summary. A resolved failure is accounted for, not a successful artifact.
+Run the last three in order, continuing only when verification succeeds. `verify` and `finish` both reject pending/unreasoned rows, missing/empty delivered files, or a missing, stale or failed edition receipt. They replay the check against the current edition, bindings, provenance and snapshot bytes; setting `proofread pass` or any other gate cannot bypass it. Existing `outcome.json` files remain resumable without reinitializing: add the missing evidence and check their existing delivered paths. `finish` writes time and source counts only after verification passes. `briefing` separates `verified_source_text`, `attested_derivative` and unverified editions, alongside sources, domains, elapsed minutes, statuses and residual defects. Include that printed block with the cited answer and artifact links, plus coverage/convergence and unresolved claims. A resolved failure is accounted for, not a successful artifact.
 
 ## 7. Show the HTML report
 
@@ -129,7 +199,7 @@ After the applicable gates and outcome verification, if this client advertises O
 <iframe src="doc/ulw-research/20261121-103000/report.html" title="Research report: evidence and findings"></iframe>
 ```
 
-The example path is `$SESSION_DIR/report.html`, not a demo, printout or chart image. Use the delivered HTML path from `outcome.json` when HTML is promised; an existing HTML source used for a formatted report can be shown only if it is itself a complete, checked reading edition of the report. Use the same bytes inspected in the browser, including citations, figures and source comparison pairs where applicable. Keep the report beside its `assets/` tree: references such as `assets/flow.svg` resolve relative to the HTML file, while the iframe path resolves from the session working directory. If the report or assets change, check the changed report before showing it. A reproduction or its preview never substitutes for the report.
+The example path is `$SESSION_DIR/report.html`, not a demo, printout or chart image. Use the verified delivered HTML path from `outcome.json`, or the complete, verified HTML source linked by the derivative receipt. Use the same bytes inspected in the browser, including citations, figures and source comparison pairs where applicable. Keep the report beside its `assets/` tree: references such as `assets/flow.svg` resolve relative to the HTML file, while the iframe path resolves from the session working directory. If the report or assets change, check the changed report before showing it. A reproduction or its preview never substitutes for the report.
 
 If there is no verified HTML, `renderEmbeds` is absent or uncertain, or the client cannot render that report with its assets, give a clickable artifact link instead of an iframe or a claim that the report displayed. Keep the cited summary and links to all promised formats; do not create another format just to enable an embed. The client may show the HTML live or as a screenshot with a link.
 
@@ -142,12 +212,15 @@ All commands are prefixed with `node "$SKILL_DIR/scripts/report-tools.mjs"`. Exi
 | `check <report.html>` | Required `--design-spec <spec>`; optional `--layout <boxes.json>`, `--visual-requirement <value>` (values above), repeatable `--require-section <regex>`, `--max-defects N` (default 200). Exit 1 for blockers. |
 | `layout-probe` | `--cap N` (400), `--root <selector>` (`main, article`), `--json`. |
 | `repair decide` | Required `--state <file>`, `--defects <json>`; `--artifact-bytes N`, `--renders N`, `--session-dir <dir>`, `--max-attempts N`, `--plateau-limit N`, `--wall-clock-ms N`, `--now <ISO>`. Exit 1 for `block`. |
+| `source snapshot <S-id>` | Required `--input <saved .html/.md/.txt>`, `--origin <HTTP(S) URL or absolute path>`, `--session-dir <dir>`. |
+| `fact verify <edition>` | Required `--bindings <json>`, `--session-dir <dir>`. Exit 1 on missing or unsupported evidence, mismatches or unbound occurrences. Writes a receipt only on success. |
+| `fact derivative <artifact>` | Required `--from <verified edition>`, `--inspection <notes.txt>`, `--session-dir <dir>`. Records an inspection-linked receipt, not an automatic check of derivative content. |
 | `outcome init` | Required `--promised <comma-separated formats>`; `--lane <lane>`, `--session-dir <dir>`, `--now <ISO>`. |
 | `outcome set <format> <status>` | `--path <file>`, `--pages N`, `--reason <text>`, `--session-dir <dir>`, `--now <ISO>`. |
 | `outcome gate <gate> <status>` | `--session-dir <dir>`. |
 | `outcome render <png>` | Required `--page N`; `--session-dir <dir>`. |
 | `outcome state` | Required `--deliverable <path>`; `--session-dir <dir>`. |
-| `outcome verify` | `--session-dir <dir>`; exit 1 for unresolved/invalid delivery. |
-| `outcome finish` / `outcome briefing` | `--ledger <file>`, `--session-dir <dir>`, `--now <ISO>`; briefing also `--json`. |
+| `outcome verify` | `--session-dir <dir>`; exit 1 for unresolved or unverified delivery. |
+| `outcome finish` / `outcome briefing` | `--ledger <file>` (counts only, not the edition attribution ledger), `--session-dir <dir>`, `--now <ISO>`; briefing also `--json`. Finish exits 1 on the same delivery failures as verify. |
 | `format-extract <reference>` | Required `--out <design-spec.md>`; `--from-url`. Unsupported references exit 2. |
 | `--help` | `--json`. |

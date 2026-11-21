@@ -6,6 +6,7 @@ interface ProbeContext {
 }
 type ProbeApi = Parameters<typeof registerProvider>[0] & {
   on(event: "input" | "goal_updated" | "message_update" | "message_end", handler: (event: Record<string, unknown>, ctx: ProbeContext) => Promise<void>): void;
+  registerCommand(name: string, command: { description: string; handler: (args: string, ctx: ProbeContext & { waitForIdle(): Promise<void> }) => Promise<void> }): void;
 };
 
 // Observe the real host only: never create a goal, rewrite input, or append records.
@@ -29,4 +30,11 @@ export default function probe(pi: ProbeApi): void {
   pi.on("goal_updated", report);
   pi.on("message_update", report);
   pi.on("message_end", report);
+  pi.registerCommand("ulw-probe-wait-idle", {
+    description: "Observe the current test session settling",
+    handler: async (label, ctx) => {
+      await ctx.waitForIdle();
+      await report({ type: "probe_idle", label }, ctx);
+    },
+  });
 }

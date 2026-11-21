@@ -29,6 +29,8 @@ Commands must start the input; mentions such as `Explain /ulw` do not activate t
 | `/mass-ulw` | Execute a persistent dependency graph | `workflowz` |
 | `/ulw-research` | Research with sources and counterarguments | `workflowz` |
 
+Use `/stop-continuation` to pause automatic ULW continuation for the current session without deleting its plan or evidence. Use `/resume-continuation` to re-enable eligible work. These commands do not cancel running workers. In the TUI they can also pause the native goal created by this session's `/ulw` and resume the goal they paused; they do not take over an unrelated goal. If OMP reports the native goal is busy, automatic ULW continuation is stopped but the goal has not been paused. To pause it too, run `/stop-continuation` again when idle. RPC clients control native goals separately through the goal API.
+
 Specialized commands add their default keyword unless one is already specified, respecting OMP's keyword settings and tool requirements. For RPC, use `prompt` with the appropriate `streamingBehavior`; separate `steer` and `follow_up` requests bypass keyword processing. Direct `/skill:` calls and initial CLI text that bypass the input hook need an explicit keyword.
 
 Other entry points:

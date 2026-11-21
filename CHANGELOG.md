@@ -2,6 +2,19 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-22 ULW continuation, recovery and research delivery
+
+- For scaffold plans, only the numbered tasks under Todos and Final verification wave drive continuation. Notes, examples, and nested checkboxes do not reopen or block finished work. Simple checklists and approved native plans keep their own formats.
+- `/stop-continuation` and `/resume-continuation` control automatic continuation for the current session without deleting Boulder, loop or research evidence. Native TUI goal control is limited to the goal created through this session's ULW invocation.
+- The [mass-ulw recovery reference](skills/mass-ulw/references/planning.md#operator-controls) distinguishes inspecting, steering and cancelling an owned attempt from starting a replacement. After restart, reconcile the current owner, attempt and artifacts before reusing a handle.
+- Research delivery now checks numbers, units and direct quotes against retained source text and binds the result to the exact edition. Existing manifests stay readable; finishing a delivered edition now needs a matching receipt. PDF and other rendered derivatives need a verified source and recorded inspection, not a claim of automatic content verification. See the [CLI example](skills/ulw-research/references/deliverable-phase.md#edition-fidelity).
+
+### 2026-11-22 Model steering and independent review
+
+- Match [Senpi's correction semantics](https://github.com/code-yeongyu/senpi/blob/d713160e3b9224d42143c2096b5d6f9cb1685b78/packages/coding-agent/src/core/extensions/builtin/prompt-preset/deepseek-v4-1-flash-rules.ts#L69): a correction updates the affected work and preserves earlier instructions that still apply.
+- Remove the contradictory plan-reset instruction from the GPT‑6 Astra profile shared by 6.1 Sol and Terra. In the local [GPT‑6.2 Astra/Sol profile](prompts/gpt-6.2.ts), distinguish host notifications from user instructions; a notification cannot authorize resuming paused or cancelled work.
+- Claude Opus 5/5.5, Sonnet 5.5 and Haiku 5.5 keep their own checks without prohibiting a required independent review. If the reviewer is unavailable, report the gap rather than self-approving. ULW plan review records independent verdicts on the same frozen plan when required.
+
 ### 2026-11-21 OMP 19.1 contracts and selected upstream workflows
 
 - Adopt [OMP 19.1 tool commands](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` topics, and native plan submission across code mode and the shipped skills. Preserve delegation gates when projecting model prompts. Update Chrome relay setup, covered/minimized window verification and scoped archive search.

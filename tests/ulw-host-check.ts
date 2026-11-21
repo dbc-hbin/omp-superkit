@@ -53,14 +53,18 @@ const root = mkdtempSync(join(tmpdir(), "omp-ulw-host-"));
 const home = join(root, "home");
 const config = join(root, "config.yml");
 mkdirSync(home);
-writeFileSync(config, "compaction:\n  enabled: false\n");
-async function run(prompts: string[], flags: string[] = [], continuation?: "loop" | "execute" | "execute-blocked" | "execute-mixed" | "execute-native", provider?: string, model = "gpt-6.1-sol", loadSkills = false, tools?: string[], streamingBehavior?: "steer" | "followUp"): Promise<string[]> {
+writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: [interactive]\ncompaction:\n  enabled: false\n");
+type ControlProbe =
+  | { readonly type: "prompt"; readonly message: string; readonly requests: number; readonly notice?: string; readonly local?: true }
+  | { readonly type: "goal"; readonly op: "create" | "get" | "pause"; readonly objective?: string; readonly status: "active" | "paused" };
+
+async function run(prompts: readonly (string | ControlProbe)[], flags: string[] = [], continuation?: "loop" | "execute" | "execute-blocked" | "execute-mixed" | "execute-native", provider?: string, model = "gpt-6.1-sol", loadSkills = false, tools?: string[], streamingBehavior?: "steer" | "followUp"): Promise<string[]> {
   const offset = requests.length;
   continuationState = undefined;
   scenarioRequests = 0;
   const cwd = mkdtempSync(join(root, "workspace-"));
   const child = Bun.spawn([
-    "omp", "--mode", "rpc", "--no-ui", "--no-extensions", "-e", resolve("."),
+    "omp", "--mode", "rpc", ...(prompts.some(prompt => typeof prompt !== "string") ? [] : ["--no-ui"]), "--no-extensions", "-e", resolve("."),
     "-e", resolve("tests/fixtures/ulw-provider.ts"), "--model", provider ? `${provider}/deepseek-v4-flash-omo-local-probe` : `omo-ulw-probe/${model}`,
     "--cwd", cwd, "--config", config, "--no-prewalk",
     ...(tools ? ["--tools", tools.join(",")] : loadSkills ? ["--tools", "read"] : ["--no-tools", "--no-skills"]), "--no-rules", "--no-title", "--no-session", "--no-lsp", ...flags,
@@ -73,6 +77,9 @@ async function run(prompts: string[], flags: string[] = [], continuation?: "loop
   let signal = Promise.withResolvers<void>();
   let expected = "ready";
   let expectedRequests = 0;
+  let requestId = "";
+  let controlProbe: ControlProbe | undefined;
+  const notices: string[] = [];
   let failure: unknown;
   const abort = AbortSignal.timeout(60000);
   abort.addEventListener("abort", () => {
@@ -91,6 +98,8 @@ async function run(prompts: string[], flags: string[] = [], continuation?: "loop
         if (!line.startsWith("{")) continue;
         const event: unknown = JSON.parse(line);
         if (typeof event !== "object" || event === null || !("type" in event)) continue;
+        if (event.type === "extension_ui_request" && "method" in event && event.method === "notify" &&
+          "message" in event && typeof event.message === "string") notices.push(event.message);
         if (event.type === "message_end" && "message" in event && typeof event.message === "object" && event.message !== null && "customType" in event.message && typeof event.message.customType === "string") messageTypes.push(event.message.customType);
         if (event.type === "extension_error") {
           failure = event;
@@ -110,6 +119,18 @@ async function run(prompts: string[], flags: string[] = [], continuation?: "loop
           failure = event;
           signal.reject(new Error(JSON.stringify(event)));
         } else if (expected === "ready" && "id" in event && event.id === expected) signal.resolve();
+        else if (controlProbe && "id" in event && event.id === requestId) {
+          if (controlProbe.type === "goal" && event.type === "response") {
+            const data: unknown = "data" in event ? event.data : undefined;
+            const goal: unknown = typeof data === "object" && data !== null && "goal" in data ? data.goal : undefined;
+            if (typeof goal !== "object" || goal === null || !("status" in goal) || goal.status !== controlProbe.status) {
+              signal.reject(new Error(`Unexpected native goal state: ${JSON.stringify(event)}`));
+            } else signal.resolve();
+          } else if (controlProbe.type === "prompt" && controlProbe.local && event.type === "prompt_result") {
+            if ("agentInvoked" in event && event.agentInvoked === false && "status" in event && event.status === "completed") signal.resolve();
+            else signal.reject(new Error(`Unexpected local control result: ${JSON.stringify(event)}`));
+          }
+        }
         // A stop hook can start another run after an RPC agent_end. Count requests
         // only when the host confirms that nothing remains scheduled.
         else if (expected === "session_settled" && event.type === "session_settled") {
@@ -127,16 +148,30 @@ async function run(prompts: string[], flags: string[] = [], continuation?: "loop
     await signal.promise;
     for (const [index, prompt] of prompts.entries()) {
       signal = Promise.withResolvers<void>();
-      expected = "session_settled";
-      expectedRequests = continuation === "execute" || continuation === "execute-mixed" || continuation === "execute-native" ? 3 : continuation === "loop" ? 2 : index + 1;
-      child.stdin.write(JSON.stringify({ type: "prompt", id: `prompt-${index}`, message: prompt, ...(streamingBehavior ? { streamingBehavior } : {}) }) + "\n");
+      requestId = `prompt-${index}`;
+      controlProbe = typeof prompt === "string" ? undefined : prompt;
+      const previousRequests = scenarioRequests;
+      const noticeOffset = notices.length;
+      expected = controlProbe?.type === "goal" || controlProbe?.local ? "local result" : "session_settled";
+      expectedRequests = controlProbe?.type === "prompt" ? controlProbe.requests
+        : continuation === "execute" || continuation === "execute-mixed" || continuation === "execute-native" ? 3 : continuation === "loop" ? 2 : index + 1;
+      const input = controlProbe?.type === "goal"
+        ? { type: "goal", op: controlProbe.op, objective: controlProbe.objective }
+        : { type: "prompt", message: typeof prompt === "string" ? prompt : prompt.type === "prompt" ? prompt.message : "", ...(streamingBehavior ? { streamingBehavior } : {}) };
+      child.stdin.write(JSON.stringify({ ...input, id: requestId }) + "\n");
       await signal.promise;
       if (failure) throw new Error(JSON.stringify(failure));
+      if (expected === "local result") assert.equal(scenarioRequests, previousRequests, "local control must not request a model turn");
+      const notice = controlProbe?.type === "prompt" ? controlProbe.notice : undefined;
+      if (notice) assert(notices.slice(noticeOffset).some(message => message.includes(notice)), JSON.stringify(notices));
     }
     if (continuation === "execute-blocked" || continuation === "execute-mixed") {
       const plan = readFileSync(join(cwd, "doc/plans/probe.md"), "utf8");
       assert.equal([...plan.matchAll(/^- \[~\] /gm)].length, continuation === "execute-blocked" ? 1 : 2);
-      assert(!/^- \[ \] /m.test(plan));
+      if (continuation === "execute-mixed") {
+        assert(!/^- \[ \] (?:3|F1)\. /m.test(plan));
+        assert(plan.includes("- [ ] 1. Example only"));
+      } else assert(!/^- \[ \] /m.test(plan));
       const boulder = JSON.parse(readFileSync(join(cwd, "doc/boulder.json"), "utf8"));
       assert.equal(boulder.works.probe.status, "active", "the hook must not label unmet work complete or mutate durable state");
     }
@@ -288,6 +323,24 @@ try {
   assert.equal(mixed.length, 3, "mixed plans must finish pending work and verification without reopening blocked rows");
   const nativePlan = await run(["/ulw-execute local://approved-plan.md"], [], "execute-native");
   assert.equal(nativePlan.length, 3, "native plans must continue through approved task progress and settle after completion");
+  const offset = requests.length;
+  const [held] = await run([
+    { type: "prompt", message: "/stop-continuation", requests: 0, local: true, notice: "continuation stopped for this session" },
+    { type: "prompt", message: "Ordinary follow-up while held", requests: 1 },
+    { type: "prompt", message: "/resume-continuation", requests: 2, notice: "Requested resumption" },
+  ], [], "loop");
+  assert(held.includes("<omp-ulw-continuation-paused>"));
+  assert(!JSON.stringify(requests[offset]).includes("Resume the owning workflow from"));
+  assert(JSON.stringify(requests[offset + 1]).includes("Resume the owning workflow from"));
+  const rpcGoal = await run([
+    { type: "goal", op: "create", objective: "Independent RPC-native goal", status: "active" },
+    { type: "prompt", message: "/stop-continuation", requests: 0, local: true, notice: "op=pause" },
+    { type: "goal", op: "get", status: "active" },
+    { type: "goal", op: "pause", status: "paused" },
+    { type: "prompt", message: "/resume-continuation", requests: 0, local: true, notice: "op=resume" },
+    { type: "goal", op: "get", status: "paused" },
+  ]);
+  assert.equal(rpcGoal.length, 0);
   for (const provider of ["deepseek", "omo-third-party-probe"]) {
     const [prompt] = await run(["verify the selected model profile"], [], undefined, provider);
     const profile = renderPreset({ provider, id: "deepseek-v4-flash-omo-local-probe", name: "DeepSeek V4 Flash" }, { surface: "app", toolNames: [] });

@@ -95,7 +95,10 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
   const steering = "Use the latest user message, including queued steering, to resolve conflicts. Update only the affected parts of the plan and keep earlier instructions that still apply.";
   prompt = prompt
     .replace(/Derive intent from the latest user (?:turn|message) alone[:; -]+a new direction (?:drops|cancels) (?:the )?stale plans?(?:[,;] (?:and )?queued steering messages outrank (?:earlier intent|them))?\./g, steering)
-    .replace("Intent from latest user turn only: new direction drops stale plan; queued steering messages outrank earlier intent.", steering);
+    .replace("The latest user turn sets intent: a new direction drops the stale plan; queued steering outranks earlier intent.", steering)
+    .replace("Intent from latest user turn only: new direction drops stale plan; queued steering messages outrank earlier intent.", steering)
+    // Astra's later steering paragraph already distinguishes a correction from a cancellation.
+    .replace(" Take intent from the latest user message; a new direction replaces the stale plan.", "");
   // Common tool documentation owns execution transport, including when eval is absent.
   // Keep model-specific observation, evidence, and recovery obligations transport-neutral.
   prompt = prompt
@@ -353,6 +356,10 @@ Never invent evidence or claim unperformed checks passed.`,
   prompt = prompt.replace(
     " A subagent is for a track that runs beside yours and lands the task sooner - a wide investigation across many files, or an implementation unit beyond one coherent edit in files you are not touching; spawn such tracks together in the background, each brief naming its output, allowed edit paths, stop condition, and returned evidence.",
     hasTask ? ` ${delegationRule}` : "",
+  ).replace(
+    "never use subagents to verify your own work",
+    hasTask ? "check your own changes and obtain independent review when the user or workflow requires it and the host permits it"
+      : "check your own changes and report any required independent review that you cannot obtain",
   );
   if (hasBash) {
     prompt += "\n\n" + shellRules;

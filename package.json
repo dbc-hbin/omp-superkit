@@ -20,6 +20,8 @@
     "prewalk.ts",
     "omp-settings.d.ts",
     "ulw.ts",
+    "ulw-continuation.ts",
+    "ulw-control.ts",
     "upstream/presets.js",
     "upstream/presets.d.ts",
     "prompts/",

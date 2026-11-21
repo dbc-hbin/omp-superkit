@@ -2,6 +2,19 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-22 ULW 이어가기·복구 및 연구 보고서 완료 판정
+
+- 구조화된 계획에서는 `Todos`와 `Final verification wave` 아래의 번호가 붙은 작업만 이어가기 대상으로 셉니다. 메모·예시·하위 체크박스 때문에 끝난 작업이 다시 열리거나 막히지 않습니다. 단순 체크리스트와 네이티브 승인 계획은 기존 형식을 유지합니다.
+- `/stop-continuation`과 `/resume-continuation`으로 현재 세션의 자동 이어가기를 제어합니다. Boulder·루프·연구 기록은 삭제하지 않으며, TUI 네이티브 목표는 이 세션의 ULW 호출로 생성된 경우에만 제어합니다.
+- [mass-ulw 복구 지침](skills/mass-ulw/references/planning.md#operator-controls)에서 현재 작업의 조회·정정·취소와 새 시도를 구분합니다. 재시작 후에는 소유 세션, 작업 시도, 산출물을 대조한 뒤 핸들을 재사용합니다.
+- 연구 보고서의 숫자·단위·직접 인용을 보관한 원문과 대조하고 최종 파일의 바이트에 검증 결과를 연결합니다. 기존 manifest도 읽을 수 있지만 완료하려면 해당 파일의 검증 기록이 필요합니다. PDF 등 변환본은 내용 자동 검증이 아니라 검증된 원본과 실제 검사 기록으로 구분합니다. [CLI 예시](skills/ulw-research/references/deliverable-phase.md#edition-fidelity)
+
+### 2026-11-22 모델별 정정 지시와 독립 리뷰
+
+- [Senpi의 정정 규칙](https://github.com/code-yeongyu/senpi/blob/d713160e3b9224d42143c2096b5d6f9cb1685b78/packages/coding-agent/src/core/extensions/builtin/prompt-preset/deepseek-v4-1-flash-rules.ts#L69)에 맞춰 사용자가 작업 일부를 정정하면 해당 부분만 바꾸고, 여전히 유효한 이전 지시는 유지합니다.
+- 6.1 Sol·Terra가 공유하는 GPT‑6 Astra 프리셋에서 기존 계획을 통째로 바꾸라는 상충 문구를 제거했습니다. [GPT‑6.2 Astra·Sol](prompts/gpt-6.2.ts)은 호스트 알림을 사용자 지시와 구분하며, 알림을 일시정지·취소된 작업의 재개 승인으로 취급하지 않습니다.
+- Claude Opus 5·5.5, Sonnet 5.5, Haiku 5.5는 자체 검증을 하되 필수 독립 리뷰를 금지하지 않습니다. 리뷰어를 쓸 수 없으면 자체 승인 대신 누락을 알립니다. ULW 계획에서는 독립 리뷰가 요구될 때 동일한 계획에 대한 각 검토자의 판정을 기록합니다.
+
 ### 2026-11-21 OMP 19.1 규약 및 업스트림 워크플로 선별 반영
 
 - 코드모드와 배포 스킬을 [OMP 19.1 도구 명령](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` 문서, 네이티브 계획 제출 방식에 맞춥니다. 모델 프롬프트에 호스트의 위임 제한을 보존합니다. Chrome relay 설치, 가려지거나 최소화된 창의 검증, 세션 검색 범위도 갱신합니다.

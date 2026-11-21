@@ -5,12 +5,17 @@
 
 import { CliError, emit, exitCodeFor } from "./cli-support.mjs"
 import { isCliEntry } from "./entry-guard.mjs"
+import { runFact, runSource } from "./fidelity-commands.mjs"
+import { FidelityError } from "./fidelity-sources.mjs"
 import { runCheck, runFormatExtract, runLayoutProbe, runOutcome, runRepairDecide } from "./report-tools-commands.mjs"
 
 export const COMMANDS = Object.freeze([
 	"check",
 	"layout-probe",
 	"repair decide",
+	"source snapshot",
+	"fact verify",
+	"fact derivative",
 	"outcome init",
 	"outcome set",
 	"outcome gate",
@@ -32,6 +37,10 @@ export async function run(argv) {
 		case "repair":
 			if (rest[0] !== "decide") throw new CliError("usage: repair decide --state <file> --defects <json>")
 			return runRepairDecide(rest.slice(1))
+		case "source":
+			return runSource(rest)
+		case "fact":
+			return runFact(rest)
 		case "outcome":
 			return runOutcome(rest)
 		case "format-extract":
@@ -51,6 +60,10 @@ export async function main(argv = process.argv.slice(2)) {
 		emit(result)
 		return exitCodeFor(result)
 	} catch (error) {
+		if (error instanceof FidelityError) {
+			emit({ json: { ok: false, problems: [{ code: error.code, message: error.message }] }, summary: `report-tools: ${error.message}` })
+			return 1
+		}
 		process.stderr.write(`report-tools: ${error.message}\n`)
 		return exitCodeFor(error)
 	}

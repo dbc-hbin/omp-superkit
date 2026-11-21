@@ -5,7 +5,13 @@
 ## Inline HTML report delivery
 
 - Workflow source: [OMO v5.1.79 research delivery](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-research/SKILL.md).
-- Adaptation: show the verified report using [OMP v19.1.0's client-advertised `renderEmbeds` contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/system/system-prompt.md), with the existing local report gates and link fallback. No upstream report tooling is used.
+- Adaptation: show the verified report using [OMP v19.1.0's client-advertised `renderEmbeds` contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/system/system-prompt.md), with the existing local report gates and link fallback.
+
+## Report fidelity
+
+- Workflow sources: OMO v5.1.79 [`source-snapshot.mjs`](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-research/scripts/source-snapshot.mjs), [`fact-commands-verify.mjs`](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-research/scripts/fact-commands-verify.mjs), and [`fidelity-records.mjs`](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-research/scripts/fidelity-records.mjs).
+- Upstream license: [Sustainable Use License 1.0](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/LICENSE.md).
+- Adaptation: independently implemented source retention, source-bound numeric values/direct quotes, and byte-bound delivery checks. No upstream code, interviews, workforce, or unrelated fidelity gates are redistributed.
 
 ## insane-research (fivetaku)
 
