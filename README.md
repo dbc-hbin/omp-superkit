@@ -46,10 +46,10 @@ Supported model profiles are adapted to OMP and applied independently to main an
 
 This extension does not apply model presets or code mode to Gemini models. For other models, code mode depends on request capabilities:
 
-- Ordinary work tools are documented in native JavaScript eval for `tool.<name>(args)` calls instead of exposed as direct schemas.
-- Session controls, `write`, `apply_patch`, reserved bridge names (`defined`, `undefine`), unmapped tools and forced tool choices stay direct.
-- Independent reads, searches and lookups run in parallel. Code mode uses `Promise.allSettled`; mutations, approvals, waits and dependent calls remain sequential.
-- An active JavaScript-capable eval and a supported provider request hook are required. Restricted agents gain no tools or permissions; unsupported requests remain unchanged with a notice.
+- Use native Eval (`tool.<name>(args)`) for ordinary work tools. Python is preferred when available; JavaScript is also supported. On OMP 19.1, mounted tools expose usage through `<name> --help` in the session's bash. Eval documentation topics use `help://eval/<topic>`.
+- Session controls, `write`, `bash`, `apply_patch`, reserved bridge names (`defined`, `undefine`), unmapped tools and forced choices retain their native routes. Use direct bash, not a nested Eval call, for mounted plan/preview decisions. Submit `propose <slug>` when mounted, or call the direct `propose` tool when offered; the user chooses whether to execute the plan.
+- Independent reads, searches and lookups can run in parallel; mutations, approvals, waits and dependent calls remain sequential.
+- Code mode requires an active, exposed Python- or JavaScript-capable Eval and a supported provider hook. Restricted agents gain no tools or permissions; unsupported requests remain unchanged with a notice.
 
 Kiro, Cursor Agent, GitLab Duo Agent and Apple Foundation Models have request-hook limitations; code mode is not guaranteed on those paths. Catalog caches are session-local and follow live tool metadata. **Code mode is a model-facing routing policy, not an execution security boundary.**
 

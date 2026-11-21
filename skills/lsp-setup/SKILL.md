@@ -11,8 +11,11 @@ configuration.
 
 ## OMP route
 
-Read `xd://lsp` before acting. Use the native LSP operations rather than
-shelling out to an editor plugin:
+Read `lsp --help` when `lsp` is mounted as a bash tool command, or use the
+advertised native `lsp` tool schema when exposed directly. Use OMP's LSP
+operations rather than shelling out to an editor plugin. For example,
+`lsp status` checks server status and `lsp diagnostics --file src/main.ts`
+checks a known source file:
 
 - `status` or `capabilities` to discover what the host already exposes.
 - `diagnostics` for a real file or a bounded project glob.

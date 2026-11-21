@@ -242,8 +242,7 @@ try {
       for (const name of wireNames) assert(injected.tools.includes(name), `${role}: no extra wire tool ${name}`);
       if (role === "scout") {
         assert(!injected.tools.includes("eval") && !wireNames.includes("eval"), "readonly scout must not gain eval");
-        // OMP may expose write as an xd:// transport even for read-only agents;
-        // the active-tool equality above ensures this extension grants nothing.
+        // OMP owns the permitted URI targets even when write is exposed.
         for (const name of ["edit", "bash", "apply_patch"]) assert(!wireNames.includes(name), `readonly scout must not gain ${name}`);
       } else assert(wireNames.includes("eval"), `${role}: mutable native tools remain exposed`);
     }

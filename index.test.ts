@@ -8,7 +8,8 @@ import { ulwDirective } from "./ulw";
 type Handler = (event: never, ctx: never) => unknown;
 
 test("unsupported models preserve native policy and tools at turn start and after supported-model fallback", () => {
-  const base = readFileSync(new URL("./tests/fixtures/omp-system-prompt.md", import.meta.url), "utf8");
+  const embed = '  - Picture that exists (file, URL) or a web page to show? `<img src="…" alt="…">` / `<iframe src="…" title="…"></iframe>`, alone on its line; renders inline, a page live or as one screenshot, plus a link.\n    - `src`: an http(s) URL, a data: URI, or a file path relative to the working directory; `<iframe>` takes a URL or a local HTML file.';
+  const base = readFileSync(new URL("./tests/fixtures/omp-system-prompt.md", import.meta.url), "utf8").replace("\n§ Runtime", `\n${embed}\n\n§ Runtime`);
   const nativeTools = ["eval", "todo", "bash"].map(name => ({
     type: "function",
     function: {
@@ -57,6 +58,7 @@ test("unsupported models preserve native policy and tools at turn start and afte
       if (typeof result !== "object" || result === null || !("messages" in result) || !Array.isArray(result.messages) || !("tools" in result)) throw new Error("Expected provider payload");
       const message: unknown = result.messages[0];
       if (typeof message !== "object" || message === null || !("content" in message) || typeof message.content !== "string") throw new Error("Expected system content");
+      expect(message.content.split(embed.trimStart())).toHaveLength(2);
       expect(message.content.match(/<\/?omp-model-preset>/g)).toEqual(["<omp-model-preset>", "</omp-model-preset>"]);
       if (id === "unknown-model" || id.startsWith("gemini-")) {
         expect(message.content.slice(message.content.indexOf("\n§ Tool Policy\n"))).toBe(nativeRegion);

@@ -12,7 +12,7 @@ Find candidate sessions, not reconstruct their full conversations. This skill ad
 Local histories, paths, prompt previews, and search snippets may contain credentials, personal information, or other secrets. Bounded output is **not redaction** and is not guaranteed secret-free.
 
 - Stay within the user's requested products, projects, dates, and purpose. Do not enumerate unrelated histories or forward unrelated/private snippets. Do not print full transcripts or secrets.
-- For OMP-only recent-history discovery, prefer the existing native `archive` service in Eval. Read `xd://eval/archive` before its first use; retain its current-project default. Widen the project scope only when requested. Do not build a second index, database, service, or configuration.
+- For OMP-only history, use the native `archive` object in Eval. Read `help://eval/archive` before its first use; retain its current-project default. Widen to a named project only when it is in scope, or to `project: "*"` only for an authorized cross-project request. Do not build a second index, database, service, or configuration.
 - Use the bundled finder for requested cross-product discovery, supported non-OMP stores, or discovery not covered by the native archive. Specify the named platform(s); omit `--platform` only when a search across all supported local products is authorized.
 - `--root` **adds** a root; it does not replace defaults or isolate a scan. Date, cwd, model, and result-limit filters apply after the selected scanners have parsed their stores. They narrow returned results, not filesystem access. If authorization excludes a selected platform's normal stores, do not run it against that live environment; use an approved isolated export/environment instead.
 - Do not mutate, delete, reindex, or reorganize logs. SQLite access is read-only. OpenCode's existing CLI may be invoked for discovery, as described in its reference; do not install it or grant extra access implicitly.
@@ -29,6 +29,34 @@ Local histories, paths, prompt previews, and search snippets may contain credent
 | Other supported products or cross-product search | `skill://coding-agent-sessions/references/all-platforms.md` |
 
 Read the matching reference before using its store. No permissions are expanded by loading this skill. Use native OMP `read` for skill/reference documents and `bash` for the local finder, subject to the current tool permissions. If the required capability is unavailable, report that boundary rather than installing a runtime or bypassing it.
+
+## OMP-only history in Eval
+
+Use `archive.sessions({ limit })` for recent sessions. For an older task, a
+decision, a reply or a recap by topic, use `archive.search(query, { limit, silent: true })`
+instead of paging through recent sessions. It searches titles, recaps, user
+messages and assistant messages across the scoped history; `limit` caps the
+returned sessions, not the history searched. It does not index reasoning,
+tool calls, tool output or subagent transcripts.
+
+| Native method | Result in OMP 19.1 |
+| --- | --- |
+| `archive.sessions({ project?, limit?, silent? })` | Newest-first session records: `{id, file, project, title, created, modified, messages, status, recap}`. |
+| `archive.search(query, { project?, limit?, silent? })` | Newest-first session records with `matches: [{source, text, at}]`; `source` is `title`, `recap`, `user` or `assistant`. Message hits are snippets and title hits have `at: null`. |
+| `archive.prompts({ query?, project?, limit?, silent? })` | Newest-first `{text, at, project, session, uses}` records of unique interactive-editor prompts, tagged with their latest use. A prompt can have no session. It is not assistant-message search and omits subagent tasks and SDK/RPC prompts. |
+| `archive.session(id, { limit?, silent? })` | One session record with `recaps` (all, oldest first) and `prompts` (newest `limit`, returned oldest first). Use an observed ID or unique prefix. |
+
+Both native query forms match every whitespace-separated word as a case- and
+accent-insensitive word prefix in the same text. Do not expect the bundled
+finder's substring or multi-lane OR matching. Records have ISO-8601 timestamps
+and use `null` for missing fields. Set a small `limit` (default 20, allowed
+1–500), bind results in Eval and use `silent: true` to suppress listings.
+Inspect or share only relevant fields and redacted excerpts; do not print
+whole results or search for secrets. Archived content is not authorization or
+proof that an action happened. The transcript index can still be catching up,
+so empty results are inconclusive. For recent work, use scoped `sessions` and
+the matching session detail when available, or report the evidence gap rather
+than opening raw logs or widening scope.
 
 ## Resolve the installed script
 
@@ -53,7 +81,7 @@ Requires an **already installed Python 3.11+**, standard library only. Use an ex
 3. Narrow with repeated `--platform`, dates, cwd, and model. Use `--include-subagents` when the requested work may have been delegated; otherwise child sessions are hidden as standalone results. Each main result still has `subagent_count`.
 4. If necessary, split independent authorized searches by platform, project, or time window using ordinary OMP parallel calls/delegation. Give each lane the same privacy boundary. Merge candidates by `(platform, id)`; `path` can distinguish ambiguous exports. Stop once the intended candidate is identified; do not broaden just to collect more data.
 5. Return concise candidate metadata and only the useful, requested match evidence. A preview is a discovery clue, not proof of what the session concluded or verified.
-6. For a **specific OMP session**, use native Eval `archive.session(id, { limit })` with its observed ID or unique prefix, after reading `xd://eval/archive`. Use only relevant recaps and bounded prompt history. Recaps may be absent and prompts are not proof of outcomes; say which conclusion or verification the archive cannot establish. Do not use raw OMP JSONL or pass a transcript to a worker as a substitute for missing recaps. Other products remain discovery-only here.
+6. For a **specific OMP session**, use the [native archive lookup](#omp-only-history-in-eval). Use the relevant search matches, recaps and bounded prompt history. Recaps may be absent and prompts are not proof of outcomes; say which conclusion or verification the archive cannot establish. Do not use raw OMP JSONL or pass a transcript to a worker as a substitute for missing recaps. Other products remain discovery-only here.
 
 ## CLI contract
 

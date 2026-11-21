@@ -63,6 +63,13 @@ all cross-origin content. Record inaccessible/detached frames explicitly. Chromi
 queries and `pierce/` can reach supported open shadow roots; closed roots and native backends are
 not guaranteed. Tern and owned WebKit cannot drive frames transformed by CSS scale/rotation.
 
+On Chrome relay, another extension's inline frame (for example a password manager popup) can
+block the debugger. OMP can empty and hide that frame in the driven tab, for the user as well, and
+report the extension and frame in the current or a later call. If reported, tell the user what was
+hidden. Its content is gone and no offered action there was taken; do not re-create the frame,
+claim consent or claim that a credential/autofill choice was made. Re-observe before continuing
+ordinary page work and hand off extension-dependent steps to the user if necessary.
+
 ## DOM work and scroll collection
 
 Prefer authorized passive response JSON for structured lists; see [network.md](network.md). Use
@@ -83,3 +90,15 @@ A Chrome extension popup or browser chrome is not necessarily a normal inspectab
 capability gap. Native UI uses `computer-use` under host authorization, with
 fresh window state. Do not fabricate `chrome-extension://` URLs, force security settings or replace
 an explicit user cancellation with another transport.
+
+## Native windows and pickers
+
+In OMP 19.1, a browser call can report a native popup/list, floating panel or dialog that opened
+during or after the call. It is outside the page; use `tab.select` for the underlying HTML
+`<select>` or `tab.fill` with the control's supported value for a page color/date picker, then
+verify through the page. A native print, save, sign-in, passkey or permission dialog is not a
+JavaScript `tab.dialog()`. When the browser report exposes a window ID and says it is listed,
+`computer.window(observedId)` targets it; otherwise the report may point to `computer.screenshot()`
+for inspection. Follow `skill://computer-use` and host routing/approvals for any native
+inspection or action. No reported dialog, window ID or permission prompt is authorization to
+accept it. If the required native surface cannot be used, hand it back to the user.

@@ -44,7 +44,7 @@ function nativeEval(sh: string): string {
 		"read(path, offset?, limit?)  write(path, content)  output(*ids, format?, query?, offset?, limit?)",
 		"wait(handles, timeout?=None, raise_errors?=True)", "await tool.<name>(args)", sh,
 		"```", "Session tool names: read, bash, todo.", "</prelude>",
-		"<namespaces>More globals → xd://eval/helpers</namespaces>",
+		"<namespaces>More globals → help://eval/helpers</namespaces>",
 		"<critical>NEVER repeat successful setup. Kernel-loss notice means reload setup.</critical>",
 		"Long cells may auto-background and deliver later; the kernel stays busy.",
 		"`timeout: 0` disables the cell deadline, not the foreground wait.",

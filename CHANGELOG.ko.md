@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-21 OMP 19.1 규약 및 업스트림 워크플로 선별 반영
+
+- 코드모드와 배포 스킬을 [OMP 19.1 도구 명령](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` 문서, 네이티브 계획 제출 방식에 맞춥니다. 모델 프롬프트에 호스트의 위임 제한을 보존합니다. Chrome relay 설치, 가려지거나 최소화된 창의 검증, 세션 검색 범위도 갱신합니다.
+- 렌더된 프리셋에서 무조건 거부하지 말라는 지시를 제거합니다. [Senpi의 Opus 5.5·Fable 5.2 변경](https://github.com/code-yeongyu/senpi/tree/3db1d1604ef3693240377136d2b3af670b4d53b9/packages/coding-agent/src/core/extensions/builtin/prompt-preset)에서 요청 정정·대기·응답 규칙을 선별 반영하고 로컬 GPT‑6.2와 Gemini 제외 정책은 유지합니다.
+- [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd)의 계획 템플릿에 맞춰 작업별 쓰기 대상과 의존 사유를 기록합니다. `mass-ulw`는 검증 의무를 유지하되 필요한 때만 별도 검증 노드를 만듭니다. 검증된 연구 보고서는 지원 클라이언트에서 HTML로 표시하고, 미지원 시 파일 링크를 제공합니다.
+
 ### 2026-11-20 Gemini 모델 지원 제거
 
 - AGY 프롬프트와 번들에 포함된 Gemini Argon 프리셋을 제거합니다. Superkit은 Gemini 모델에 프리셋과 코드모드를 적용하지 않으며, OMP의 provider 등록은 바꾸지 않습니다.

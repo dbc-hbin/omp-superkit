@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-21 OMP 19.1 contracts and selected upstream workflows
+
+- Adopt [OMP 19.1 tool commands](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` topics, and native plan submission across code mode and the shipped skills. Preserve delegation gates when projecting model prompts. Update Chrome relay setup, covered/minimized window verification and scoped archive search.
+- Remove unconditional no-refusal directives from rendered profiles. Selectively port [Senpi's Opus 5.5 and Fable 5.2 steering, waiting and reply changes](https://github.com/code-yeongyu/senpi/tree/3db1d1604ef3693240377136d2b3af670b4d53b9/packages/coding-agent/src/core/extensions/builtin/prompt-preset) without replacing the local GPT-6.2 profile or re-enabling Gemini.
+- From [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd): record write conflicts and reasons for plan dependencies; size mass-ulw graphs to the request and reserve separate verification nodes for checks that need them. Deliver verified research HTML inline when the client supports it, otherwise link the artifact.
+
 ### 2026-11-20 Gemini model support removed
 
 - Remove the AGY prompt and the bundled Gemini Argon preset. Superkit no longer applies model presets or code mode to Gemini; OMP provider registration is unchanged.

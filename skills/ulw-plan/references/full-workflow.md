@@ -13,7 +13,7 @@ This reference extends [ulw-plan](../SKILL.md), not native OMP execution policy.
 
 When native plan mode is active, the lead writes only `local://<slug>-plan.md` and its session-local planning/review state at `local://<slug>-draft.md`. The local plan is canonical; do not create a parallel `doc/plans/` copy, run the scaffold, or require its headers. Follow the host's plan contents and permission restrictions, mapping the requested outcome, gaps, dependencies, decisions and proof into permitted sections. Record review target and pending actions against the actual local URI. Children return findings or proposed plan text; they never write files, including local planning artifacts. Preserve their required native response format and normalize review records in the lead.
 
-Write and review the decision-complete local plan before submitting its slug/title to `xd://propose`. This is the sole native plan approval route; do not insert an ask/chat approval before plan creation or use a planning decision as implementation approval. Requirements questions still follow the host's plan-mode contract. The scaffold, durable `doc/` paths, pre-creation approach approval and emitted header/frontmatter requirements below apply outside native plan mode only. Review identity, coverage and honest closure apply in both modes.
+Write and review the decision-complete local plan before [submitting its slug through native `propose`](../../ulw-loop/references/omp-contract.md#native-plan-submission). This is the sole native plan approval route; do not insert an ask/chat approval before plan creation or use a planning decision as implementation approval. Requirements questions still follow the host's plan-mode contract. The scaffold, durable `doc/` paths, pre-creation approach approval and emitted header/frontmatter requirements below apply outside native plan mode only. Review identity, coverage and honest closure apply in both modes.
 
 ## Grounded approach and approval
 
@@ -91,7 +91,7 @@ Keep these script-produced headers, in this order:
 - **TL;DR:** fill last from the finished plan. Explain who benefits, what changes, why, exclusions, risk and the few decisions worth checking. Keep technical paths and task machinery in the detailed sections. Effort is one of `Quick | Short | Medium | Large | XL`, not a duration estimate.
 - **Scope:** begin with `### Affected user and ideal state`, including the affected consumer and `IS-n`/`GAP-n` rows with reasons. Follow with Must have and Must NOT have; exclusions prevent scope creep, not incomplete delivery.
 - **Verification strategy:** record project-specific tests, real-surface acceptance and evidence expectations for the future executor. The planner specifies checks, not runs implementation QA. Use the repository's test strategy; a planning gate need not ask again when it is already settled.
-- **Execution strategy:** record genuine dependencies, grouping and the matrix `Todo | Depends on | Blocks | Can parallelize with`. Describe the work's dependencies, not native dispatch syntax or model choices.
+- **Execution strategy:** record grouping and the matrix `Todo | Writes (files, shared state) | Depends on (reason) | Blocks`. Describe work dependencies, not native dispatch syntax or model choices.
 - **Todos:** each item states the exact change/non-goals, gap closed, dependencies, exhaustive path/contract references, observable acceptance, relevant success/failure scenarios and evidence destination. The executor has no interview context. Keep implementation and its tests together where they are one deliverable.
 - **Final verification wave:** retain the four emitted rows `F1. Plan compliance audit`, `F2. Code quality review`, `F3. Real manual QA`, `F4. Ideal-state fidelity`. These are future execution checks; their execution follows current OMP. Plan review below is a different activity.
 - **Commit strategy:** record only the delivery authorization and constraints actually supplied; the section is not permission to commit or a second commit policy.
@@ -100,6 +100,16 @@ Keep these script-produced headers, in this order:
 Implementation checkboxes are column-zero `- [ ] N. <title>` with positive decimal `N`, inside `## Todos`. Final rows are column-zero `- [ ] F<number>. <title>` inside `## Final verification wave`. Headings and ordinary bullets are not executable tasks. Preserve nested `Recommended task executor category:` for existing plan consumers as task difficulty/specialty metadata; it does not select a native role or model. Retain the per-task `Commit:` field as a record of actual authorization, not a mandate.
 
 Append task batches within the Todos region without replacing script-produced headers or existing tasks. Before handoff, check the actual row grammar, header order, counts, references, dependency matrix and complete `GAP -> todo -> IS -> proof` mapping. A plan with unresolved implementation decisions is not decision-complete.
+
+### Dependencies and verification evidence
+
+- List each todo's write set, including generated artifacts, schemas, ports, branches or other shared state it changes. Put independent work in the same wave. Add an edge when a todo consumes another's output or to serialize conflicting writes; name the artifact or resource and the reason in `Depends on (reason)`. `Blocks` is the inverse. Put shared setup (install, code generation, fixture or test server) in one todo, with only its consumers depending on it. Do not turn waves into barriers for work that needs only one upstream result.
+- A proposed retry, timeout, lock, skip or cap needs cited evidence of the cause it contains and the one scope it covers. If the cause is unknown, plan a diagnosis todo with observable evidence and make the fix depend on it; do not prescribe a guard as a substitute for understanding the failure.
+- For relevant success and failure scenarios, name the test tool, exact invocation, expected observable and evidence path. Drive timing with a fake clock and failures with an injected fault where applicable; do not rely on wall-clock sleeps or real outages. Keep real-surface verification for the integrated behavior.
+
+In native plan mode, record the write sets and edge reasons in Approach, and the proof in Verification; do not import scaffold headers or force a separate wave section.
+
+Adapted from [OMO v5.1.79 planning and self-review](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-plan/references/full-workflow.md) and its [plan template](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-plan/scripts/plan-templates.mjs).
 
 ## Gap analysis and adversarial PLAN review
 

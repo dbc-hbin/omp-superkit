@@ -12,7 +12,7 @@ Original coding guidance
 § Runtime
 <skills>available skill</skills>
 # Internal URLs
-agent:// and xd://
+agent:// and help://
 § Tool Policy
 # General
 Original delegation preference
@@ -113,7 +113,7 @@ test("project and global context in block zero survive replacement", () => {
   expect(result?.blocks[0]).toContain("replacement");
 });
 
-test("research routing changes only the host policy region, never project or runtime text", () => {
+test("research role guidance applies to tool descriptions, not the host's delegation conditions or project text", () => {
   const directive = "Map unknown code via `task`, not reading file after file yourself.";
   const routing = adaptResearchRouting(directive);
   expect(routing).not.toBe(directive);
@@ -138,12 +138,12 @@ test("research routing changes only the host policy region, never project or run
   expect(adaptResearchRouting(policy)).not.toBe(policy);
   expect(result.blocks[0].slice(0, result.blocks[0].indexOf("\n§ Role\n"))).toBe(template.slice(0, template.indexOf("\n§ Role\n")));
   expect(result.blocks[0].slice(result.blocks[0].indexOf("\n§ Runtime\n"), result.blocks[0].indexOf("\n§ Tool Policy\n"))).toBe(template.slice(template.indexOf("\n§ Runtime\n"), template.indexOf("\n§ Tool Policy\n")));
-  expect(result.blocks[0].slice(result.blocks[0].indexOf("\n§ Tool Policy\n"), result.blocks[0].indexOf("\n§ Workflow\n"))).toBe(adaptResearchRouting(policy));
+  expect(result.blocks[0].slice(result.blocks[0].indexOf("\n§ Tool Policy\n"), result.blocks[0].indexOf("\n§ Workflow\n"))).toBe(policy);
   expect(result.blocks[0].slice(result.blocks[0].indexOf("\n§ Workflow\n"))).toBe(template.slice(template.indexOf("\n§ Workflow\n")));
   expect(result.blocks[1]).toBe(project);
   const source = result.blocks[0];
   expect(projectHostGuidance(source, source, true)).not.toContain(routing);
-  expect(projectHostGuidance(source, source, false)).toContain(routing);
+  expect(projectHostGuidance(source, source, false)).toContain(policy);
 });
 
 test.each([
@@ -163,7 +163,9 @@ test("an already-owned profile cannot be nested by a second installation", () =>
 });
 
 test("model guidance owns behavioral sections while native capability and permission regions survive", () => {
-  const template = base.replace("Original workflow", "# 1. Before Editing\nNATIVE_SCOPE\n# 4. Implement\nPERMISSION_BOUNDARY\n# 2. Verify\nNATIVE_CHECKS\n# 3. Cleanup\nNATIVE_CLEANUP");
+  const gate = "No subagents unless user or applicable AGENTS.md/skill explicitly requests subagents, delegation, or parallel agent work.";
+  const template = base.replace("Original fan-out preference", gate)
+    .replace("Original workflow", "# 1. Before Editing\nNATIVE_SCOPE\n# 4. Implement\nPERMISSION_BOUNDARY\n# 2. Verify\nNATIVE_CHECKS\n# 3. Cleanup\nNATIVE_CLEANUP");
   const prepared = replaceHostBehavior([template], "<omp-model-preset>MODEL_BEHAVIOR</omp-model-preset>");
   if (!prepared) throw new Error("Expected recognized host template");
   const source = prepared.blocks[0];
@@ -172,9 +174,11 @@ test("model guidance owns behavioral sections while native capability and permis
   expect(result.slice(0, result.indexOf("\n§ Tool Policy\n"))).toBe(source.slice(0, policyAt));
   expect(result.slice(result.indexOf("\n§ Delivery\n"))).toBe(source.slice(source.indexOf("\n§ Delivery\n")));
   // These headings are keys consumed by the host-section parser.
-  for (const section of ["# General\n", "# Delegation\n", "# 2. Verify\n", "# 3. Cleanup\n"]) {
+  for (const section of ["# General\n", "# 2. Verify\n", "# 3. Cleanup\n"]) {
     expect(result.includes(section)).toBe(false);
   }
+  expect(result).toContain(`# Delegation\n${gate}`);
+  expect(projectHostGuidance(result, source, false)).toContain(`# Delegation\n${gate}`);
   // Pre-delivery permission text in Before Editing stays native; model guidance does not own it.
   expect(result.includes("# 1. Before Editing\nNATIVE_SCOPE")).toBe(true);
   expect(result.includes("# Tool I/O\n")).toBe(true);

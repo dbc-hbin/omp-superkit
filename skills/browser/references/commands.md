@@ -1,8 +1,8 @@
 # Native browser helpers
 
-The live reference is `xd://eval/browser`. The helper contract is pinned to OMP 18.20.0; read the
-active version before use. In particular, an older host need not expose the 18.20 diagnostic
-envelopes or Eval-timeout inheritance below. Follow its advertised return shape and deadlines,
+The live reference is `help://eval/browser`. The examples are checked against OMP 19.1.0; read the
+active contract before use. An older host need not expose the diagnostic envelopes, Eval-timeout
+inheritance or input forms below. Follow its advertised return shape and deadlines,
 report missing cursor coverage when required, and do not install, upgrade or add a compatibility
 wrapper as an implicit prerequisite. `browser` is available only when eval and the browser prelude
 are enabled. JavaScript examples execute in eval, not a shell.
@@ -29,7 +29,7 @@ Open/close/run timeouts are seconds; `waitFor*` timeouts are milliseconds and ca
 containing call's budget. One named tab permits one active run. Concurrent waits/actions in separate
 calls can fail as busy; put a response/navigation/download wait and its trigger inside one run.
 
-**18.20 timeout inheritance:** a `tab.run` without an explicit `timeout`, and each direct helper
+**Eval timeout inheritance:** a `tab.run` without an explicit `timeout`, and each direct helper
 call such as `tab.evaluate(...)`, receive the Eval cell's timeout when it is longer than their
 default budget. Raise the containing Eval call's `timeout` for long page work; a long `waitFor*`
 alone does not enlarge that budget. An explicit run timeout remains explicit. Open/close/run
@@ -65,14 +65,22 @@ history without loading a document; do not treat it as exercising a real navigat
 Input: `click`, `dblclick`, `hover`, `focus`, `fill`, `type`, `press`, `check`, `uncheck`, `select`,
 `uploadFile`, `clickAt`, `mouseMove`, `mouseDown`, `mouseUp`, `wheel`, `scroll`, `drag` and
 `scrollIntoView`. `click(selector, { button?, count? })` supports other buttons/counts on Chromium;
-cmux has narrower support. `fill` replaces text; `type` appends; use `select` for a select control.
+cmux has narrower support. `fill` replaces text; `type` appends.
 
-In OMP 19.0.0–19.0.1 Chromium, `fill` fires text-input events but does not fire `keydown` or
-`keyup`. If a keyboard-driven field does not react, use actual typing or a suitable non-submitting
-`press` on the focused field, then verify the expected results or suggestions, not just its value.
-Do not dispatch events through page JavaScript to make the check pass. The
-[upstream fix](https://github.com/can1357/oh-my-pi/pull/19748) adds key events for supported text
-fields; do not assume it is present on the running host, or that synthetic events satisfy every page.
+For an HTML `<select>`, use `tab.select(selector, …choices)` or `element.select(…choices)`, not
+`fill` or the OS popup menu. In 19.1, a string matches exact value first, then label; use
+`{ value: "exact value" }`, `{ label: "full label" }` or `{ index: 0 }` to choose explicitly.
+Labels can match full option text with whitespace collapsed and trimmed. Verify the selected
+option and the downstream page state.
+
+In OMP 19.0.0–19.0.1 Chromium, `fill` inserts text without `keydown`/`keyup`. OMP 19.1.0
+[restores a synthetic keydown/keyup pair](https://github.com/can1357/oh-my-pi/pull/19748) after
+nonempty insertion into a supported HTML text field, for the last non-control character while
+the field stays focused. It is not per-character typing, a trusted key event or a new user
+activation. If the field still does not react, use actual typing or a suitable non-submitting
+`press`, and verify results or suggestions, not just the field value. Do not dispatch page-script
+events to make a check pass. See [native windows and pickers](interaction.md#native-windows-and-pickers)
+for controls that open browser or OS UI.
 
 Wait for a known state with `waitForSelector`, `waitForText` or `waitForUrl`. Inside `tab.run`,
 `tab.waitForResponse(pattern, { timeout })` returns a Puppeteer HTTPResponse and

@@ -2,8 +2,8 @@
 
 This is an OMP-native rewrite of the browser workflow documentation in
 [OMO at 42d5746e72bfcfb782db6b5182b70a3e9c55f1cc](https://github.com/code-yeongyu/oh-my-openagent/tree/42d5746e72bfcfb782db6b5182b70a3e9c55f1cc/packages/shared-skills/skills/browser),
-initially checked against OMP 18.18.6 and refreshed against the pinned native OMP 18.20.0 contract
-below. The live `xd://eval/browser` contract remains authoritative, including on older hosts.
+initially checked against OMP 18.18.6 and refreshed against the pinned native OMP contracts
+below. The live `help://eval/browser` contract remains authoritative.
 It ports instructions, not the OmOWright or BrowserSkill runtime. No library, browser binary,
 extension payload or loader is bundled.
 
@@ -61,9 +61,23 @@ fingerprints or built-in OCR/CAPTCHA helpers. These are not represented by fake 
 references preserve their underlying state/consent/evidence goals using supported operations and
 identify real capability gaps.
 
-## Native contract refresh (2026-11-13)
+## Native contract refreshes
 
-Pinned revision: **OMP v18.20.0**, commit
+The current update uses **OMP v19.1.0** at
+[`a7135b8f31826c878734388b648f52bed8da436e`](https://github.com/can1357/oh-my-pi/tree/a7135b8f31826c878734388b648f52bed8da436e),
+not a new OMO browser import.
+
+- [Native relay setup and limitations](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/browser-relay/README.md):
+  Chrome-hosted relay, authorized profile installation/restart or manual loading, and
+  extension-frame effects in driven tabs. Installer flags follow the shipped CLI help.
+- [Browser helper contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/tools/browser.md)
+  and [field implementation](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/tools/browser/interactions.ts):
+  HTML select choices and version-scoped Chromium fill events.
+- At the same pin, `packages/coding-agent/src/prompts/tools/browser-hidden-frames.md` and
+  `browser-native-window.md` supply the reports for hidden extension frames and native dialogs.
+  Neither report changes consent, borrowed-page navigation or child ownership rules.
+
+The **2026-11-13** refresh used **OMP v18.20.0**, commit
 [`c308970263ae13744ea15ab67302e3dac840e266`](https://github.com/can1357/oh-my-pi/tree/c308970263ae13744ea15ab67302e3dac840e266).
 
 - [Native browser helper/selection contract](https://github.com/can1357/oh-my-pi/blob/c308970263ae13744ea15ab67302e3dac840e266/packages/coding-agent/src/prompts/tools/browser.md):

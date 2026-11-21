@@ -42,8 +42,6 @@ export function replaceHostBehavior(blocks: string[], behavior: string): HostPro
   // Model-specific behavioral projection happens after this replacement.
   const roleBodyStart = heading ? role + heading[0].length : 0;
   const originalBehavior = base.slice(roleBodyStart, runtime);
-  const host = base.slice(0, roleBodyStart) + behavior + "\n" + base.slice(runtime, policy)
-    + adaptResearchRouting(base.slice(policy, workflow))
-    + base.slice(workflow);
+  const host = base.slice(0, roleBodyStart) + behavior + "\n" + base.slice(runtime);
   return { blocks: [host, ...blocks.slice(1)], originalBehavior };
 }

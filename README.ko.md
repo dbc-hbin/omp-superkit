@@ -46,10 +46,10 @@ omp -e ./omp-superkit
 
 이 확장은 Gemini 모델에 프리셋이나 코드모드를 적용하지 않습니다. 그 외 모델의 코드모드는 요청의 기능 조건에 따라 적용합니다.
 
-- 일반 작업 도구는 직접 호출 스키마 대신 native JavaScript eval에 `tool.<name>(args)` 형태로 안내합니다.
-- 세션 제어, `write`, `apply_patch`, bridge 예약 이름(`defined`, `undefine`), 매핑할 수 없는 도구와 강제 선택된 도구는 직접 호출로 남깁니다.
-- 독립적인 읽기·검색·조회는 병렬 실행합니다. 코드모드에서는 `Promise.allSettled`를 사용하고, 변경·승인·대기·의존 호출은 순차 실행합니다.
-- JavaScript를 지원하는 활성 eval과 지원되는 provider 요청 훅이 필요합니다. 제한된 에이전트에 도구·권한을 추가하지 않으며, 미지원 요청은 알림과 함께 그대로 유지합니다.
+- 일반 작업 도구는 네이티브 Eval에서 `tool.<name>(args)`로 호출합니다. 사용 가능하면 Python을 우선하며 JavaScript도 지원합니다. OMP 19.1에서 마운트된 명령의 사용법은 세션 bash의 `<name> --help`로, Eval 문서는 `help://eval/<topic>`으로 확인합니다.
+- 세션 제어, `write`, `bash`, `apply_patch`, 예약 이름(`defined`, `undefine`), 매핑되지 않은 도구와 강제 선택은 네이티브 경로를 유지합니다. 마운트된 계획·미리보기 결정은 Eval 내부가 아니라 직접 bash로 전달합니다. 계획은 `propose <slug>` 명령 또는 제공된 `propose` 도구로 제출하며, 실행 여부는 사용자가 선택합니다.
+- 독립적인 읽기·검색·조회는 병렬 실행할 수 있습니다. 변경·승인·대기·의존 호출은 순차 실행합니다.
+- Python 또는 JavaScript를 지원하는 활성 Eval이 실제 요청에 노출되어야 하고, 해당 provider가 요청 훅을 지원해야 합니다. 제한된 에이전트에 도구·권한을 추가하지 않으며, 미지원 요청은 알림과 함께 그대로 유지합니다.
 
 Kiro·Cursor Agent·GitLab Duo Agent·Apple Foundation Models는 요청 훅에 제약이 있어 코드모드 적용을 보장하지 않습니다. 카탈로그 캐시는 세션별로 관리하며 현재 도구 메타데이터를 반영합니다. **코드모드는 모델의 호출 방식을 유도하는 정책이지 실행 보안 경계가 아닙니다.**
 

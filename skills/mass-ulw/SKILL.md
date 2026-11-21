@@ -12,7 +12,7 @@ Use for explicitly requested dependency-ordered work. Current native OMP instruc
 
 ## Run identity and ownership
 
-A run covers one checkpointed phase, including its predictable stages and reducers. New phases get new runs; changed definitions within a phase invalidate affected nodes and descendants. Before defining a graph, read the [graph and handoff contract](references/planning.md).
+A run covers one checkpointed phase. Start small: inspect the actual files, diff, items or source territories inline first, then define only the stages and handoffs the observed work and requested breadth justify. An ordinary request needs a few nodes and a final check by the lead. Broaden for explicit exhaustive coverage, an audit, mass research or newly discovered work; do not pad the graph to a quota. New phases get new runs; changed definitions within a phase invalidate affected nodes and descendants. Before defining a graph, read the [graph and handoff contract](references/planning.md).
 
 Persist these lead-owned files:
 
@@ -37,13 +37,13 @@ A standalone run records its objective, observable success criteria and stop con
 
 ## Dependencies and handoffs
 
-Reject duplicate ids, missing dependencies, cycles, parallel write conflicts and missing evidence/verification coverage before dispatch. Every predictable stage belongs in the graph up front; unknown downstream data alone is not a reason to create another run.
+Reject duplicate ids, missing dependencies, cycles, parallel write conflicts and missing evidence/verification coverage before dispatch. Put known needed stages in the phase graph and add genuinely new stages when findings justify them. Unknown downstream data alone is not a reason to create another run.
 
 For web-facing nodes, make the source-reading or rendered-page capability part of the brief and acceptance evidence. Read [browser](../browser/SKILL.md#delegated-page-work) when interaction/rendered/account state is required and [ultimate-browsing](../ultimate-browsing/SKILL.md) for blocked/incomplete source reading. These conditional contracts apply to direct skill invocation and standalone mass runs as well; no shared ULW policy or inherited child skill is assumed.
 
 `dependsOn` orders work only. Producer assignments name exact absolute output files; consumers name those same files and fail on missing handoffs. A completed dependency neither transports context nor proves its artifact exists. A node becomes ready only when all dependencies are verified complete. Edges represent consumed outputs or real write ordering; unrelated branches can advance independently.
 
-Record actual handles and attempts when work starts. Store bounded returned reports and checked artifact paths before marking a node complete. A final verification stage gates graph completion against the binding criteria; child completion alone is not graph success. Current OMP decides how that work is performed.
+Record actual handles and attempts when work starts. Store bounded returned reports and checked artifact paths before marking a node complete. Check the actual deliverable against the binding criteria before completing the graph; child completion alone is not graph success. The lead runs and records a straightforward final check directly. Use independent verification nodes only when justified by the [verification contract](references/planning.md#verification) and current OMP requirements.
 
 ## Recovery and resume
 

@@ -18,7 +18,7 @@ interface Turn {
   finalSent: boolean;
   finalObserved: boolean;
 }
-const direct = new Set(["eval", "ask", "wait", "yield", "think", "checkpoint", "rewind", "new_context", "write", "apply_patch", ...directProbeNames]);
+const direct = new Set(["eval", "ask", "wait", "yield", "think", "checkpoint", "rewind", "new_context", "write", "bash", "apply_patch", "propose", "resolve", "reject", ...directProbeNames]);
 const sentinel = "NATIVE_CODE_MODE_READ_47A9";
 const present = "native-code-mode-present.txt";
 const missing = "native-code-mode-missing-47a9.txt";
@@ -106,7 +106,14 @@ const server = Bun.serve({
         assert(bridgeCall, "catalog must expose an executable accessor for the hyphenated native tool");
         const mountedCall = description.split("\n").find(line => line === `await tool[${JSON.stringify(mountedProbe.name)}](args)`);
         assert(mountedCall, "catalog must also expose the discoverable tool accessor");
-        assert(description.includes(`Read xd://${mountedProbe.name} for current documentation and JSON Schema before first use.`));
+        const helpCommand = `${mountedProbe.name} --help`;
+        if (!description.includes(helpCommand)) {
+          const native = turn.observations.find(item => item.stage === "agent" && item.phase === "before")?.blocks ?? [];
+          const inventory = native.flatMap((block, i) => block.split("\n")
+            .filter(line => /(?:^# Tool Commands|^# Internal URLs|^## More commands|^Each listed tool|^⁂|code-mode-mounted-probe)/.test(line))
+            .map(line => `${i}: ${line}`));
+          assert.fail(`Missing native command help: ${helpCommand}\n${inventory.join("\n")}`);
+        }
         const patchFile = `${turn.evalCall}.txt`;
         const patchValue = `NATIVE_PATCH:${turn.evalCall}`;
         const patch = `*** Begin Patch\n*** Add File: ${patchFile}\n+${patchValue}\n*** End Patch\n`;
@@ -124,7 +131,7 @@ const server = Bun.serve({
             `args = {"value": ${JSON.stringify(`${bridgeProbe.name}:${turn.evalCall}`)}}`,
             `bridge_result = ${bridgeCall}`,
             "print(bridge_result if isinstance(bridge_result, str) else bridge_result['text'])",
-            `docs = await tool.read({"path": ${JSON.stringify(`xd://${mountedProbe.name}`)}})`,
+            `docs = await tool.bash({"command": ${JSON.stringify(helpCommand)}})`,
             "print(docs if isinstance(docs, str) else docs['text'])",
             `args = {"value": ${JSON.stringify(`${mountedProbe.name}:${turn.evalCall}`)}}`,
             `mounted = await asyncio.gather(${mountedCall.replace(/^await /, "")}, tool.read({"path": ${JSON.stringify(present)}}), return_exceptions=True)`,
@@ -148,7 +155,7 @@ const server = Bun.serve({
             `const args = { value: ${JSON.stringify(`${bridgeProbe.name}:${turn.evalCall}`)} };`,
             `const bridgeResult = ${bridgeCall};`,
             'print(typeof bridgeResult === "string" ? bridgeResult : bridgeResult.text);',
-            `const docs = await tool.read({ path: ${JSON.stringify(`xd://${mountedProbe.name}`)} });`,
+            `const docs = await tool.bash({ command: ${JSON.stringify(helpCommand)} });`,
             'print(typeof docs === "string" ? docs : docs.text);',
             `const mounted = await Promise.allSettled([${mountedCall.replace("(args)", `({ value: ${JSON.stringify(`${mountedProbe.name}:${turn.evalCall}`)} })`).replace(/^await /, "")}, tool.read({ path: ${JSON.stringify(present)} })]);`,
             'for (const item of mounted) print(item.status === "fulfilled" ? item.value : String(item.reason));',
@@ -169,7 +176,7 @@ const server = Bun.serve({
         assert(text.includes(missing), "native missing-file error must identify the requested file");
         assert(text.includes(`${bridgeProbe.name}:${turn.evalCall}`), "the advertised bracket accessor must reach the actual native tool");
         assert(text.includes(`${mountedProbe.name}:${turn.evalCall}`), "the discoverable accessor must reach the actual mounted tool");
-        assert(text.includes(mountedProbe.description), "the native xd mount must supply the discoverable tool documentation");
+        assert(text.includes(mountedProbe.description) && text.includes("--value"), "native command help must supply the discoverable tool description and arguments");
         assert(text.includes(`NATIVE_PATCH:${turn.evalCall}`), "native edit must apply the patch and read back its contents");
         assert(text.includes(`[X] ${turn.name}`), "native todo must retain the completed checklist");
         assert(!text.includes("[Some lines truncated"), `${turn.name}: native batch evidence must remain untruncated`);
@@ -233,7 +240,7 @@ try {
     "-e", fileURLToPath(new URL("./fixtures/code-mode-provider.ts", import.meta.url)),
     "--model", `${provider}/${models[0]}`, "--cwd", cwd, "--config", config,
     // --tools promotes explicitly selected discoverable tools to direct schemas.
-    // Use native default activation to exercise the real xd-only catalog path.
+    // Use native default activation to exercise the real mounted command.
     "--no-skills", "--no-rules", "--no-title", "--no-session", "--no-lsp", "--no-prewalk",
   ], { cwd, stdin: "pipe", stdout: "pipe", stderr: "pipe", env: {
     PATH: process.env.PATH, LANG: process.env.LANG ?? "en_US.UTF-8", TMPDIR: process.env.TMPDIR ?? tmpdir(),
@@ -334,8 +341,8 @@ try {
       presetRegions++;
       assert.deepEqual(names(body.tools!), names(original.filter(tool => direct.has(tool.function.name))), `${current.name}: every model must expose exactly the conservative direct set`);
       assert.deepEqual(toolSchemas(body.tools!), toolSchemas(original.filter(tool => direct.has(tool.function.name))), `${current.name}: projection must preserve every retained native tool's parameters`);
-      for (const name of ["read", "grep", "bash", "edit", "task", "todo", bridgeProbe.name]) assert(!names(body.tools!).includes(name), `${current.name}: every model must hide code-mode ${name}`);
-      for (const name of ["eval", "write", ...directProbeNames]) assert(names(body.tools!).includes(name), `${current.name}: every model must retain native ${name}`);
+      for (const name of ["read", "grep", "edit", "task", "todo", bridgeProbe.name]) assert(!names(body.tools!).includes(name), `${current.name}: every model must hide code-mode ${name}`);
+      for (const name of ["eval", "write", "bash", ...directProbeNames]) assert(names(body.tools!).includes(name), `${current.name}: every model must retain native ${name}`);
       const read = original.find(tool => tool.function.name === "read")!;
       const description = body.tools!.find(tool => tool.function.name === "eval")!.function.description ?? "";
       assert(description.includes("<omp-code-mode>") && description.includes("</omp-code-mode>"), `${current.name}: native eval must carry the catalog`);
@@ -363,11 +370,11 @@ try {
       "real eval tool.read sentinel and missing-file diagnostic per code-mode model",
       "real eval tool.edit applies native apply_patch input and reads back the created file",
       "advertised bracket accessor invokes a hidden hyphenated native tool",
-      "discoverable tool absent from the original wire catalog is documented via xd and invoked alongside native read",
+      "native command help describes a mounted tool absent from the wire catalog; eval calls it alongside native read",
       "defined and undefine invoke registered tools directly, never eval-local helpers",
       "native task and todo use the code-mode catalog", "native todo completion readback",
       "model switch back to the first model re-projects"],
-    writeException: "Native write remains direct: its schema mixes ordinary files, plans and xd session-control; the public API cannot distinguish them.",
+    writeException: "Native write stays available directly for files and session-local artifacts.",
     promptIntegration: `${presetRegions} installed preset regions across ${requests} provider requests checked`,
     limitations: ["Scripted loopback responses verify transport, not model obedience",
       "No-eval authoritative selection and cache mutation belong to unit checks; this smoke does not claim those scenarios"],

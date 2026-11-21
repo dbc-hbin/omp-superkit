@@ -2,6 +2,11 @@
 
 `ulw-research` is authored for OMP. The projects below inspired research/report ideas; no third-party source is vendored or redistributed here.
 
+## Inline HTML report delivery
+
+- Workflow source: [OMO v5.1.79 research delivery](https://github.com/code-yeongyu/oh-my-openagent/blob/822bd923038c88427b450744de75e0fa7d7401cd/packages/shared-skills/skills/ulw-research/SKILL.md).
+- Adaptation: show the verified report using [OMP v19.1.0's client-advertised `renderEmbeds` contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/system/system-prompt.md), with the existing local report gates and link fallback. No upstream report tooling is used.
+
 ## insane-research (fivetaku)
 
 The claim-graph data-flow lock is inspired by **insane-research**: high-risk non-code assertions enter synthesis only after independent sources, counter-search and primary backing, otherwise remaining unresolved/refuted.

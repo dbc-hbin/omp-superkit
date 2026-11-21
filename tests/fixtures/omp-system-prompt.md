@@ -15,7 +15,7 @@ You are omp's trusted coding assistant.
 
 # Internal URLs
 - local://
-- xd://
+- help://
 
 # Tool Inventory
 - `read`

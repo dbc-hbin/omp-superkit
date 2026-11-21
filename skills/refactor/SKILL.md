@@ -13,9 +13,11 @@ unrelated user changes.
 
 Identify the exact files or symbols, callers, tests and public contracts
 before editing. Use `read` for the implementation and its owner tests. Use
-`xd://lsp` for definitions, references, implementations and diagnostics when
-the language server is available. Use `xd://ast_grep` for structural patterns
-and codemods; use `grep` only for literal references.
+`lsp` for definitions, references, implementations and diagnostics when the
+language server is available. Use `ast_grep` for structural search and
+`ast_edit` for codemods; use `grep` only for literal references. Check each
+mounted tool command with `<tool> --help`, or use the advertised schema if the
+host exposes the tool directly.
 
 Do not widen a cleanup into a new abstraction, dependency, compatibility
 layer or unrelated bug fix. If the requested outcome is clear, proceed

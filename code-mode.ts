@@ -10,6 +10,7 @@ type ToolInfo = {
 };
 type RequestContext = {
 	model?: Partial<PresetModel> & { api?: string };
+	getSystemPrompt(): string[];
 	ui?: { notify(message: string, type?: "info" | "warning" | "error"): void };
 };
 type Lifecycle = "session_start" | "session_switch" | "session_branch" | "session_tree" | "session_shutdown";
@@ -34,12 +35,16 @@ const BRIDGE_EXCLUDED = new Set([
 	// Completion/rollover consume direct result events; checkpoint/rewind also
 	// have native bridge guards. think's private rendering is a direct surface.
 	"yield", "think", "checkpoint", "rewind", "new_context",
+	// Native plan approval and staged-preview decisions are commands when mounted,
+	// direct tools otherwise. Do not replace their advertised decision route.
+	"propose", "resolve", "reject",
 	"apply_patch",
 	// Native JS tool.defined/undefine manage local definitions, not session tools.
 	"defined", "undefine",
 ]);
-// write also transports session-control devices that require direct results.
-const DIRECT = new Set([...BRIDGE_EXCLUDED, "write"]);
+// OMP identifies mounted plan/preview decisions from the outer bash tool event.
+// A decision inside an eval cell is not that event. Both carriers also support ordinary I/O.
+const DIRECT = new Set([...BRIDGE_EXCLUDED, "write", "bash"]);
 const REGION = /<omp-code-mode>[\s\S]*?<\/omp-code-mode>/g;
 // Attribute access rejects Python keywords; bracket access works in both kernels.
 const PYTHON_KEYWORDS = new Set([
@@ -230,6 +235,31 @@ function choiceNames(payload: unknown): Set<string> {
 	return names;
 }
 
+// ToolInfo does not identify mounted commands. Use only the names OMP actually
+// advertises, never turn an off-wire name (e.g. a custom wire alias) into a shell command.
+function advertisedToolCommands(blocks: string[]): Set<string> {
+	const commands = new Set<string>();
+	// Only block zero's native Runtime, after its Internal URLs and inventory.
+	// Project rules precede those sections; context files and child assignments
+	// may follow the base block and can contain identical Markdown headings.
+	const runtime = /\n([⁂§]) Runtime\n[\s\S]*?(?=\n\1 (?:Scratchpad|Tool Policy)\n)/.exec(blocks[0] ?? "")?.[0];
+	if (!runtime) return commands;
+	const urls = runtime.lastIndexOf("\n# Internal URLs\n");
+	const start = runtime.lastIndexOf("\n# Tool Commands\nEach listed tool is also a command in `bash`:");
+	if (urls < 0 || start < urls) return commands;
+	const section = runtime.slice(start);
+	for (const match of section.matchAll(/^## ([A-Za-z_][\w.-]*)\n\n\1 — /gm)) commands.add(match[1]);
+	const catalog = section.split("\n## More commands (help on demand)\n").at(1);
+	if (catalog) {
+		for (const row of catalog.trimStart().split("\n")) {
+			const name = /^- `([A-Za-z_][\w.-]*)` — /.exec(row)?.[1];
+			if (!name) break;
+			commands.add(name);
+		}
+	}
+	return commands;
+}
+
 /** Register LAST, after preset/native-description rewriting. Hidden direct calls are
  * not blocked: this is an outgoing-schema projection, not an execution boundary.
  */
@@ -309,16 +339,17 @@ export function registerCodeMode(pi: CodeModeApi): void {
 			});
 			if (!DIRECT.has(name) && !forced.has(tool.name)) hidden.add(tool.name);
 		}
-		// Discoverable tools are active native tools too, but have no wire schema.
-		// Advertise their native accessor and defer docs/schema to the existing xd
-		// mount instead of duplicating the entire MCP/extension catalog in eval.
+		// Use native command help for advertised commands; otherwise the bridge
+		// needs its registered schema here, including with no bash or a wire alias.
 		const onWire = new Set(actual.map(nativeName));
+		const commands = native.has("bash") && onWire.has("bash")
+			? advertisedToolCommands(ctx.getSystemPrompt()) : new Set<string>();
 		for (const info of native.values()) {
 			if (BRIDGE_EXCLUDED.has(info.name) || onWire.has(info.name) || unprojected.has(info.name)) continue;
 			if (!object(info.parameters) || typeof info.description !== "string") continue;
 			entries.push({
 				name: info.name, description: info.description, nativeDescription: info.description,
-				guidelines: info.promptGuidelines ?? [], schema: info.parameters, deferred: true,
+				guidelines: info.promptGuidelines ?? [], schema: info.parameters, deferred: commands.has(info.name),
 			});
 		}
 		if (unprojected.size) {
@@ -344,13 +375,14 @@ export function registerCodeMode(pi: CodeModeApi): void {
 						? 'Prefer language="py" for code mode. Use language="js" when JavaScript-specific APIs or libraries are needed.'
 						: 'Use language="py" for code mode; JavaScript is not available.'
 					: 'Use language="js" for code mode; Python is not available.',
-				"Read linked xd:// docs before first use, then invoke the tool accessor, not write.",
-				"Tools absent from this catalog keep their native direct calls.",
+				"Use the host's help://<tool>/<topic> links for documentation topics. Tools absent from this catalog keep their native routes.",
+				...(entries.some(entry => entry.name === "bash")
+					? ["For mounted propose, resolve or reject, use direct bash, not a nested Eval call. Use tool.bash for ordinary shell work."] : []),
 				...(entries.some(entry => entry.name === "write")
-					? ["Use tool.write for files; direct write for session/plan transports or devices without a listed accessor."] : []),
+					? ["Use tool.write for files. Keep native session and planning controls on their advertised routes."] : []),
 				...entries.map(entry => [
 					`await tool${/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name) && !PYTHON_KEYWORDS.has(entry.name) ? `.${entry.name}` : `[${JSON.stringify(entry.name)}]`}(args)`,
-					...(entry.deferred ? [`Read xd://${entry.name} for current documentation and JSON Schema before first use.`] : [
+					...(entry.deferred ? [`Native command help: ${entry.name} --help (session bash).`] : [
 						entry.description,
 						...(entry.nativeDescription === entry.description ? [] : [`Native documentation: ${entry.nativeDescription}`]),
 						...entry.guidelines,

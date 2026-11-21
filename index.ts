@@ -103,7 +103,7 @@ export default function ompUlw(pi: ExtensionApi): void {
     if (preset && ctx.model) profiles.set(JSON.stringify([ctx.model.provider, ctx.model.id, ctx.model.name, ctx.model.identity, options.toolNames]), { prompt: marked, modelGuidance: true });
     if (!preset) result.blocks[0] = result.blocks[0].replace(marked, markPreset(originalBehavior, ctx.agent.kind === "sub"));
     originalHost = result.blocks[0];
-    result.blocks[0] = projectHostGuidance(result.blocks[0], originalHost, preset !== undefined);
+    result.blocks[0] = projectHostGuidance(result.blocks[0], originalHost, preset !== undefined, originalBehavior);
     return { systemPrompt: result.blocks };
   });
 
@@ -140,7 +140,7 @@ export default function ompUlw(pi: ExtensionApi): void {
     const modelGuidance = replacement.modelGuidance;
     const refreshed = rewritePresetPayload(payload, ctx.model.api, replacement.prompt);
     const projected = rewritePresetPayload(refreshed, ctx.model.api,
-      text => projectHostGuidance(text, host, modelGuidance), /^[\s\S]+$/);
+      text => projectHostGuidance(text, host, modelGuidance, originalBehavior), /^[\s\S]+$/);
     return modelGuidance ? rewriteToolGuidancePayload(projected, ctx.model.api, replacement.prompt) : projected;
   });
   registerPrewalk(pi);

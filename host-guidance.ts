@@ -1,7 +1,7 @@
 import { PRESET_OPENING, PRESET_REGION } from "./host";
 
 /** Project the recognized host's behavioral defaults without changing its capability or permission contracts. */
-export function projectHostGuidance(text: string, source: string, modelGuidance: boolean): string {
+export function projectHostGuidance(text: string, source: string, modelGuidance: boolean, originalBehavior?: string): string {
   const role = /\n([§⁂]) Role\n/.exec(source);
   // Headerless native templates reach here only after replaceHostBehavior has
   // recognized their opening and installed our marker at the start.
@@ -19,11 +19,22 @@ export function projectHostGuidance(text: string, source: string, modelGuidance:
   let policy = source.slice(policyAt, workflowAt);
   let workflow = deliveryAt > workflowAt ? source.slice(workflowAt, deliveryAt) : undefined;
   if (modelGuidance) {
-    policy = policy.replace(/(^|\n)# (?:General|Exploration|Delegation)\n[\s\S]*?(?=\n# |$)/g, "$1");
+    // OMP advertises HTML embeds conditionally in Engineering, inside the role
+    // replaced by the model profile. Keep those actual client instructions;
+    // fallback restores the original role (which already contains them).
+    const engineering = originalBehavior?.split("\n# Engineering\n")[1]?.split(/\n# /, 1)[0];
+    const embed = engineering?.match(/^  - Picture that exists [^\n]*`<iframe src=[^\n]+(?:\n    - [^\n]+)*/m)?.[0];
+    policy = policy.replace(/(^|\n)# (?:General|Exploration)\n[\s\S]*?(?=\n# |$)/g, "$1");
+    // Delegation contains host-selected permissions and gates, not just preferences.
+    // Drop only the known optional fan-out preference, leaving unfamiliar rules intact.
+    policy = policy.replace(/(^|\n)# Delegation\n[\s\S]*?(?=\n# |$)/, section => section.replace(
+      /^Delegation preferred\. Once design settles, SHOULD fan substantial work to `task`; multi-file changes, refactors, features, tests, investigations strong candidates\. Judge small single-file\/interactive work\.(?:\n|$)/m, "",
+    ));
     const profile = region[2];
     if (profile.includes("For text or filename search")) {
       policy = policy.replace(/^- File structure\/names:[^\n]*(?:\n|$)/m, "");
     }
+    if (embed) policy += `\n# Inline HTML\n${embed.trimStart()}\n`;
     workflow = workflow?.replace(/(^|\n)# (?:2\. Verify|3\. Cleanup)\n[\s\S]*?(?=\n# \d\. |$)/g, "$1");
     // Recognize coverage in the active profile, never a model-name allowlist.
     workflow = workflow?.replace(/(^|\n)# 1\. Before Editing\n[\s\S]*?(?=\n# \d\. |$)/, before => {

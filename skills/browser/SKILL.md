@@ -8,11 +8,11 @@ description: "Default to OMP's native eval browser prelude for interactive pages
 Invoke `/web-browser` for this workflow, or use native `/skill:browser` when skill discovery is
 enabled. OMP's own `/browser` remains its headless/visible mode command and is not replaced.
 
-Read `xd://eval/browser` before the first browser operation in a session. Use the actual global
+Read `help://eval/browser` before the first browser operation in a session. Use the actual global
 `browser` inside JavaScript or Python `eval`; it is not a standalone tool, package import or MCP
 server. If the prelude is unavailable, report the missing eval/browser capability. Do not install a
 second browser runtime to substitute for it. The live contract wins over this skill's pinned
-18.20 guidance: do not assume its diagnostic envelopes or timeout inheritance on an older host.
+19.1 guidance: check the advertised API and backend before assuming the examples apply.
 
 Use OMP's native Eval `browser` by default for browser work; honor an explicit user choice of
 another tool. Native desktop chrome and unsupported app surfaces use the shipped `computer-use`
@@ -72,7 +72,7 @@ worker call, including subscribing to a response before the click that triggers 
 capture outer eval-cell variables: pass explicit `args`. A page `evaluate` executes in the page;
 `tab.run` executes in the worker with Bun/Node and tool access, not a security sandbox.
 Tern and owned WebKit expose only a Puppeteer-like subset; do not apply a raw Chromium recipe to
-them. On 18.20, direct helpers and a run without an explicit timeout inherit a longer Eval-cell
+them. In OMP 19.1, direct helpers and a run without an explicit timeout inherit a longer Eval-cell
 timeout; read [commands.md](references/commands.md) and the live contract before relying on it.
 
 Use state waits with bounded deadlines, never fixed sleeps. Diagnose a failed selector from fresh
@@ -104,7 +104,7 @@ preview disagrees with current state. Record CSS viewport, DPR, device/touch set
 scenario; a screenshot's image pixels may differ from CSS coordinates. Emulation can reload the
 page, so apply it before setting up the scenario and re-observe afterward.
 
-On hosts advertising the 18.20 diagnostics contract, `console()` and `errors()` return
+In OMP 19.1, `console()` and `errors()` return
 `{ entries, nextSeq, dropped }`, not arrays. Collect `.entries` and retain cursors/drop metadata
 around the scenario using [network.md](references/network.md#cursor-based-console-and-error-evidence).
 Do not clear shared diagnostic history to isolate a test or treat missing retained entries as

@@ -121,7 +121,19 @@ node "$SKILL_DIR/scripts/report-tools.mjs" outcome briefing --session-dir "$SESS
 
 Run the last three in order, continuing only when verification succeeds. `verify` fails on pending/unreasoned rows or missing/empty delivered files. `finish` records time and counts from `sources-ledger.md`; `briefing` prints sources, unique domains, elapsed minutes, deliverables, gate results, residual defects and repair summary. Include that printed block with the cited answer and artifact links, plus the synthesis's coverage/convergence and unresolved-claim summary. A resolved failure is accounted for, not a successful artifact.
 
-## 7. Command reference
+## 7. Show the HTML report
+
+After the applicable gates and outcome verification, if this client advertises OMP's `renderEmbeds`, put the **actual verified HTML report** first in the delivery message, before the summary and other artifact links. Use a standalone iframe line with a meaningful title and the real HTML artifact path relative to the session working directory:
+
+```html
+<iframe src="doc/ulw-research/20261121-103000/report.html" title="Research report: evidence and findings"></iframe>
+```
+
+The example path is `$SESSION_DIR/report.html`, not a demo, printout or chart image. Use the delivered HTML path from `outcome.json` when HTML is promised; an existing HTML source used for a formatted report can be shown only if it is itself a complete, checked reading edition of the report. Use the same bytes inspected in the browser, including citations, figures and source comparison pairs where applicable. Keep the report beside its `assets/` tree: references such as `assets/flow.svg` resolve relative to the HTML file, while the iframe path resolves from the session working directory. If the report or assets change, check the changed report before showing it. A reproduction or its preview never substitutes for the report.
+
+If there is no verified HTML, `renderEmbeds` is absent or uncertain, or the client cannot render that report with its assets, give a clickable artifact link instead of an iframe or a claim that the report displayed. Keep the cited summary and links to all promised formats; do not create another format just to enable an embed. The client may show the HTML live or as a screenshot with a link.
+
+## 8. Command reference
 
 All commands are prefixed with `node "$SKILL_DIR/scripts/report-tools.mjs"`. Exit codes: `0` success, `1` semantic failure, `2` usage/IO error. JSON is stdout (briefing/probe can be text); summaries are stderr.
 

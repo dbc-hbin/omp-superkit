@@ -56,6 +56,8 @@ Bind captures and QA results to the rendered inputs they prove. An edit invalida
 
 Before any reviewer sees an image, verify each capture yourself: the file signature matches its extension (a JPEG named `.png` is invalid), the frame is fully composited (no black or missing regions from the screenshot compositor), dimensions match the requested viewport, and the frame holds only the page - a capture showing the browser's tabs or address bar, or the capture tool's own UI, is a window grab, not evidence. A defective capture wastes an entire review round on the pipeline instead of the product - fix the capture tooling and re-shoot before dispatch, and record the tooling defect in the QA log instead of looping the reviewer on it.
 
+Open the actual saved PNG/JPEG path with OMP's native `read`; raster images render inline without a selector. Inspect the pixels, not just a path, stale capture preview, or diff statistics. Use the authorized, redacted copies for reviewer access. If image opening is unavailable to a reviewer, record `blocked_capability`, not PASS.
+
 ### Machine pre-check - the detect SDK before any reviewer
 
 On a web surface, run the `frontend` skill's detect SDK on every enumerated page before capturing for reviewers: `bun "$FRONTEND_DIR/scripts/detect/cli.ts" --reflow --json <url-or-html-file>`, where `FRONTEND_DIR` is the observed absolute directory of `skill://frontend` (usage and config in its `references/perfection/detect.md`). It reads the rendered page and reports contrast against the painted background, the type scale and heading order, overflow at 320-1440 px under an unbroken stress string, and decoration and copy tells. An error or warning is a FAIL on the matching checklist item (E2 contrast, B8 type scale, A9 or A13 layout, F8/F9 surfaces and scaffolds, C4 wrapping) before either reviewer looks; fix it and rerun. Keep the JSON beside the captures and hand it to both reviewers as evidence. A renderer that cannot start is a recorded `blocked_capability`, not a pass. Native and TUI surfaces skip this step.
@@ -207,7 +209,7 @@ For an actual rendered surface, independent review is REQUIRED before a "done" c
 
 Obtain both oracle charters under the selected model's delegation guidance and any explicit native mode. Each oracle is assigned read-only scope: it reviews and reports, it cannot modify files or delegate. Each returns an assessment with concrete, located findings; the parent derives PASS, REVISE, or FAIL only when the evidence supports that verdict. Pass A proves the surface is a real design-system implementation, not a mock-only or faked-image substitute, and judges behaviour: motion, states, keyboard, platform (checklist G-J). Pass B directly opens screenshots and judges what is seen: layout, hierarchy, text, targets, themes, consistency (checklist A-F), reference fidelity and CJK.
 
-Paste evidence directly into each prompt: source code, the plain-text TUI captures, the script JSON, and the screenshot paths plus your described observations for web. Never fork parent history into a reviewer - the message carries everything it needs. Require each blocking finding to be tagged `[product]` (the rendered UI is wrong) or `[evidence]` (the capture artifact is defective - wrong signature, partial compositing, stale file); the loop treats the two differently. The two passes differ in depth by charter, not by any model or effort setting.
+Paste evidence directly into each prompt: source code, the plain-text TUI captures, the script JSON, and the rendered screenshot paths plus your described observations. Never fork parent history into a reviewer - the message carries everything it needs. Require each blocking finding to be tagged `[product]` (the rendered UI is wrong) or `[evidence]` (the capture artifact is defective - wrong signature, partial compositing, stale file); the loop treats the two differently. The two passes differ in depth by charter, not by any model or effort setting.
 
 For both passes, distinguish an actual defect from a taste preference, independently of the `[product]`/`[evidence]` classification. Tie defects to observable behavior, accessibility, content, platform requirements, or the user's design contract. Taste alone is advisory: it cannot make a checklist item FAIL, block completion, or trigger a repair loop. A mismatch with an explicit visual reference remains a defect, not a taste preference.
 
@@ -236,7 +238,7 @@ SOURCE CODE:
 {Full source of the UI: components, styles/tokens, layout, render code. Include neighboring files that show existing patterns.}
 
 CAPTURES:
-{Web: actual screenshot path(s) plus your described observations. TUI: paste capture.txt and capture-ansi.txt inline.}
+{Actual rendered screenshot paths plus your described observations. For TUI, also paste capture.txt and capture-ansi.txt inline.}
 
 APPLICABLE CAPTURE MATRIX:
 {Enumerated required pages/states, viewports or terminal sizes, themes, scroll positions and motion/interaction rows from Step 2; criterion for each row; blocked capabilities and explicitly out-of-scope rows. Review this matrix without adding unrelated widths/themes/states.}
@@ -269,7 +271,7 @@ BLOCKING: items that must be fixed; empty if PASS
 
 ```text
 REVIEW TYPE: VISUAL FIDELITY AND CJK PRECISION (read-only)
-ASSESSMENT CHARTER: Directly open the screenshots with the available image-viewing tool before judging visual fidelity and CJK precision. Anchor claims to script evidence, source and captures.
+ASSESSMENT CHARTER: Use OMP's native read on each actual/reference PNG or JPEG path to directly inspect its pixels before judging visual fidelity and CJK precision. If the assigned tools cannot open the image, report that capability gap instead of judging a description. Anchor claims to script evidence, source and captures.
 
 INTENT:
 {What the user requested and the mock or baseline to match.}
@@ -283,7 +285,7 @@ REFERENCE PACKET:
 SURFACE: {web | tui | both}
 
 CAPTURES:
-{Web: actual and reference screenshot paths plus your described observations. TUI: paste capture.txt and capture-ansi.txt inline.}
+{Actual and applicable reference screenshot paths plus your described observations. For TUI, also paste capture.txt and capture-ansi.txt inline.}
 
 APPLICABLE CAPTURE MATRIX:
 {Enumerated required pages/states, viewports or terminal sizes, themes, scroll positions and motion/interaction rows from Step 2; criterion for each row; blocked capabilities and explicitly out-of-scope rows. The full 390/1440/1920 light/dark matrix applies only when Step 2 requires it.}

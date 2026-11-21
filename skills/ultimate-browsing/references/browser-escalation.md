@@ -1,6 +1,6 @@
 # Native browser escalation
 
-Read `skill://browser`, [lifecycle](skill://browser/references/lifecycle.md), [network](skill://browser/references/network.md), `xd://eval/browser` and the applicable host routing skill before interaction. The active contract and approval rules win. Eval/browser must be enabled; there is no browser AgentTool or library import to substitute.
+Read `skill://browser`, [lifecycle](skill://browser/references/lifecycle.md), [network](skill://browser/references/network.md), `help://eval/browser` and the applicable host routing skill before interaction. The active contract and approval rules win. Eval/browser must be enabled; there is no browser AgentTool or library import to substitute.
 
 ## Choose the actual session
 

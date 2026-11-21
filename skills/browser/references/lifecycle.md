@@ -1,6 +1,6 @@
 # Connection, ownership and setup
 
-Read `xd://eval/browser` first. Ordinary interaction does not require a relay. Pick the state the
+Read `help://eval/browser` first. Ordinary interaction does not require a relay. Pick the state the
 task actually needs, inspect the backend returned by open and keep a short task-specific name.
 
 ## Managed and explicitly spawned browsers
@@ -110,17 +110,30 @@ that every popup, platform or browser version leaves focus unchanged.
 
 ## Relay setup when actually required
 
-Use `omp browser-relay --help` for the installed version. With explicit install authorization,
-`omp browser-relay install` writes the Chrome extension and prints the current setup steps. The
-user or an authorized GUI flow loads the printed directory in Chrome's extension manager. Do not
-use enterprise force-install policy, hidden profile edits or unrelated extension installers.
+Use `omp browser-relay --help` for the installed version. In OMP 19.1, `omp browser-relay install`
+writes the unpacked extension and registers Chrome's native messaging host. By default it also
+installs into the last-used Chrome profile (or the profile directory selected with
+`--profile <name>`) by writing Chrome's unpacked-install record. It can restart a running Chrome
+around that write. Obtain explicit authorization for the extension/native-host install and
+confirm the exact Chrome profile and restart before using the unattended path.
 
-The browser prelude starts the relay on demand. `app: "relay"` selects it per open, so a
-persistent configuration change is unnecessary for one task. Changing `browser.relay` globally is a
-separate user preference; obtain authorization before saving it. A connection timeout is missing
-connectivity, not proof that the extension is installed, enabled or connected. Verify a real new
-relay tab and its backend before declaring setup successful. Do not repeatedly launch daemons or
-retry denied browser access.
+If the user prefers manual loading, use `omp browser-relay install --no-chrome` with authorization
+for the extension files and native-host registration. This skips the unattended Chrome profile
+write and restart, not native-host setup. When Chrome's profile cannot be written, the installer
+also prints manual steps. Use the exact printed directory: the user selects the intended Chrome
+profile, turns on Developer mode in `chrome://extensions`, and chooses **Load unpacked**. Do not
+accept a browser permission prompt without authorization, switch profiles after denial or use
+enterprise force-install policy or hand-edited profile files. If upgrading from the old relay,
+follow the current installer and Chrome instructions for reloading/reinstalling the extension.
+
+Chrome launches the extension's native host, which serves the relay on loopback while Chrome runs
+with the extension. There is no separate server to start from Eval; `native-host` is Chrome's
+entry point, not a manual startup command. Prefer `app: "relay"` for one authorized session;
+it does not save a setting. Making `browser.relay` the default is a separate preference change:
+it can route ordinary browser calls from top-level sessions in other projects, including
+background runs, into the user's logged-in browser. Confirm that scope before saving it.
+The extension badge can indicate availability, but verify the actual connection/backend in an
+authorized task tab before claiming it works. A timeout is not proof of setup or permission.
 
 ## Tern and cmux
 

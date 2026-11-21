@@ -11,11 +11,12 @@ literal text, comments, strings and filenames.
 
 ## OMP route
 
-Read `xd://ast_grep` before the first structural query. Execute one narrow
-query by writing its JSON arguments to `xd://ast_grep`:
+When mounted as a bash tool command, read `ast_grep --help` before the first
+structural query and run the narrow query there. If the host advertises a
+native `ast_grep` tool instead, call it with the same arguments in its schema.
 
-```json
-{"pat":"console.log($VALUE)","lang":"typescript","path":"src"}
+```bash
+ast_grep -j '{"pat":"console.log($VALUE)","lang":"typescript","path":"src"}'
 ```
 
 Use one language and one AST pattern per call. `$NAME` captures one node,
@@ -34,8 +35,11 @@ Restructure the pattern if a later split is required.
 Structural rewrites are higher risk than searches:
 
 1. Search the exact pattern and inspect the matched files.
-2. Preview the rewrite with the AST tool's non-applying mode.
-3. Apply only after the preview matches the requested scope.
+2. Read `ast_edit --help` (or the advertised `ast_edit` tool schema) and
+   inspect its staged proposal; generating the proposal does not apply it.
+3. If the preview matches the requested scope, run `resolve "<one-sentence reason>"`;
+   otherwise run `reject "<reason>"`. Use the advertised native `resolve` or `reject`
+   tool instead when commands are not mounted.
 4. Read the changed files and run the narrowest owner check.
 
 Use LSP for symbol-aware renames, references, definitions and code actions.

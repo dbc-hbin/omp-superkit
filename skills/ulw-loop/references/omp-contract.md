@@ -22,7 +22,13 @@ Durable workflows retain one owner for each kind of state:
 | `mass-ulw` | `doc/mass-ulw/<run-id>/graph.json` and `ledger.jsonl`: dependency nodes, handoffs and recovery |
 | `ulw-research` | Research directory for claims, observations and deliverables; standalone continuation uses session-owned `doc/ulw-loop/<session-id>/` goals referencing those records |
 
-The lead owns shared workflow state. A nested graph uses the enclosing loop or execution objective rather than registering another goal. Native plan-mode children return proposed content without writing artifacts; the lead submits the canonical local plan through `xd://propose`, never ask/chat approval. Planning does not authorize implementation; workflow flags do not bypass OMP approval boundaries.
+The lead owns shared workflow state. A nested graph uses the enclosing loop or execution objective rather than registering another goal. Planning does not authorize implementation; workflow flags do not bypass OMP approval boundaries.
+
+### Native plan submission
+
+Native plan-mode children return proposed content without writing artifacts. The lead writes and reviews the canonical `local://<slug>-plan.md`, then runs `propose <slug>` through `bash` when the command is mounted; otherwise call the direct `propose` tool with that slug. Submit the slug matching the filename, not a path or the plan text. Never request plan approval in prose or through ask/chat. If neither route is exposed, report the missing capability; do not substitute approval in prose. The user's native selection governs execution.
+
+Source: [OMP v19.1.0 native plan-mode contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/system/plan-mode-active.md).
 
 ## Continuation and evidence
 

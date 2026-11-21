@@ -2,7 +2,7 @@
 
 MODIFIED COPY for OMP discovery-only use; see `../ATTRIBUTION.md` and `../LICENSE.md`. Resolve `SKILL_DIR` from `skill://coding-agent-sessions` and apply its scope/privacy rules. This shared format scanner is for candidate discovery, not an alternate OMP consultation API.
 
-For **OMP-only** project history, prefer native Eval `archive` after reading `xd://eval/archive`; preserve its current-project scope unless the user requests more. For a selected OMP session, follow the [native archive lookup](../SKILL.md#discovery-workflow) for recaps and bounded prompt history. If those do not support the requested conclusion, report the limitation. Do not use this scanner or raw OMP JSONL as a substitute for missing recaps.
+For **OMP-only** project history, use native Eval `archive` after reading `help://eval/archive`; preserve its current-project scope unless the user requests more. Follow the [native archive lookup](../SKILL.md#omp-only-history-in-eval) for topic search, selected-session recaps and bounded prompt history. If those do not support the requested conclusion, report the limitation. Do not use this scanner or raw OMP JSONL as a substitute for missing recaps.
 
 ## Scanner keys and roots
 

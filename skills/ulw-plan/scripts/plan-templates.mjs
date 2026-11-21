@@ -134,14 +134,15 @@ Your next move: <remaining planning decision, or explicit ulw-execute handoff>. 
 ## Verification strategy
 - Test decision: <TDD | tests-after | none> + framework
 - Acceptance and real-surface checks: <project-specific commands and observable outcomes>
+- Failure controls, if proposed: <for each retry, timeout, lock, skip or cap, cite the evidenced cause and exact scope; if unknown, make diagnosis block the fix>
 - Evidence: <attemptDir>/task-<N>-${slug}.<ext> (record the literal evidence directory; under ulw-loop use its attempt directory, otherwise doc/evidence/)
 
 ## Execution strategy
 ### Parallel execution waves
-<!-- Group by actual dependencies; execution follows current native OMP instructions. -->
+<!-- Group independent todos in the same wave. Order producer/consumer work and conflicts on files or shared state (generated artifacts, schemas, ports, branches). Plan shared setup once; only its consumers depend on it. Name the reason for each edge. Execution follows current native OMP instructions. -->
 
 ### Dependency matrix
-| Todo | Depends on | Blocks | Can parallelize with |
+| Todo | Writes (files, shared state) | Depends on (reason) | Blocks |
 | --- | --- | --- | --- |
 
 ## Todos
@@ -152,7 +153,7 @@ Your next move: <remaining planning decision, or explicit ulw-execute handoff>. 
   Parallelization: Wave <N> | Blocked by: <...> | Blocks: <...>
   References (executor has NO interview context - be exhaustive): <src/path:lines>
   Acceptance criteria (agent-executable): <exact command or assertion>
-  QA scenarios: <relevant success/failure cases, exact invocation and expected result>, Evidence <attemptDir>/task-1-${slug}.<ext>
+  QA scenarios: <relevant success/failure cases, exact tool and invocation, expected observable; fake clock for timing and injected faults for failures where relevant, not real waits or outages>, Evidence <attemptDir>/task-1-${slug}.<ext>
   Recommended task executor category: <task difficulty/specialty metadata; no native role or model selection>
   Commit: <actual delivery authorization or not requested>
 

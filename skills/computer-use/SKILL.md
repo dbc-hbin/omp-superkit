@@ -9,7 +9,7 @@ Invoke `/computer-use <task>` or `/skill:computer-use`. OMP owns `/computer` and
 its settings. This skill uses the native `computer` global in JavaScript or
 Python Eval; it is not a standalone tool, package import or external driver.
 
-Read `xd://eval/computer` before first use unless that current contract is
+Read `help://eval/computer` before first use unless that current contract is
 already included in the active Eval description. It owns helper signatures,
 platform support, approval tiers and stop behavior. Follow the user's selected
 interaction method and active host routing.
@@ -48,15 +48,16 @@ window contents. Other platforms follow the live contract's discovery rules.
 - Pointer coordinates belong to the most recent full screenshot of that same
   target. `zoom` preserves that frame; do not click using zoom-image coordinates,
   global AX bounds or a resized preview.
-- Native menus use `win.menu.items` and `win.menu.select`. Follow the live
-  contract for popup/context-menu paths; do not leave a menu holding the user's
-  keyboard or invent shortcuts.
+- Native menus on an available window use `win.menu.items` and `win.menu.select`.
+  Follow the live contract for popup/context-menu paths; do not leave a menu
+  holding the user's keyboard or invent shortcuts.
 - Group predictable actions and their verification in `computer.run`. Inspect
   the result before choosing an uncertain next action. Predicate waits observe
   the required state; an elapsed sleep is not proof.
 - After a meaningful UI change, verify the requested state with fresh AX,
   `win.observe()` or a screenshot. Inspect the actual returned image for visual
-  criteria. A successful input call alone does not prove the app acted.
+  criteria. A successful input call alone does not prove the app acted; apply
+  the covered/minimized rules below before collecting or trusting verification.
 
 On `StaleRef`, observe again and resolve the intended control from current
 identity. A suggested replacement is a lead, not proof. On partial delivery or
@@ -64,6 +65,37 @@ restoration errors, inspect before retrying because input may already have
 landed. On macOS or X11, `UserIntervened` means no further input was sent and
 the tool will not rerun it in takeover. Preserve the user's edits; read that
 window again before continuing rather than undoing or retyping over them.
+
+### Windows covered windows
+
+A capture with `covered: true`, or an AX tree ending in `… covered:`, means
+the window appeared fully covered. Chromium apps (Chrome, Edge, Electron) can
+stop painting and updating AX in that state. Treat the result as possibly
+stale, not verification. While it remains covered, do not wait for
+verification or read it again by any route, including screenshot, AX and `find`.
+
+For a current view, use the browser tool if it is already connected to that
+app and host routing permits it. Otherwise an authorized Windows `raise()`
+can expose the window for verification; it takes the user's keyboard and
+can be refused while they use another window. After exposure, read again
+and verify the expected state rather than trusting the first unmarked read.
+If no authorized current view is available, report what could not be
+confirmed. Do not use `raise()` merely to make input work.
+
+### macOS minimized windows
+
+An existing handle may still support `win.ax()` and `win.find()` after its
+window is minimized if Accessibility reports its exact window ID and
+`AXMinimized`. The AX root is marked `(minimized)`. Refs from that read are
+inspection-only. `win.menu.items()` and `win.menu.select()` on that handle
+return `WindowUnavailable`; neither restores the window nor uses a sibling's
+menu as a substitute.
+
+When restoring the document is authorized, use an unambiguous document
+entry in the app's Window menu on an explicitly chosen visible window, or
+have the user restore it from the Dock. `apps.open(app)` alone does not prove
+which document appeared. Resolve the original ID with
+`computer.window(win.id)` and read that window again before acting.
 
 ## Background and foreground control
 

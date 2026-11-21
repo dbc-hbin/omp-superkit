@@ -14,9 +14,9 @@ captured HAR response bodies require the corresponding Chromium capabilities. We
 emulation affects all its tabs, so separate names do not isolate parallel theme rows. Do not
 install/enable a backend or replace the required authenticated state to fill a capability gap.
 
-The live `xd://eval/browser` contract is authoritative. Cursor/envelope examples here use OMP
-18.20; an older host need not provide them. Follow that host's actual diagnostic return shape and
-report missing cursor evidence rather than inventing it. On 18.20, direct helpers and `run` without
+The live `help://eval/browser` contract is authoritative. The examples here use OMP 19.1;
+an older host need not provide these diagnostic envelopes. Follow the actual diagnostic return
+shape and report missing cursor evidence rather than inventing it. Direct helpers and `run` without
 an explicit timeout inherit a longer Eval-cell timeout; raise the cell's `timeout` for long page
 work. Explicit run deadlines and millisecond `waitFor*` deadlines remain distinct.
 
@@ -25,8 +25,8 @@ work. Explicit run deadlines and millisecond `waitFor*` deadlines remain distinc
 The calling skill owns scope: use 390/1440/1920, light/dark, top/end and motion variants only when its acceptance matrix requires them. A small unrelated UI fix does not acquire a full matrix from this recipe. Each required page/state gets matching source and actual captures where a reference exists.
 
 This JS Eval example uses raw Chromium Puppeteer controls through documented `tab.run`; confirm
-the reported backend before applying it. Its diagnostic cursor portion requires the live 18.20
-contract. `appUrl`, `readySelector` and the matrix rows come from the actual task. Derive a fresh
+the reported backend before applying it. Its diagnostic cursor portion requires the envelopes
+described above. `appUrl`, `readySelector` and the matrix rows come from the actual task. Derive a fresh
 task-owned `row.tabName` from the applicable row and retain only the requested final tabs. This
 raw-controls tab must never have received `tab.emulate` overrides: OMP reapplies stored overrides
 before every run. The explicit viewport sets both mobile and desktop flags:
@@ -79,12 +79,12 @@ Capture top and end as viewport screenshots; full-page images supplement them. S
 
 Use `await qa.frames()` and `qa.frame(observedSelectorOrNameOrUrl)` for iframe content; capture the relevant frame and inspect its semantic state. Use frame evaluation for computed styles when the component lives there. Browser ids/refs expire after navigation/re-render; re-observe before acting.
 
-Record URL/page/state, CSS viewport, screenshot pixel dimensions, DPR, theme, touch/mobile/UA settings, scroll owner/position, input/build digest, timestamp and artifact signature in the manifest. Inspect each returned image file for extension/signature, wrong dimensions, browser chrome, blank/compositor regions and loading state. Screenshot previews alone may be stale; read the actual returned PNG path. `screenshot` returns its saved path and does not accept a destination path; retain that returned artifact. Keep raw DPR captures; never resize them to force a comparison pass. `image-diff` reports dimensions and pixels, not semantic correctness.
+Record URL/page/state, CSS viewport, screenshot pixel dimensions, DPR, theme, touch/mobile/UA settings, scroll owner/position, input/build digest, timestamp and artifact signature in the manifest. Inspect each returned image file for extension/signature, wrong dimensions, browser chrome, blank/compositor regions and loading state. Screenshot previews alone may be stale; open the actual returned PNG/JPEG path with OMP's native `read` for inline image inspection. `screenshot` returns its saved path and does not accept a destination path; retain that returned artifact. Keep raw DPR captures; never resize them to force a comparison pass. `image-diff` reports dimensions and pixels, not semantic correctness.
 
 ## Console, network and action evidence
 
 Collect scenario-scoped console/error entries and
-`await qa.requests({filter:relevantUrlPattern})` around the changed scenario. On the 18.20 contract,
+`await qa.requests({filter:relevantUrlPattern})` around the changed scenario. In OMP 19.1,
 `console()`/`errors()` return `{entries,nextSeq,dropped}`, not arrays; use `.entries` (Python:
 `["entries"]`) and pass each stream's returned `nextSeq` as its next `since`. Retain starting/final
 cursors and dropped metadata in the manifest. `dropped` is bounded-buffer eviction history, not
@@ -106,7 +106,7 @@ named capability gap; a clean DOM snapshot cannot establish a clean console or s
 
 ## Native or unsupported browser
 
-Read `skill://computer-use` and the live `xd://eval/computer` contract. Resolve an exact native window with `computer.window`, observe through `win.ax()` or `win.observe()`, act through returned elements or that window's screenshot coordinates, and verify the requested state. Record `win.bounds` and the actual screenshot dimensions. OMP 18.19 does not document a window-frame setter; use supported app/PTY sizing controls or report a required geometry capability gap rather than inventing one. Window bounds are not web viewport emulation. Native chrome belongs in app/terminal proof; web evidence must be page-only, through browser screenshots or a validated content crop. Do not claim touch/DPR/theme emulation from native window geometry.
+Read `skill://computer-use` and the live `help://eval/computer` contract. Resolve an exact native window with `computer.window`, observe through `win.ax()` or `win.observe()`, act through returned elements or that window's screenshot coordinates, and verify the requested state. Follow the skill's covered/minimized rules: a covered Windows Chromium capture is not current evidence, and a minimized macOS window's AX refs are inspection-only. Record `win.bounds` and the actual screenshot dimensions. Use supported app/PTY sizing controls or report a required geometry capability gap rather than inventing a window-frame setter. Window bounds are not web viewport emulation. Native chrome belongs in app/terminal proof; web evidence must be page-only, through browser screenshots or a validated content crop. Do not claim touch/DPR/theme emulation from native window geometry.
 
 ## Delivery and cleanup
 

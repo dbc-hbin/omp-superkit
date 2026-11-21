@@ -29,7 +29,9 @@ describe("faithful omo presets", () => {
           expect(prompt).toContain(moments!.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:"));
           expect(prompt).toContain("Briefly connect the outcome so far to the user's requested result");
           expect(prompt).toContain("execute any stated next action in the same response with tool calls");
-          expect(prompt.includes("after each tool wave that changes what you know")).toBe(original!.prompt.includes("after each tool wave that changes what you know"));
+          expect(prompt.includes("after each tool wave that changes what you know")).toBe(
+            name === "claude-opus-5-5" || original!.prompt.includes("after each tool wave that changes what you know"),
+          );
           expect(prompt).not.toMatch(/Ask: \[|You need: \[|Now: \[|Next: \[|Now and Next are todo labels verbatim/);
           if (name === "gpt-6-astra") {
             const writing = prompt.match(/## Writing\n\n([\s\S]*?)(?=\n\n## Reporting)/)?.[1];
@@ -44,6 +46,20 @@ describe("faithful omo presets", () => {
           } else {
             expect(prompt.includes("I read this as [intent]")).toBe(original!.prompt.includes("I read this as [intent]"));
             expect(prompt).not.toContain("On continuation or confirmation turns");
+          }
+        }
+      }
+    }
+  });
+
+  test("Claude material-question and pending-work routes follow independent host tool availability", () => {
+    for (const id of ["anthropic/claude-mythos-5-2", "anthropic/claude-opus-5.5"]) {
+      for (const surface of ["terminal", "app"] as const) {
+        for (const subagent of [false, true]) {
+          for (const activeTools of [[], ["ask"], ["wait"], ["ask", "wait"]]) {
+            const prompt = renderPreset({ id }, { surface, subagent, toolNames: activeTools })?.prompt ?? "";
+            const routedTools = [...new Set(Array.from(prompt.matchAll(/`(ask|wait)`/g), match => match[1]))];
+            expect(routedTools).toEqual(activeTools);
           }
         }
       }

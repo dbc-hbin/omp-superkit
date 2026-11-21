@@ -8,6 +8,8 @@ The source `ATTRIBUTION.md` identifies its skill and reference prose as project-
 
 These references are rewritten instructions, not a vendored runtime. Upstream historical probe dates (notably 2026-08-09), version quirks and archive timestamps remain explicitly historical. Current API availability and quotas require actual response/provider evidence.
 
+The native browser routing now references `help://eval/browser` on [OMP 19.1.0](https://github.com/can1357/oh-my-pi/tree/a7135b8f31826c878734388b648f52bed8da436e). See [browser attribution](../browser/ATTRIBUTION.md#native-contract-refreshes) for the pinned native contract; this does not update the OMO source import or add platform capabilities.
+
 ## Coverage map
 
 All upstream reference files were read. Consolidation keeps each source territory reachable from the skill:

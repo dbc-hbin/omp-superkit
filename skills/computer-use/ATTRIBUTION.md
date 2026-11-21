@@ -14,11 +14,15 @@ The live reference body comes from OMP, rather than a second copied API manual:
 - [OMP 18.20 computer helper contract](https://github.com/can1357/oh-my-pi/blob/v18.20.0/packages/coding-agent/src/prompts/tools/computer.md)
 - [OMP 18.20 secure-input warning](https://github.com/can1357/oh-my-pi/blob/v18.20.0/packages/coding-agent/src/prompts/tools/computer-secure-input.md)
 - [Enabled computer prelude and host bridge](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages/coding-agent/src/tools/computer.ts)
+- [OMP 19.1.0 computer helper contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/tools/computer.md):
+  `help://eval/computer` topic, covered Windows reads and current verification rules.
+- [OMP 19.1.0 computer-use documentation](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/docs/computer-use.md):
+  exact minimized macOS window reads, inspection-only refs, menu unavailability and restoration.
 
-The 18.20 secure-input and macOS/X11 intervention guidance is adapted under
+The secure-input, macOS/X11 intervention and window-state guidance are adapted under
 [OMP's MIT license](https://github.com/can1357/oh-my-pi/blob/v18.20.0/LICENSE),
 retained in [LICENSE.md](LICENSE.md). These source pins do not upgrade the host;
-live native documentation and capabilities remain authoritative on 18.19.
+live native documentation and capabilities remain authoritative.
 
 OmO's engine, CUA adapter, tool-search registration, settings, permission API and
 stop/resume commands are not installed or represented as OMP aliases. OMP owns

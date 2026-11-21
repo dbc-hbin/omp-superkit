@@ -103,7 +103,7 @@ The lead checks one response per own finding. DEFEND and REFINE require nonempty
 }
 ```
 
-`completed` requires complete readable plan text in `report` and no blocking questions. In native plan mode or a read-only child assignment, `planPath` identifies the intended canonical artifact, not a claim that the child wrote it; the lead writes the permitted artifact and checks constraints/mitigations/gates before workflow completion. Otherwise the assigned plan artifact must exist. `questions` requires nonempty questions and no claim of completion. Keep native child completion sections intact; the lead normalizes this receipt. Native plan approval is exclusively the lead's `xd://propose` submission, never a child or ask/chat approval.
+`completed` requires complete readable plan text in `report` and no blocking questions. In native plan mode or a read-only child assignment, `planPath` identifies the intended canonical artifact, not a claim that the child wrote it; the lead writes the permitted artifact and checks constraints/mitigations/gates before workflow completion. Otherwise the assigned plan artifact must exist. `questions` requires nonempty questions and no claim of completion. Keep native child completion sections intact; the lead normalizes this receipt. Native plan approval is exclusively the lead's [native `propose` submission](../../ulw-loop/references/omp-contract.md#native-plan-submission), never a child or ask/chat approval.
 
 ## Dispatch construction
 

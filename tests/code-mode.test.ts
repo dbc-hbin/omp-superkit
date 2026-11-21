@@ -20,9 +20,10 @@ type Model = NonNullable<Parameters<Parameters<CodeModeApi["on"]>[1]>[1]["model"
 function host(names = ["eval", "read", "write", "bash"]) {
 	const handlers = new Map<string, (event: { payload: unknown }, ctx: { model: Model; ui: { notify(message: string): void } }) => unknown>();
 	const warnings: string[] = [];
-	const state: { active: string[]; tools: ReturnType<CodeModeApi["getAllTools"]> } = {
+	const state: { active: string[]; tools: ReturnType<CodeModeApi["getAllTools"]>; systemPrompt: string[] } = {
 		active: [...names],
 		tools: names.map(name => native(name, name === "eval" ? js : args)),
+		systemPrompt: [],
 	};
 	const pi = {
 		getAllTools: () => state.tools,
@@ -35,7 +36,8 @@ function host(names = ["eval", "read", "write", "bash"]) {
 	return {
 		state, warnings,
 		request<T>(payload: T, model: Model = gpt): T {
-			const result = handlers.get("before_provider_request")!({ payload }, { model, ui: { notify: message => warnings.push(message) } });
+			const ctx = { model, getSystemPrompt: () => state.systemPrompt, ui: { notify: (message: string) => warnings.push(message) } };
+			const result = handlers.get("before_provider_request")!({ payload }, ctx);
 			return (result === undefined ? payload : result) as T;
 		},
 		reset(event: string) {
@@ -46,6 +48,10 @@ function host(names = ["eval", "read", "write", "bash"]) {
 
 function responses(names = ["eval", "read", "write", "bash"]) {
 	return { tools: names.map(name => responseTool(name, name === "eval" ? js : args)), input: [{ role: "user", content: "now" }] };
+}
+
+function commandBlock(docs: string): string {
+	return `role\n⁂ Runtime\n# Skills & Rules\nrules\n# Internal URLs\n- local://\n# Tool Inventory\nbash, eval\n# Tool Commands\nEach listed tool is also a command in \`bash\`: ...\n${docs}\n⁂ Tool Policy\npolicy`;
 }
 
 describe("request-local code mode", () => {
@@ -66,7 +72,7 @@ describe("request-local code mode", () => {
 			{ api: gpt.api },
 		]) {
 			const output = h.request(input, model);
-			expect(output.tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+			expect(output.tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 			expect(output.tools[0]!.description).toContain("Use eval to call listed tools");
 			expect(output.tools[0]!.description).toContain('Prefer language="py"');
 			expect(output.tools[0]!.description).toContain('Use language="js" when JavaScript-specific APIs or libraries are needed.');
@@ -77,13 +83,13 @@ describe("request-local code mode", () => {
 		h.state.active = h.state.active.filter(name => name !== "eval");
 		expect(h.request(input)).toBe(input);
 		h.state.active.push("eval");
-		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 	});
 
 	test("Gemini keeps native tools on OpenAI-compatible transports without affecting subsequent models", () => {
 		const h = host();
 		const input = responses();
-		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 		for (const model of [
 			{ ...gpt, id: "google/gemini-2.5-pro" },
 			{ ...gpt, id: "customGeMiNiGateway/preview" },
@@ -92,7 +98,7 @@ describe("request-local code mode", () => {
 			{ ...gpt, identity: { class: "unknown", logicalId: "gemini-4-argon" } },
 		]) expect(h.request(input, model)).toBe(input);
 		expect(h.warnings).toEqual([]);
-		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+		expect(h.request(input).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 	});
 
 	test("catalog accessors invoke tools with hyphenated, dotted and colon-qualified names", async () => {
@@ -119,7 +125,7 @@ describe("request-local code mode", () => {
 	});
 
 	test("Responses namespace/custom filtering retains metadata and never mutates incoming payload", () => {
-		const names = ["eval", "read", "edit", "write", "task", "checkpoint", "rewind", "new_context", "ask", "wait", "todo", "yield", "think", "defined", "undefine"];
+		const names = ["eval", "read", "edit", "write", "task", "checkpoint", "rewind", "new_context", "ask", "wait", "todo", "yield", "think", "defined", "undefine", "propose", "resolve", "reject"];
 		const h = host(names);
 		const direct = names.filter(name => !["read", "edit", "task", "todo"].includes(name));
 		const kept = direct.filter(name => name !== "eval").map(name => ({ ...responseTool(name), cache_control: { type: "ephemeral" } }));
@@ -151,7 +157,7 @@ describe("request-local code mode", () => {
 		expect(evaluation.description).toContain('Direct custom wire format (bridge still takes JSON args): {"type":"grammar","definition":"patch"}');
 		expect(evaluation.description).toContain("await tool.task(args)");
 		expect(evaluation.description).toContain("await tool.todo(args)");
-		for (const name of ["ask", "wait", "yield", "think"]) {
+		for (const name of ["ask", "wait", "yield", "think", "propose", "resolve", "reject"]) {
 			expect(evaluation.description).not.toContain(`await tool.${name}(args)`);
 		}
 		expect(evaluation.description).not.toContain("Keep orchestration");
@@ -180,7 +186,7 @@ describe("request-local code mode", () => {
 			expect(output.tools[1]).toBe(patch);
 			expect(output.tools[0]!.description).toContain("await tool.read(args)");
 			expect(output.tools[0]!.description).toContain("await tool.edit(args)");
-			expect(output.tools[0]!.description).toContain("Read xd://edit for current documentation and JSON Schema before first use.");
+			expect(output.tools[0]!.description).toContain(`JSON Schema: ${JSON.stringify(h.state.tools.find(tool => tool.name === "edit")!.parameters)}`);
 			expect(output.tools[0]!.description).not.toContain("await tool.apply_patch(args)");
 			expect(h.warnings).toEqual([]);
 			h.state.active = h.state.active.filter(name => name !== "edit");
@@ -191,7 +197,7 @@ describe("request-local code mode", () => {
 	test("current provider transports filter actual schema arrays, retaining provider metadata", () => {
 		for (const api of ["openai-responses", "openai-codex-responses", "azure-openai-responses"]) {
 			const h = host();
-			expect(h.request(responses(), { ...gpt, api }).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+			expect(h.request(responses(), { ...gpt, api }).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 		}
 		for (const api of ["openai-completions", "openrouter"]) {
 			const h = host();
@@ -264,8 +270,8 @@ describe("request-local code mode", () => {
 				expect(input).toEqual(before);
 				expect(projected.contents).toBe(body.contents);
 				expect(projected.tools.map(group => group.vendor)).toEqual(["eval group", "retained group"]);
-				expect(projected.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "write"]);
-				expect(projected.tools[1]!.functionDeclarations).toEqual([write]);
+				expect(projected.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "write", "bash"]);
+				expect(projected.tools[1]!.functionDeclarations).toEqual([write, definition("bash")]);
 				expect(projected.tools[1]!.functionDeclarations[0]).toBe(write);
 				const evaluation = projected.tools[0]!.functionDeclarations[0]!;
 				expect(evaluation[schemaKey]).toBe(js);
@@ -281,10 +287,10 @@ describe("request-local code mode", () => {
 				const forced = h.request(wrap(forcedBody), { ...gpt, api });
 				const forcedResult = ("config" in forced ? forced.config : "request" in forced ? forced.request : forced) as typeof forcedBody;
 				expect(forcedResult.toolConfig).toBe(forcedBody.toolConfig);
-				expect(forcedResult.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "read", "write"]);
+				expect(forcedResult.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "read", "write", "bash"]);
 				const again = h.request(input, { ...gpt, api });
 				const next = ("config" in again ? again.config : "request" in again ? again.request : again) as typeof body;
-				expect(next.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "write"]);
+				expect(next.tools.flatMap(group => group.functionDeclarations.map(tool => tool.name))).toEqual(["eval", "write", "bash"]);
 			}
 		}
 	});
@@ -395,11 +401,12 @@ describe("request-local code mode", () => {
 		const h = host();
 		h.state.tools.push(native("mounted_only"));
 		h.state.active.push("mounted_only");
+		h.state.systemPrompt = [commandBlock("## More commands (help on demand)\n- `mounted_only` — Tool summary.")];
 		const payload = responses();
 		const description = () => h.request(payload).tools[0].description;
 		expect(description()).toContain("await tool.read(args)");
 		expect(description()).toContain("await tool.mounted_only(args)");
-		expect(description()).toContain("Read xd://mounted_only for current documentation and JSON Schema before first use.");
+		expect(description()).toContain("mounted_only --help");
 		h.state.active = h.state.active.filter(name => name !== "mounted_only");
 		expect(description()).not.toContain("await tool.mounted_only(args)");
 		h.state.active.push("mounted_only");
@@ -424,20 +431,29 @@ describe("request-local code mode", () => {
 	});
 
 	test("discoverable tools share native accessors without duplicating schemas or advertising inactive and reserved tools", () => {
-		const names = ["lsp", "recall", "mcp:search", "task", "todo"];
-		const h = host(["eval", ...names, "checkpoint", "rewind", "new_context", "defined", "undefine"]);
-		const payload = responses(["eval"]);
+		const names = ["lsp", "recall", "mcp__server_search"];
+		const h = host(["eval", "bash", ...names, "checkpoint", "rewind", "new_context", "defined", "undefine"]);
+		h.state.systemPrompt = [commandBlock("## lsp\n\nlsp — Language server\n\n## More commands (help on demand)\n- `recall` — Recall.\n- `mcp__server_search` — Search.")];
+		const payload = responses(["eval", "bash"]);
 		const output = h.request(payload);
-		expect(output.tools.map(tool => tool.name)).toEqual(["eval"]);
+		expect(output.tools.map(tool => tool.name)).toEqual(["eval", "bash"]);
 		const description = output.tools[0]!.description;
 		for (const name of names) {
-			const accessor = name.includes(":") ? `tool["${name}"]` : `tool.${name}`;
-			expect(description).toContain(`await ${accessor}(args)`);
-			expect(description).toContain(`Read xd://${name} for current documentation and JSON Schema before first use.`);
+			expect(description).toContain(`await tool.${name}(args)`);
+			expect(description).toContain(`${name} --help`);
 			expect(description).not.toContain(`native ${name}`);
 			expect(description).not.toContain(`policy ${name}`);
 		}
-		expect(description).not.toContain("JSON Schema: ");
+		// Without the native command transport, callers still receive the bridge schema.
+		const noBash = h.request(responses(["eval"])).tools[0].description;
+		expect(noBash).not.toContain("recall --help");
+		expect(noBash).toContain("native recall");
+		const nativeBlock = h.state.systemPrompt[0];
+		h.state.systemPrompt = ["Custom base role", nativeBlock];
+		const untrusted = h.request(payload).tools[0].description;
+		expect(untrusted).not.toContain("recall --help");
+		expect(untrusted).toContain("native recall");
+		h.state.systemPrompt = [nativeBlock];
 		for (const name of ["checkpoint", "rewind", "new_context", "defined", "undefine"]) {
 			expect(description).not.toContain(`await tool.${name}(args)`);
 		}
@@ -454,9 +470,9 @@ describe("request-local code mode", () => {
 		const h = host();
 		const input = { ...responses(), tool_choice: { type: "function", name: "read" } };
 		const forced = h.request(input);
-		expect(forced.tools.map(tool => tool.name)).toEqual(["eval", "read", "write"]);
+		expect(forced.tools.map(tool => tool.name)).toEqual(["eval", "read", "write", "bash"]);
 		expect(forced.tool_choice).toBe(input.tool_choice);
-		expect(h.request(responses()).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+		expect(h.request(responses()).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 	});
 
 	test("runtime availability selects Python first and invalidates the catalog without changing the wire schema", () => {
@@ -471,7 +487,7 @@ describe("request-local code mode", () => {
 			const schema = { type: "object", properties: { language } };
 			input.tools[0]!.parameters = schema;
 			const output = h.request(input);
-			expect(output.tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+			expect(output.tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 			expect(output.tools[0]!.parameters).toBe(schema);
 			expect(output.tools[0]!.description).toContain(guidance);
 			expect(output.tools[0]!.description.match(/(?:Prefer|Use) language=/g)).toHaveLength(guidance.startsWith("Prefer") ? 2 : 1);
@@ -489,7 +505,7 @@ describe("request-local code mode", () => {
 			h.reset(event);
 			expect(h.request(input)).toBe(input);
 			expect(h.warnings).toHaveLength(2);
-			expect(h.request(responses()).tools.map(tool => tool.name)).toEqual(["eval", "write"]);
+			expect(h.request(responses()).tools.map(tool => tool.name)).toEqual(["eval", "write", "bash"]);
 		}
 		const h = host();
 		for (const input of [

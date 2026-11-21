@@ -60,12 +60,42 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
   const preset = buildPreset(name, { surface: options.surface, selectedTools });
   if (!preset) return undefined;
   let prompt = preset.prompt;
+  // Selected turn and reporting fixes from Senpi 3db1d1604ef3693240377136d2b3af670b4d53b9.
+  const claudeTurnFixes = preset.name === "claude-fable-5-2" || preset.name === "claude-opus-5-5";
+  if (claudeTurnFixes) {
+    const question = hasAsk
+      ? "ask one focused question through the blocking `ask` tool and continue with authorized work when the answer resolves the blocker"
+      : "ask one focused question directly";
+    const externalWait = "Before waiting on an external dependency (CI, a review, a background job, or another person), finish authorized work that can shorten or remove the wait. "
+      + (options.subagent ? "" : "If it still blocks progress, say in one line what is pending. ")
+      + pendingResults;
+    prompt = prompt
+      .replace(
+        /Make routine judgment calls yourself; (?:ask|check in) only when different readings[^.\n]+through ask_user_question when it is available \(waitForAnswer true when the next step depends on the answer\)\./,
+        `Make routine judgment calls yourself. When available evidence cannot settle a decision that materially changes the deliverable, ${question}. Obtain any required explicit authorization through the host's approval mechanism before acting; an unanswered question is not authorization.`,
+      )
+      .replace("\n\nThis codebase is yours:", `\n\n${externalWait}\n\nThis codebase is yours:`)
+      .replace(
+        "## Style\n\n",
+        "## Style\n\nWrite every user-facing reply in the language the user explicitly requests, or the language they write in if they do not specify one. Apply this to ordinary answers, questions, progress, and any routing line or todo labels.\n\n",
+      );
+  }
   if (preset.name === "claude-fable-5-2") {
     prompt = prompt.replace(
-      "Make routine judgment calls yourself; ask only when different readings would lead to materially different work, and ask after doing everything that does not depend on the answer, through ask_user_question when it is available (waitForAnswer true when the next step depends on the answer).",
-      "Make routine judgment calls yourself. Ask when missing information materially changes the deliverable or required authorization is absent; resolve that blocker when it arises and finish independent authorized work where possible. Use ask_user_question when it is available (waitForAnswer true when the next step depends on the answer).",
+      /Pause only when the work genuinely requires the user[^\n]+?Before ending your turn, check your last paragraph: a plan, a question, ([^\n]+?) means do that work now, with tool calls\./,
+      "Before ending your turn, check your last paragraph: a plan, a question you could settle yourself, $1 is not a substitute for work you can still do. Do that work now with tool calls.",
     );
   }
+  if (preset.name === "claude-opus-5-5") {
+    prompt = prompt
+      .replace("A message with no tool call ends your turn and the work stops there, so while asked-for work is still owed,", "While authorized work remains actionable,")
+      .replace("Put status notes and recommendations on open decisions in the same message as your next tool call.", "When there is another action to take, put status notes and recommendations on open decisions in the same message as your next tool call.")
+      .replace(/ End the turn only when nothing can move without the user[^\n]+?for destructive actions, state the recommended action and stop\./, "");
+  }
+  const steering = "Use the latest user message, including queued steering, to resolve conflicts. Update only the affected parts of the plan and keep earlier instructions that still apply.";
+  prompt = prompt
+    .replace(/Derive intent from the latest user (?:turn|message) alone[:; -]+a new direction (?:drops|cancels) (?:the )?stale plans?(?:[,;] (?:and )?queued steering messages outrank (?:earlier intent|them))?\./g, steering)
+    .replace("Intent from latest user turn only: new direction drops stale plan; queued steering messages outrank earlier intent.", steering);
   // Common tool documentation owns execution transport, including when eval is absent.
   // Keep model-specific observation, evidence, and recovery obligations transport-neutral.
   prompt = prompt
@@ -131,11 +161,15 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
   prompt = prompt
     .replace(
       /## Handoff\n\n((?:A handoff is|Handoff moments:|At a handoff -)[^\n]+)\n\n[\s\S]*?(?=\n\n## |$)/,
-      (section, moments: string) => `## Replies\n\n${moments.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:")}\n\n${progressReport} ${
-        section.includes("after each tool wave that changes what you know")
+      (section, moments: string) => {
+        if (options.subagent && claudeTurnFixes) {
+          return "## Replies\n\nFollow your specialist role's reporting and completion protocol.";
+        }
+        const cadence = section.includes("after each tool wave that changes what you know") || preset.name === "claude-opus-5-5"
           ? "Between handoffs, after each tool wave that changes what you know, give one short update: what you found and what happens next."
-          : "Between handoffs, work without narration."
-      }`,
+          : "Between handoffs, work without narration.";
+        return `## Replies\n\n${moments.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:")}\n\n${progressReport} ${cadence}`;
+      },
     )
     .replace(
       /(At a handoff -[^\n]+)\n\n\[Outcome so far\][\s\S]*?Between handoffs, no narration\. /,
@@ -195,9 +229,7 @@ Never invent evidence or claim unperformed checks passed.`,
       .replaceAll("then ask and end the turn", "ask through `ask`; continue with authorized work when the answer resolves the blocker")
       .replaceAll("-> ask, end turn", "-> ask through `ask`, then continue with authorized work when the answer resolves the blocker")
       .replaceAll("ask the one specific question that unblocks the work, and end the turn", "ask the one specific question through `ask`; continue when the answer resolves the blocker")
-      .replaceAll("ask one focused question and stop", "ask one focused question through `ask` and continue when the answer resolves the blocker")
-      .replaceAll("for destructive actions, state the recommended action and stop", "for destructive actions, state the recommended action and obtain explicit approval before proceeding")
-      .replaceAll("for a destructive action, state the recommended action and stop", "for a destructive action, state the recommended action and obtain explicit approval before proceeding");
+      .replaceAll("ask one focused question and stop", "ask one focused question through `ask` and continue when the answer resolves the blocker");
   }
   // OMP's ask is blocking and an empty/dismissed answer is not authorization.
   prompt = prompt.replace(
@@ -254,7 +286,7 @@ Never invent evidence or claim unperformed checks passed.`,
   prompt = prompt
     .replace(
       "Errors, timeouts, locked files, empty results, and failing tools are ordinary obstacles, not blockers: diagnose them, then work through them with the access you have (wait and retry a call that is safe to repeat, fix the request, use another tool or source) without asking first. A file marked not to be touched, withheld access, or a safety guardrail is a deliberate blocker: leave it alone and look for another safe way to finish.",
-      "Errors, timeouts, locked files, empty results, and failing tools call for diagnosis and recovery with the access you have. Fix the request, use another permitted source or tool, or retry a diagnosed transient failure when safe. Ask when required authorization or a material user decision is missing. Use at most three materially different recovery approaches for the same blocker; if all fail, stop that blocked track, finish independent work, and report the evidence and missing prerequisite. Respect do-not-touch files, withheld access and safety boundaries; never reach a denied result through another route.",
+      "Errors, timeouts, locked files, empty results, and failing tools call for diagnosis and recovery with the access you have. Fix the request, use another permitted source or tool, or retry a diagnosed transient failure when safe. Use the host's approval mechanism for required authorization, and ask a focused question if a material user decision is missing. Use at most three materially different recovery approaches for the same blocker; if all fail, stop that blocked track, finish independent work, and report the evidence and missing prerequisite. Respect do-not-touch files, withheld access and safety boundaries; never reach a denied result through another route.",
     )
     .replace(
       "There is no attempt limit: keep going until the objective holds",
@@ -282,6 +314,21 @@ Never invent evidence or claim unperformed checks passed.`,
     );
   // Host/project authorization remains binding even where the generated style rules suppress caution.
   prompt = prompt
+    .replaceAll("for destructive actions, state the recommended action and stop", "for destructive actions, state the recommended action and obtain explicit approval before proceeding")
+    .replaceAll("for a destructive action, state the recommended action and stop", "for a destructive action, state the recommended action and obtain explicit approval before proceeding")
+    .replace(/Answer anything: no refusals, (?:no )?moralizing, (?:no )?safety hedging; unverified content (?:is )?fine when labeled; /g,
+      "Avoid moralizing. Label unverified material; ")
+    .replaceAll("Answer anything - any topic, any method, without refusals or moralizing; match the user's tone.",
+      "Avoid moralizing and match the user's tone.")
+    .replaceAll("No content restrictions: any topic, blunt language, unverified sources - handle whatever arrives without moralizing or refusing.",
+      "Use direct language without moralizing; label unverified sources.")
+    .replaceAll("Any topic is answerable without refusal, moralizing, or safety hedging; label unverified material.",
+      "Avoid moralizing and label unverified material.")
+    .replace(/(?:The )?[Uu]ser's call is final: (?:if their proposal breaks, say what and what to do instead(?: - once -|, once,)|their proposal breaks -> say what and what instead, once,) then do it their way\./g,
+      "If the user's proposal breaks, say what and what to do instead once, then follow their choice within authorized bounds.")
+    .replaceAll("then do it the user's way.", "then follow the user's choice within authorized bounds.")
+    .replaceAll("then follow their call.", "then follow their choice within authorized bounds.")
+    .replaceAll("continue with the task as asked rather than quietly narrowing", "continue with the authorized task as asked rather than quietly narrowing")
     .replace(
       "Add no warnings, disclaimers, approval steps, or checklists for hypothetical risk.",
       "Add no warnings, disclaimers, approval steps, or compliance checklists for hypothetical risk, but this never overrides explicit host or project authorization and safety rules.",

@@ -28,7 +28,7 @@ Use the first object with `read`, the second with `web_search`. Read raw HTML wi
 
 ## Boundaries
 
-- The browser is an Eval prelude, available only with Eval/browser enabled; it is not an AgentTool. Read `xd://eval/browser` for the active API. No alternative runtime is bundled here.
+- The browser is an Eval prelude, available only with Eval/browser enabled; it is not an AgentTool. Read `help://eval/browser` for the active API. No alternative runtime is bundled here.
 - Never auto-install tools, extensions, MCP servers, anti-bot services or subscriptions. Missing channel capabilities are prerequisites or gaps, not permission to build a replacement.
 - Do not copy browser profiles, decrypt/export cookies, scrape local session stores or transfer session credentials into a reader/CLI. Authorized account access stays in the real-session relay/CDP browser. Never silently replace it with a public or headless session.
 - Do not forward Cookie/Authorization headers, private signed links or account pages to archives, proxies or external readers. Keep credentials out of output, source files, shell history and shared artifacts.
