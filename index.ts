@@ -5,20 +5,20 @@
  * transport adaptation and request-model refresh for supported provider hooks.
  * Changelog: child sessions receive their own model profile while preserving
  * host-owned specialist roles, assignments, tools and completion protocols.
- * Changelog: retain ULW activation, specialised workflow state and continuation;
+ * Changelog: retain SUPER activation, specialised workflow state and continuation;
  * model profiles own working methods; native tools, permissions and modes remain authoritative.
  * Changelog: active profiles own duplicated todo-turn and eval sh completion rules;
  * pinned native tool mechanics and unsupported-model guidance remain intact.
- * Invoke /ulw <task> or the specialised /ulw-* and /mass-ulw commands.
+ * Invoke /super <task> or the specialised /super-* commands. Legacy ULW commands still work.
  * Additional commands: /web-browser, /computer-use, /ultimate-browsing, /coding-agent-sessions,
  * /debugging, /review-work, /eval-integrity, /visual-qa, /visualize,
  * /frontend, /data-scientist, /remove-ai-slops, /hyperplan, /memory-advisor,
  * /reflection, /init-deep, /ast-grep, /lsp-setup and /refactor. These do not
- * implicitly arm ULW.
- * All models share one compact ULW policy; provider hooks refresh stale
+ * implicitly arm SUPER.
+ * All models share one compact SUPER policy; provider hooks refresh stale
  * policy blocks without changing model-specific working profiles.
- * The existing prompts/ulw.md template remains a native-discovery fallback.
- * ULW keywords arm the session; flags can disable arming/pointers/continuation.
+ * The prompts/super*.md templates support native discovery.
+ * SUPER or legacy ULW keywords arm the session; existing flags can disable arming/pointers/continuation.
  * Native OMP transports and approval rules replace legacy transport APIs.
  * User/custom prompts, project rules, skills and worker assignments are preserved.
  * Unrecognized templates are left unchanged with a warning. Unsupported models

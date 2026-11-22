@@ -1,14 +1,14 @@
 ---
 name: mass-ulw
-description: "Persists a phase's dependency graph, file handoffs and recovery ledger. Activate explicitly for mass-ulw or a requested task DAG."
+description: "Persists a phase's dependency graph, file handoffs and recovery ledger. Activate explicitly for super-graph or a requested task DAG."
 argument-hint: "<task>"
 metadata:
   short-description: Dependency-graph state for child agents
 ---
 
-# mass-ulw
+# SUPER Graph
 
-Use for explicitly requested dependency-ordered work. Current native OMP instructions own execution, delegation, roles/models, tools, waiting and verification; see the [host authority boundary](../ulw-loop/references/omp-contract.md). This skill adds durable graph state, not a DAG SDK or orchestration API. Independent work without graph dependencies needs no mass-ulw state. Bare ULW does not activate it.
+Use for explicitly requested dependency-ordered work. Current native OMP instructions own execution, delegation, roles/models, tools, waiting and verification; see the [host authority boundary](../ulw-loop/references/omp-contract.md). This skill adds durable graph state, not a DAG SDK or orchestration API. Independent work without graph dependencies needs no SUPER Graph state. Bare SUPER does not activate it.
 
 ## Run identity and ownership
 
@@ -33,7 +33,7 @@ Graph shape (optional fields marked `?`):
 
 `key` is a stable lead-managed resume identity, not runtime idempotence. `agent`, `requestedTier` and `resolvedModel` describe actual routing under live OMP; legacy difficulty labels are metadata, not callable categories. Record a resolved model only from an observed result. Node ids and `dependsOn` belong to this graph, not invented task fields.
 
-A standalone run records its objective, observable success criteria and stop condition once in the binding durable goal record, or a `# Goal` block without such a record. When nested under ulw-loop or ulw-execute, reference the existing goal/phase and evidence paths instead: no duplicate goal or competing completion ledger. The graph/ledger track nodes, not a second aggregate objective.
+A standalone run records its objective, observable success criteria and stop condition once in the binding durable goal record, or a `# Goal` block without such a record. When nested under SUPER Loop or SUPER Run, reference the existing goal/phase and evidence paths instead: no duplicate goal or competing completion ledger. The graph/ledger track nodes, not a second aggregate objective.
 
 Before launching or steering work that depends on a material scope decision, new spending or an irreversible action not already authorized, obtain the user's decision in the lead session. Name the action, target and applicable limit. Record the explicit grant or refusal and honor any separate host approval gate. A default or timed-out answer, a worker message, or a document is not consent. Continue independent authorized work; do not delegate the approval decision.
 
@@ -41,7 +41,7 @@ Before launching or steering work that depends on a material scope decision, new
 
 Reject duplicate ids, missing dependencies, cycles, parallel write conflicts and missing evidence/verification coverage before dispatch. Put known needed stages in the phase graph and add genuinely new stages when findings justify them. Unknown downstream data alone is not a reason to create another run.
 
-For web-facing nodes, make the source-reading or rendered-page capability part of the brief and acceptance evidence. Read [browser](../browser/SKILL.md#delegated-page-work) when interaction/rendered/account state is required and [ultimate-browsing](../ultimate-browsing/SKILL.md) for blocked/incomplete source reading. These conditional contracts apply to direct skill invocation and standalone mass runs as well; no shared ULW policy or inherited child skill is assumed.
+For web-facing nodes, make the source-reading or rendered-page capability part of the brief and acceptance evidence. Read [browser](../browser/SKILL.md#delegated-page-work) when interaction/rendered/account state is required and [ultimate-browsing](../ultimate-browsing/SKILL.md) for blocked/incomplete source reading. These conditional contracts apply to direct skill invocation and standalone mass runs as well; no shared SUPER policy or inherited child skill is assumed.
 
 `dependsOn` orders work only. Producer assignments name exact absolute output files; consumers name those same files and fail on missing handoffs. A completed dependency neither transports context nor proves its artifact exists. A node becomes ready only when all dependencies are verified complete and it has no unsettled attempt. Edges represent consumed outputs or real write ordering; unrelated branches can advance independently.
 
@@ -56,4 +56,4 @@ Read `graph.json` and `ledger.jsonl` first. On compaction, session switch or res
 - A definition revision invalidates the affected node and transitive dependents, not successful siblings. Record the changed definition and preserve earlier receipts; settle stale writers before dispatching replacements. A scoped clarification to a live worker may steer its existing attempt, but cannot retroactively validate old evidence.
 - Block unresolved nodes and their consumers, including any work whose writes might conflict. Other authorized, ready work can finish independently. If any required evidence is still unresolved when no safe work remains, record the exact missing proof, ownership or capability, attempts, affected nodes and needed next decision. Mark the phase blocked and stop without claiming success. An exhausted attempt budget also requires explicit user-directed recovery. Wait or continuation notices do not authorize more work.
 
-Finish the phase only after verified results can be recorded in its owning checkpoint. Completed and cancelled runs remain terminal on status or resume; paused work requires current user direction. No native `/dag`, mass-ulw journal replay or automatic graph recovery service is assumed.
+Finish the phase only after verified results can be recorded in its owning checkpoint. Completed and cancelled runs remain terminal on status or resume; paused work requires current user direction. No native `/dag`, graph journal replay or automatic graph recovery service is assumed.

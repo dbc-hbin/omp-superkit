@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 type RecordValue = Record<string, any>;
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const objective = 'ulw preserve the full objective: 한글, "quoted path", and the final criterion END-OF-GOAL';
+const objective = 'super preserve the full objective: 한글, "quoted path", and the final criterion END-OF-GOAL';
 const followup = "ulw keep the original goal and check FOLLOWUP-DO-NOT-REPLACE";
 const firstChunk = "ULW-GOAL-INITIAL-STREAM";
 const events = new EventEmitter();
@@ -154,7 +154,7 @@ try {
   const persisted = expectEvent("journal", event => goalRecords(event.rows).some(row => row.data.goal.objective === objective));
   terminal.write(`/${objective}\r`);
   const creation = await created;
-  assert.equal(creation.goal.objective, objective, "native goal must retain the entire normalized /ulw objective");
+  assert.equal(creation.goal.objective, objective, "native goal must retain the entire normalized /super objective");
   assert.equal(creation.state?.enabled, true);
   assert.equal(typeof creation.goal.id, "string");
   assert(streams.has(1), "goal must be created before the original stream finishes");
@@ -181,9 +181,9 @@ try {
   phase = "connecting planning to the native thinking keyword";
   const thinkingNotice = expectEvent("message_end", event => event.message?.customType === "ultrathink-notice");
   const planningRequest = expectEvent("provider", event => JSON.stringify(event.body).includes("TUI-NATIVE-PLAN"));
-  const planningInput = expectEvent("input", event => event.text === "/ulw-plan ultrathink TUI-NATIVE-PLAN");
+  const planningInput = expectEvent("input", event => event.text === "/super-plan ultrathink TUI-NATIVE-PLAN");
   drainingFollowup = false;
-  terminal.write("/ulw-plan TUI-NATIVE-PLAN\r");
+  terminal.write("/super-plan TUI-NATIVE-PLAN\r");
   await planningInput;
   streams.get(followupRequest.number)?.();
   await thinkingNotice;
@@ -250,7 +250,7 @@ try {
   assert(afterControls.some(row => row.mode === "goal_paused"));
   assert.equal(afterControls.at(-1)?.data.goal.status, "active");
   assert.equal(requestCount, ordinaryRequest.number, "the native bridge changes mode, not prompt delivery");
-  console.log(JSON.stringify({ status: "PASS", requests: requestCount, goalId: creation.goal.id, objective, nativeGoalEvents: goals.length, persistedGoalRecords: afterControls.length, scenarios: ["PTY /ulw during active stream", "persisted mode_change goal", "later /ulw preserves goal", "PTY /ulw-plan activates native ultrathink", "busy stop refusal; idle stop and explicit resume preserve the owned goal"] }));
+  console.log(JSON.stringify({ status: "PASS", requests: requestCount, goalId: creation.goal.id, objective, nativeGoalEvents: goals.length, persistedGoalRecords: afterControls.length, scenarios: ["PTY /super during active stream", "persisted mode_change goal", "legacy /ulw preserves goal", "PTY /super-plan activates native ultrathink", "busy stop refusal; idle stop and explicit resume preserve the owned goal"] }));
 } catch (error) {
   console.error(`TUI goal probe failed at ${phase}\n${terminalOutput}`);
   throw error;

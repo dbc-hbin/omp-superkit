@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-22 SUPER workflow commands
+
+- Make SUPER the public workflow interface: `/super`, `/super-plan`, `/super-run`, `/super-loop`, `/super-graph` and `/super-research`, all with bare forms. Legacy slash and bare aliases still work.
+- Keep `/stop-continuation`, `/resume-continuation`, OMP keywords, CLI flags, installed skill IDs and paths, and persisted session, goal and workflow formats unchanged. No migration is required.
+
 ### 2026-11-22 Superkit-owned model presets
 
 - Maintain the current model templates and routing directly in [prompts/models/](prompts/models/), with a single [GPT‑6.2 Astra/Sol body](prompts/gpt-6.2.ts). Remove the upstream fetch and preset generation command; keep source attribution and licensing.

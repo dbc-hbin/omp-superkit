@@ -1,17 +1,17 @@
 ---
 name: ulw-execute
-description: "Executes a written plan with Boulder ownership, task progress, bounded attempts and a durable evidence ledger. Activate explicitly for ulw-execute or a request to run a plan."
+description: "Executes a written plan with Boulder ownership, task progress, bounded attempts and a durable evidence ledger. Activate explicitly for super-run or a request to run a plan."
 argument-hint: "[plan-name] [--worktree <absolute-path>] [--make-pr] [--ship]"
 ---
 
-# ulw-execute
+# SUPER Run
 
-This explicitly selected workflow owns plan execution state and evidence; use the [host authority boundary](../ulw-loop/references/omp-contract.md) for model guidance, native modes and permissions. Bare ULW does not select this workflow.
+This explicitly selected workflow owns plan execution state and evidence; use the [host authority boundary](../ulw-loop/references/omp-contract.md) for model guidance, native modes and permissions. Bare SUPER does not select this workflow.
 
 ## Selection and options
 
 ```text
-$ulw-execute [plan-name] [--worktree <absolute-path>] [--make-pr] [--ship]
+/super-run [plan-name] [--worktree <absolute-path>] [--make-pr] [--ship]
 ```
 
 - `plan-name`: full or partial file stem under `doc/plans/`, or the exact approved native plan URI `local://<slug>-plan.md`.
@@ -21,7 +21,7 @@ $ulw-execute [plan-name] [--worktree <absolute-path>] [--make-pr] [--ship]
 
 Select an explicitly supplied approved native plan URI or the native-approved plan supplied inline for this execution request before searching `doc/plans/`. Otherwise read `doc/boulder.json` and select the supplied match or resume the single active or paused work owned by this session. With no active work, list `doc/plans/` and select the sole plan. Ask a focused selection question when multiple candidates remain. Read a local URI through OMP's read tool only when its authoritative inline copy is absent; never join it to the workspace path. Local artifacts belong to the current host session; a saved plan in a new session must use its actual saved path.
 
-If explicit execution has no selectable, decision-complete plan, use [ulw-plan](../ulw-plan/SKILL.md), then continue here. Outside native plan mode it creates `doc/plans/<slug>.md`; inside native plan mode the lead creates the canonical local plan and obtains approval through [native `propose`](../ulw-loop/references/omp-contract.md#native-plan-submission) before execution. A plan needs concrete ordered work, dependencies and acceptance criteria; native plans need neither scaffold headers nor checkboxes. Preserve the approved artifact instead of recreating it to fit this workflow. This bootstrap authorizes planning toward the requested objective, not unrelated delivery actions.
+If explicit execution has no selectable, decision-complete plan, use [SUPER Plan](../ulw-plan/SKILL.md), then continue here. Outside native plan mode it creates `doc/plans/<slug>.md`; inside native plan mode the lead creates the canonical local plan and obtains approval through [native `propose`](../ulw-loop/references/omp-contract.md#native-plan-submission) before execution. A plan needs concrete ordered work, dependencies and acceptance criteria; native plans need neither scaffold headers nor checkboxes. Preserve the approved artifact instead of recreating it to fit this workflow. This bootstrap authorizes planning toward the requested objective, not unrelated delivery actions.
 
 ## Durable ownership
 
@@ -55,7 +55,7 @@ For an approved native plan, set `active_plan` to its exact `local://` URI and a
 ]
 ```
 
-Derive the nonempty task set from all approved Approach steps and Verification obligations; each nonempty `plan_ref` identifies the actual section/step unambiguously. The example references are illustrative. Preserve the plan's dependencies, acceptance and task scope; do not invent scaffold waves or extra final checks. Keep the approved plan unchanged and record progress only here and in the existing evidence ledger. Create Boulder and the ledger after native approval restores write access. Native approval alone does not select ulw-execute: use this state only when the user explicitly selected this execution workflow, including an execution request that invoked prerequisite planning.
+Derive the nonempty task set from all approved Approach steps and Verification obligations; each nonempty `plan_ref` identifies the actual section/step unambiguously. The example references are illustrative. Preserve the plan's dependencies, acceptance and task scope; do not invent scaffold waves or extra final checks. Keep the approved plan unchanged and record progress only here and in the existing evidence ledger. Create Boulder and the ledger after native approval restores write access. Native approval alone does not select SUPER Run: use this state only when the user explicitly selected this execution workflow, including an execution request that invoked prerequisite planning.
 
 The plan, Boulder and `doc/ulw-execute/ledger.jsonl` are authoritative. Record the binding objective once in the ledger: plan path, end state, phase/task counts, delivery mode, acceptance criteria, constraints and WHEN TO STOP. Each plan wave has a phase entry derived from prior verified results, not a competing aggregate goal. Do not open a duplicate native goal or loop ledger. Native todos may mirror plan progress under current OMP rules.
 
@@ -115,7 +115,7 @@ A `harness` failure occurs before product behavior is exercised. Permit one repa
 
 After acceptance passes, change `[ ]` to `[x]` and append `task-completed`. A phase advances once its rows are verified or terminally blocked; record its evidence and gaps. Any delivery/worktree transition follows live OMP rules, with Boulder retaining the actual path.
 
-For a dependency graph needing persistent node handoffs or recovery, use [mass-ulw](../mass-ulw/SKILL.md) for that phase only. Its graph references this plan's objective; it does not create another goal or completion ledger.
+For a dependency graph needing persistent node handoffs or recovery, use [SUPER Graph](../mass-ulw/SKILL.md) for that phase only. Its graph references this plan's objective; it does not create another goal or completion ledger.
 
 On resume, reconcile Boulder, plan, evidence, attempts, elapsed bounds and actual retained work before proceeding. The installed hook may continue only active session-owned work: pending tasks, including final verification, or final reporting for all-checked work. Notifications never complete state. Blocked-only plans are not automatically reopened, even if Boulder still says active; finalize in the closing turn. `/stop-continuation` retains Boulder and evidence unchanged but stops this session's automatic turns; `/resume-continuation` explicitly requests eligible active work again. A work record whose own status is `paused` requires a separate explicit workflow resume; ordinary follow-ups do not lift either stop. See the [host continuation contract](../ulw-loop/references/omp-contract.md#continuation-and-evidence).
 

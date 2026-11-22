@@ -1,13 +1,13 @@
 ---
 name: ulw-plan
-description: "ulw-plan CLEAR intent: ground the known outcome and ask only unresolved owner decisions."
+description: "SUPER Plan CLEAR intent: ground the known outcome and ask only unresolved owner decisions."
 metadata:
   short-description: Known outcome, grounded owner choices
 ---
 
 # CLEAR intent
 
-Use this path when the desired outcome is known, or the user explicitly requests an interview. Follow [ulw-plan](../SKILL.md) for scope and [artifact/review details](full-workflow.md) for the durable deliverable.
+Use this path when the desired outcome is known, or the user explicitly requests an interview. Follow [SUPER Plan](../SKILL.md) for scope and [artifact/review details](full-workflow.md) for the durable deliverable.
 
 ## Resolve the real forks
 
@@ -26,4 +26,4 @@ For example, a specified login rate limit may reuse an existing shared limiter w
 
 The draft must settle objective, scope IN/OUT, approach, dependencies, acceptance and relevant constraints (such as budget, stack, scale or audience). Explore or ask only where the actual request leaves a material gap; do not turn this list into a stock interview.
 
-Present the grounded approach, adopted defaults and any remaining owner decisions. Obtain the planning decision described in [full-workflow](full-workflow.md), then produce one decision-complete plan. Run gap analysis and default-on adversarial plan review unless explicitly declined; an explicit high-accuracy request requires review, not another offer. Deliver the plan and review disposition, then hand off to ulw-execute only on an execution request.
+Present the grounded approach, adopted defaults and any remaining owner decisions. Obtain the planning decision described in [full-workflow](full-workflow.md), then produce one decision-complete plan. Run gap analysis and default-on adversarial plan review unless explicitly declined; an explicit high-accuracy request requires review, not another offer. Deliver the plan and review disposition, then hand off to SUPER Run only on an execution request.

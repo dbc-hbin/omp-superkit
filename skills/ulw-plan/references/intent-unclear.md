@@ -1,13 +1,13 @@
 ---
 name: ulw-plan
-description: "ulw-plan UNCLEAR intent: research a concrete approach, expose assumptions and review the resulting plan."
+description: "SUPER Plan UNCLEAR intent: research a concrete approach, expose assumptions and review the resulting plan."
 metadata:
   short-description: Fuzzy outcome, evidence-backed proposals
 ---
 
 # UNCLEAR intent
 
-Use this path when the outcome itself needs formulation, not merely when the request is long or implementation details are missing. Follow [ulw-plan](../SKILL.md) for scope and [artifact/review details](full-workflow.md) for the deliverable. An explicit request to be interviewed uses CLEAR instead.
+Use this path when the outcome itself needs formulation, not merely when the request is long or implementation details are missing. Follow [SUPER Plan](../SKILL.md) for scope and [artifact/review details](full-workflow.md) for the deliverable. An explicit request to be interviewed uses CLEAR instead.
 
 ## Derive an approach
 
@@ -23,6 +23,6 @@ When the user cannot articulate the outcome, offer two or three concrete approac
 
 Gap analysis must challenge the most consequential assumption: is its constraint real, and does the proposal introduce complexity unsupported by the request? Reframing may simplify the approach but must not silently defer requested behavior. Record evidence and reversibility for changed defaults.
 
-Outside native plan mode, present the derived approach and defaults before final-plan creation; the gate remains planning-only, and explicit no-plan ulw-execute already authorizes its prerequisite plan. In native plan mode, record these decisions in the canonical local plan and use [native `propose`](../../ulw-loop/references/omp-contract.md#native-plan-submission) after completion and review, as specified in [full-workflow](full-workflow.md). Surface defaults in the plan's permitted decisions/assumptions section.
+Outside native plan mode, present the derived approach and defaults before final-plan creation; the gate remains planning-only, and explicit no-plan SUPER Run already authorizes its prerequisite plan. In native plan mode, record these decisions in the canonical local plan and use [native `propose`](../../ulw-loop/references/omp-contract.md#native-plan-submission) after completion and review, as specified in [full-workflow](full-workflow.md). Surface defaults in the plan's permitted decisions/assumptions section.
 
 Adversarial plan review is default-on unless explicitly declined; it is especially important when defaults substituted for an interview. Apply the identity binding, blocker eligibility and progress-based convergence in [full-workflow](full-workflow.md). A trivial task does not cancel an explicitly requested review. Return the complete plan and review disposition without beginning implementation.

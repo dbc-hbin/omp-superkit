@@ -112,7 +112,7 @@ export function buildPlanSkeleton(slug, intent) {
 **Risk:** <Low | Medium | High> - <one-line driver>
 ${decisionsLine}
 
-Your next move: <remaining planning decision, or explicit ulw-execute handoff>. Full plan detail follows below.
+Your next move: <remaining planning decision, or explicit /super-run handoff>. Full plan detail follows below.
 
 ---
 
@@ -135,7 +135,7 @@ Your next move: <remaining planning decision, or explicit ulw-execute handoff>. 
 - Test decision: <TDD | tests-after | none> + framework
 - Acceptance and real-surface checks: <project-specific commands and observable outcomes>
 - Failure controls, if proposed: <for each retry, timeout, lock, skip or cap, cite the evidenced cause and exact scope; if unknown, make diagnosis block the fix>
-- Evidence: <attemptDir>/task-<N>-${slug}.<ext> (record the literal evidence directory; under ulw-loop use its attempt directory, otherwise doc/evidence/)
+- Evidence: <attemptDir>/task-<N>-${slug}.<ext> (record the literal evidence directory; under SUPER Loop use its attempt directory, otherwise doc/evidence/)
 
 ## Execution strategy
 ### Parallel execution waves

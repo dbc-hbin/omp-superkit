@@ -1,6 +1,6 @@
 # ATTRIBUTION / NOTICE
 
-`ulw-research` is authored for OMP. The projects below inspired research/report ideas; no third-party source is vendored or redistributed here.
+SUPER Research is authored for OMP. The projects below inspired research/report ideas; no third-party source is vendored or redistributed here.
 
 ## Inline HTML report delivery
 

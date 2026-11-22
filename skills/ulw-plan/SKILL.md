@@ -1,12 +1,12 @@
 ---
 name: ulw-plan
-description: "Writes one grounded, decision-complete work plan before implementation. Use only for an explicit ulw-plan request or a plan-before-implementation request; bare ULW does not activate it."
+description: "Writes one grounded, decision-complete work plan before implementation. Use only for an explicit super-plan request or a plan-before-implementation request; bare SUPER does not activate it."
 argument-hint: "<planning-request>"
 metadata:
-  short-description: Ground decisions, review the plan, and hand it to ulw-execute
+  short-description: Ground decisions, review the plan, and hand it to SUPER Run
 ---
 
-# ulw-plan
+# SUPER Plan
 
 Produce one decision-complete plan. Outside native plan mode, use `doc/plans/<slug>.md` and its durable draft at `doc/drafts/<slug>.md`; approval of the approach authorizes plan creation only. In native plan mode, the lead writes the canonical `local://<slug>-plan.md` using the host's plan format, keeps planning/review state in `local://<slug>-draft.md`, and uses [native plan submission](../ulw-loop/references/omp-contract.md#native-plan-submission). Do not create `doc/` artifacts or request plan approval through ask/chat in that mode. Children investigate and return proposed content under their read-only completion contract; the lead alone writes the artifacts. Planning never authorizes product changes or delegated implementation. Execution follows the user's request and any required native approval.
 
@@ -31,7 +31,7 @@ If the distinction itself matters and remains ambiguous, ask one focused questio
 
 ## Approve, produce, review
 
-Follow [artifact and plan-review details](references/full-workflow.md). Outside native plan mode, present the grounded approach and adopted assumptions before creating the final plan; record `status: awaiting-approval` and the next action in the draft. An absent response is not approval; resume the pending decision. An explicit no-plan `ulw-execute` request already authorizes its prerequisite plan without another generic approval gate. In native plan mode, write and review the canonical local plan first, then submit its slug through native `propose`; prerequisite planning does not bypass that approval route.
+Follow [artifact and plan-review details](references/full-workflow.md). Outside native plan mode, present the grounded approach and adopted assumptions before creating the final plan; record `status: awaiting-approval` and the next action in the draft. An absent response is not approval; resume the pending decision. An explicit no-plan `/super-run` request already authorizes its prerequisite plan without another generic approval gate. In native plan mode, write and review the canonical local plan first, then submit its slug through native `propose`; prerequisite planning does not bypass that approval route.
 
 Outside native plan mode, use the existing [scaffold script](scripts/scaffold-plan.mjs), whose [templates](scripts/plan-templates.mjs) define the output schema. Preserve its section names, checkbox grammar and durable fields. In native plan mode, use the host's required format instead of the scaffold; carry the same decisions, dependencies, acceptance and review evidence in permitted sections. The executor must not need the interview context.
 
@@ -41,4 +41,4 @@ Adversarial **plan** review is default-on unless the user explicitly declines it
 
 ## Deliver
 
-Outside native plan mode, return the plan path, approach, affected-user outcome, actual implementation/final-verification task counts, important defaults and review disposition. Identify unresolved decisions honestly. Handoff is [ulw-execute](../ulw-execute/SKILL.md): `/ulw-execute <plan-name>` only when the user requests execution. In native plan mode, submit the reviewed canonical local plan through native `propose`; the user's execution selection owns the next step and does not itself select a durable ULW workflow. When the user already selected ulw-execute, record that ownership and the local plan URI in Context before review/proposal so a fresh execution context retains it. After native approval, that workflow accepts the exact URI and keeps progress in Boulder without changing the approved plan. Planning alone never starts implementation.
+Outside native plan mode, return the plan path, approach, affected-user outcome, actual implementation/final-verification task counts, important defaults and review disposition. Identify unresolved decisions honestly. Handoff is [SUPER Run](../ulw-execute/SKILL.md): `/super-run <plan-name>` only when the user requests execution. In native plan mode, submit the reviewed canonical local plan through native `propose`; the user's execution selection owns the next step and does not itself select a durable SUPER workflow. When the user already selected SUPER Run, record that ownership and the local plan URI in Context before review/proposal so a fresh execution context retains it. After native approval, that workflow accepts the exact URI and keeps progress in Boulder without changing the approved plan. Planning alone never starts implementation.

@@ -1,6 +1,6 @@
 ---
 name: ulw-plan
-description: "ulw-plan question presentation, fork-reply interpretation and planning-style observations."
+description: "SUPER Plan question presentation, fork-reply interpretation and planning-style observations."
 metadata:
   short-description: Adapt planning questions without changing decision ownership
 ---

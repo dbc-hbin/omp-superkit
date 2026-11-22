@@ -1,6 +1,6 @@
 ---
 name: mass-ulw
-description: Graph definition, handoff and evidence contract for mass-ulw; read before defining a run.
+description: Graph definition, handoff and evidence contract for SUPER Graph; read before defining a run.
 metadata:
   short-description: Phase graphs, file handoffs and recovery boundaries
 ---
@@ -45,7 +45,7 @@ For paginated deliverables, inspect every rendered page for clipping, broken pag
 
 ## Research graph composition
 
-When the actual requested work uses [ulw-research](../../ulw-research/SKILL.md), that skill owns the journal, claim graph, EXPAND leads, convergence and report delivery gates. Mass-ulw owns only the phase graph and handoffs; do not duplicate the research journal or add a second goal.
+When the actual requested work uses [SUPER Research](../../ulw-research/SKILL.md), that skill owns the journal, claim graph, EXPAND leads, convergence and report delivery gates. SUPER Graph owns only the phase graph and handoffs; do not duplicate the research journal or add a second goal.
 
 Web harvest, expansion and verification assignments carry the research skill's [source-access contract](../../ulw-research/SKILL.md#collection-and-evidence-independence), not an assumption that the lead's loaded browser guidance reaches a node. Name `read`/`web_search` for static retrieval/discovery, [browser](../../browser/SKILL.md#delegated-page-work) for required rendered/interactive/account evidence, and [ultimate-browsing](../../ultimate-browsing/SKILL.md) for blocked, incomplete or platform-specific sources. Include the relevant skill paths, actual tool/backend prerequisites, authorization/state requirements and expected evidence in each applicable brief. A node without the required capability stays blocked or hands that observation to a capable owner; its snippet or public page cannot stand in for the required browser/account evidence.
 
@@ -57,7 +57,7 @@ harvest-<a> -> expand-<a>-<n>   (only for an actionable lead needing a node)
 
 Each delegated node has its own handoff file under `<session-dir>/waves/<run-key>/`, named for the node (for example `harvest-<a>.md` or `expand-<a>-<n>.md`). Assignments carry resolved absolute paths; if the child is read-only, the lead persists its returned evidence at that path before releasing consumers. Harvest and expand return candidate claims plus EXPAND tails. The research owner alone reconciles those results and any verifier handoffs into the journal and claim graph.
 
-Carry each claim's OBSERVED evidence and each DEAD END's PROBED evidence in the handoff files, including the probes behind a `none` EXPAND tail. Remembered assertions travel as LEADs. Before accepting a claim for synthesis, check the recorded observation, its source anchor or command result, and support within scope; record the counter-search verdict. The lead can perform simple checks directly. Where an independent lane is justified, a `verify-<cluster>.md` handoff covers related angles and records verdicts, sources and remaining leads; create per-angle or per-claim verification nodes only when the requested rigor justifies them. Each verifier depends only on the handoffs it checks. This does not waive ulw-research's independent evidence, counter-search or adversarial gates. Reuse valid recorded evidence; reopen a source or rerun a check when the evidence is missing, inadequate or invalidated, or to establish required independent proof.
+Carry each claim's OBSERVED evidence and each DEAD END's PROBED evidence in the handoff files, including the probes behind a `none` EXPAND tail. Remembered assertions travel as LEADs. Before accepting a claim for synthesis, check the recorded observation, its source anchor or command result, and support within scope; record the counter-search verdict. The lead can perform simple checks directly. Where an independent lane is justified, a `verify-<cluster>.md` handoff covers related angles and records verdicts, sources and remaining leads; create per-angle or per-claim verification nodes only when the requested rigor justifies them. Each verifier depends only on the handoffs it checks. This does not waive SUPER Research's independent evidence, counter-search or adversarial gates. Reuse valid recorded evidence; reopen a source or rerun a check when the evidence is missing, inadequate or invalidated, or to establish required independent proof.
 
 A missing tail or missing observation evidence leaves the affected claim or lane incomplete and holds its consumers. Obtain missing evidence through the actual host's result retrieval and steering contracts, or collect it directly within scope. If unavailable, preserve the gap as unresolved; a successful node return cannot substitute for evidence.
 

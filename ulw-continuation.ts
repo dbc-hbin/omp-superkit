@@ -84,7 +84,7 @@ export function readContinuation(cwd: string, sessionId: string): Continuation |
         if (!pending && blocked) continue;
         return {
           fingerprint: raw + plan,
-          reason: `Resume ulw-execute from ${boulderPath} and ${planPath}; ${nativePlan ? "preserve the approved local plan and use this work's execution_tasks for progress; reuse its authoritative inline copy or read the URI through OMP, never as a filesystem path. " : ""}${pending
+          reason: `Resume the SUPER run from ${boulderPath} and ${planPath}; ${nativePlan ? "preserve the approved local plan and use this work's execution_tasks for progress; reuse its authoritative inline copy or read the URI through OMP, never as a filesystem path. " : ""}${pending
             ? "integrate pending child results and execute the next dependency-ready pending task, including pending Final Verification Wave rows; capture evidence and update Boulder/ledger"
             : "all execution tasks are verified; finish the approved verification and authorized delivery, then mark the Boulder work complete and finalize its ledger"}.${blocked ? " Treat blocked tasks ([~] rows or execution_tasks status blocked) and transitive dependents as terminal non-success; never reopen or re-queue them. Final verification checks delivered work and reports known gaps without treating those gaps alone as new failures. When pending work ends, report every unmet gap, mark Boulder blocked and stop without claiming success." : ""} Respect cancellation, approvals and blocked/paused state.`,
         };
@@ -100,7 +100,7 @@ export function readContinuation(cwd: string, sessionId: string): Continuation |
   if (goals.some(goal => typeof goal === "object" && goal !== null && "status" in goal && (goal.status === "pending" || goal.status === "in_progress"))) {
     return {
       fingerprint: raw,
-      reason: `Resume the owning workflow from ${loopPath} and its linked brief/ledger; continue the next eligible goal under that workflow's criteria, capture criterion evidence, and checkpoint only after all gates pass. Shared loop-format state does not select ulw-loop: preserve standalone research ownership and its source/citation requirements. Do not re-plan completed work. Respect cancellation, approvals and blocked/paused state.`,
+      reason: `Resume the owning workflow from ${loopPath} and its linked brief/ledger; continue the next eligible goal under that workflow's criteria, capture criterion evidence, and checkpoint only after all gates pass. Shared loop-format state does not select SUPER Loop: preserve standalone research ownership and its source/citation requirements. Do not re-plan completed work. Respect cancellation, approvals and blocked/paused state.`,
     };
   }
 }

@@ -82,7 +82,7 @@ not a reason to switch engine, account or tool.
 
 ## Delegated page work
 
-A child does not inherit this loaded skill, the lead's ULW policy, tab handle or authorization.
+A child does not inherit this loaded skill, the lead's SUPER policy, tab handle or authorization.
 Put this skill's actual path or `skill://browser` in the assignment, plus the relevant source URL,
 required account/page state, allowed actions, backend prerequisites and expected evidence.
 If the task actually requires the user's Chrome or Tern session, confirm that access is authorized
@@ -94,7 +94,7 @@ Choose only a worker whose advertised tools and role permit that work; an unavai
 capability remains a gap or an observation for the lead, not permission to bypass role restrictions.
 Use distinct task/worker tab names and preserve borrowed pages and other workers' state. Return
 observed source/state and artifact paths, redact secrets, and release only the worker's owned
-handles. Reading these references does not activate another ULW workflow.
+handles. Reading these references does not activate another SUPER workflow.
 
 ## Evidence and cleanup
 

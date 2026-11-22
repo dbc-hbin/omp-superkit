@@ -1,4 +1,4 @@
-# ulw-research - report visualization
+# SUPER Research - report visualization
 
 Use visuals when they clarify material evidence or the user requests them. A text report is valid; numbers or a list alone do not require a chart, and a report needs neither a generated cover nor a separate visual workflow. Keep format promises and report gate records under [deliverable-phase.md](deliverable-phase.md).
 

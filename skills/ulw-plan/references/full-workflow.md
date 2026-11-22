@@ -1,13 +1,13 @@
 ---
 name: ulw-plan
-description: "ulw-plan artifact format, durable planning state, adversarial plan review and execution handoff."
+description: "SUPER Plan artifact format, durable planning state, adversarial plan review and execution handoff."
 metadata:
   short-description: Decision-complete plan and review contracts
 ---
 
 # Plan artifacts and review
 
-This reference extends [ulw-plan](../SKILL.md), not native OMP execution policy. Use the [CLEAR](intent-clear.md) or [UNCLEAR](intent-unclear.md) path to resolve decisions, and [stance calibration](stance-calibration.md) to present them.
+This reference extends [SUPER Plan](../SKILL.md), not native OMP execution policy. Use the [CLEAR](intent-clear.md) or [UNCLEAR](intent-unclear.md) path to resolve decisions, and [stance calibration](stance-calibration.md) to present them.
 
 ## Native plan-mode artifacts
 
@@ -21,7 +21,7 @@ The draft records affected users, ideal-state properties (`IS-n`), current gaps 
 
 For architecture or external-source planning, preserve the reasoning sequence: collect claims, verify them against primary evidence, design alternatives and dependencies, challenge them adversarially, then synthesize one plan. These are planning activities, not fixed worker counts or orchestration APIs. Include design consultation when an unresolved boundary, interface or algorithm needs it. Unverified external claims remain assumptions or risks, not instructions.
 
-Outside native plan mode, before final-plan creation, present the affected-user outcome, current gaps, approach, evidence and assumptions. Record `status: awaiting-approval`, the approach and `pending-action` in the draft. A substantive scope change revises the brief; an unanswered gate remains pending. Approval authorizes writing the plan, not implementation. Explicit `ulw-execute` with no selectable plan already authorizes this prerequisite artifact: return it to that workflow without another generic approval question.
+Outside native plan mode, before final-plan creation, present the affected-user outcome, current gaps, approach, evidence and assumptions. Record `status: awaiting-approval`, the approach and `pending-action` in the draft. A substantive scope change revises the brief; an unanswered gate remains pending. Approval authorizes writing the plan, not implementation. Explicit `/super-run` with no selectable plan already authorizes this prerequisite artifact: return it to that workflow without another generic approval question.
 
 ## Scaffold and resume
 
@@ -169,4 +169,4 @@ Freeze the accepted blocker baseline after round 1; later additions must indepen
 
 Deliver the exact plan path, approach, affected-user outcome, actual wave/task counts, material defaults, scope additions (if any) and review disposition. Check that the final plan digest matches its approval before claiming reviewed completion. Identify any unresolved gate instead of presenting it as approved.
 
-Execution follows an explicit execution request via [ulw-execute](../../ulw-execute/SKILL.md), normally `/ulw-execute <plan-name>`, or the user's native propose execution selection. Native execution selection alone uses the host's ordinary execution behavior; it does not select ulw-execute. If the user explicitly selected ulw-execute, including prerequisite planning, record that execution ownership and the exact local plan URI in the plan's Context before review and proposal, so the native fresh-context option preserves the request. After native approval, return the unchanged approved local plan to that workflow as `/ulw-execute local://<slug>-plan.md`. It selects the URI or authoritative inline copy directly and stores referenced execution task progress in the existing Boulder work's `execution_tasks`; no scaffold headers, plan rewrite or `doc/plans/` copy is required. See that workflow for the exact record format, transitions and delivery mechanics. Standalone planning does not silently start implementation, and no handoff bypasses native approval.
+Execution follows an explicit execution request via [SUPER Run](../../ulw-execute/SKILL.md), normally `/super-run <plan-name>`, or the user's native propose execution selection. Native execution selection alone uses the host's ordinary execution behavior; it does not select ulw-execute. If the user explicitly selected SUPER Run, including prerequisite planning, record that execution ownership and the exact local plan URI in the plan's Context before review and proposal, so the native fresh-context option preserves the request. After native approval, return the unchanged approved local plan to that workflow as `/super-run local://<slug>-plan.md`. It selects the URI or authoritative inline copy directly and stores referenced execution task progress in the existing Boulder work's `execution_tasks`; no scaffold headers, plan rewrite or `doc/plans/` copy is required. See that workflow for the exact record format, transitions and delivery mechanics. Standalone planning does not silently start implementation, and no handoff bypasses native approval.

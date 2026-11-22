@@ -60,12 +60,21 @@ describe("Native ULW session behavior", () => {
       expect(host.prepare("continue")!.systemPrompt[2]).toBe(`<omp-ulw-policy>\n<ultrawork-mode>${body}</ultrawork-mode>\n</omp-ulw-policy>`);
     }
   });
-  test("slash commands activate all modes without allowing unrelated extension messages to arm them", async () => {
-    for (const [name, keyword] of [["ulw", ""], ["ulw-plan", "ultrathink"], ["ulw-loop", "orchestrate"], ["ulw-execute", "orchestrate"], ["ulw-research", "workflowz"], ["mass-ulw", "workflowz"]]) {
-      const host = new Host();
-      await host.commands.get(name)!("the requested task", host.context);
-      expect(host.submitted).toBe(name === "ulw" ? "ulw the requested task" : `${name} ${keyword}\n\nthe requested task`);
-      expect(host.prepare(host.submitted!, "extension")).toBeDefined();
+  test("registered SUPER commands and legacy aliases select the same workflow and native mode", async () => {
+    for (const [canonical, legacy, keyword] of [
+      ["super", "ulw", ""], ["super-plan", "ulw-plan", "ultrathink"], ["super-loop", "ulw-loop", "orchestrate"],
+      ["super-run", "ulw-execute", "orchestrate"], ["super-research", "ulw-research", "workflowz"], ["super-graph", "mass-ulw", "workflowz"],
+    ]) {
+      for (const name of [canonical, legacy]) {
+        const host = new Host();
+        await host.command(name, "the requested task");
+        const text = keyword ? `${name} ${keyword}\n\nthe requested task` : `${name} the requested task`;
+        expect(host.submitted).toBe(text);
+        const result = host.prepare(text, "extension");
+        expect(result?.systemPrompt.some(block => block.startsWith("<omp-ulw-policy>"))).toBe(legacy !== "mass-ulw");
+        if (keyword) expect(result?.message?.content).toContain(`<omp-${legacy}-pointer>`);
+        else expect(result?.message).toBeUndefined();
+      }
     }
   });
 
@@ -97,6 +106,9 @@ describe("Native ULW session behavior", () => {
       const host = new Host();
       expect(host.emit("input", { text, source: "rpc" })).toBeUndefined();
     }
+    for (const text of ["Explain /super-plan", "`/super-plan`", "> super-plan task", "super-plan.md", "/super-plan/notes.md", "super-planner task", "super-plan계열 설명"]) {
+      expect(new Host().prepare(text, "rpc")).toBeUndefined();
+    }
     const host = new Host();
     expect(host.emit("input", { text: "ulw-plan task", source: "extension" })).toBeUndefined();
     host.context.agent.kind = "sub";
@@ -108,7 +120,8 @@ describe("Native ULW session behavior", () => {
 
   test("direct ULW input enters native goal mode while workflow-specific commands keep their durable loop", () => {
     const host = new Host();
-    for (const text of ["ulw ship the fix", "/ulw ship the fix", "/ULW 사진에서 셰이더 후보를 좁혀줘.", "/ulw"]) {
+    for (const text of ["super ship the fix", "/super ship the fix", "/SUPER 사진에서 셰이더 후보를 좁혀줘.", "/super",
+      "ulw ship the fix", "/ulw ship the fix", "/ULW 사진에서 셰이더 후보를 좁혀줘.", "/ulw"]) {
       const result = host.emit("input", { text, source: "interactive" });
       expect(result).toEqual({ text: `/goal ${text.replace(/^\//, "")}` });
     }
@@ -118,7 +131,7 @@ describe("Native ULW session behavior", () => {
       expect(host.emit("input", { text, source: "interactive" })).toBeUndefined();
     }
     for (const source of ["rpc", "extension"]) {
-      for (const text of ["ulw ship the fix", "/ulw ship the fix"]) {
+      for (const text of ["super ship the fix", "/super ship the fix", "ulw ship the fix", "/ulw ship the fix"]) {
         expect(host.emit("input", { text, source })).toBeUndefined();
       }
     }
@@ -136,7 +149,8 @@ describe("Native ULW session behavior", () => {
 
   test("explicit specialised invocations never create a competing plain goal, including with pointers disabled", () => {
     for (const disabled of [false, true]) {
-      for (const text of ["ulw loop the task", "ulw plan the task", "ulw execute the task", "ulw research the task", "ulw mass the task"]) {
+      for (const text of ["/super-loop the task", "super-plan the task", "/super-run the task", "super-research the task", "super-graph the task",
+        "ulw loop the task", "ulw plan the task", "ulw execute the task", "ulw research the task", "ulw mass the task"]) {
         const host = new Host();
         host.flags.set("omo-ulw-workflows-disabled", disabled);
         const result = host.emit("input", { text, source: "interactive" }) as { text: string } | undefined;

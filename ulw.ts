@@ -45,30 +45,40 @@ export interface UlwApi {
   on(event: "session_stop", handler: (event: { signal: AbortSignal }, ctx: UlwContext) => { continue: true; additionalContext: string } | undefined): void;
 }
 
-// Keep persisted session keys and shipped CLI flags stable; emitted prompts use OMP names.
+// Keep persisted session keys, prompt markers and shipped CLI flags stable across the rebrand.
 const stateType = "omo-ultrawork:state";
 const skillRoot = fileURLToPath(new URL("./skills/", import.meta.url));
 export const ulwDirective = readFileSync(join(skillRoot, "ultrawork/SKILL.md"), "utf8").split("<ultrawork-mode>")[1].split("</ultrawork-mode>")[0];
+const superCommand = "super";
 const segmentEnd = String.raw`(?![-_.]?[A-Za-z0-9])`;
 const notIntoIdentifier = String.raw`(?![-_](?!(?:loop|plan|research|execute|mass)${segmentEnd})[A-Za-z0-9]|\.[A-Za-z0-9])(?![-_.]?[A-Za-z0-9]*[/\\])`;
 // A mode invocation leads the input; aliases inside the task remain ordinary text.
 const invocationStart = String.raw`^\s*\/?`;
-const ulwInvocation = new RegExp(String.raw`${invocationStart}(?:ultrawork|ulw)\b${notIntoIdentifier}`, "i");
-const nativeGoalInvocation = new RegExp(String.raw`${invocationStart}(?:ultrawork|ulw)\b${segmentEnd}(?=[\s:.,!?]|$)`, "i");
+const invocationEnd = String.raw`(?=[\s:.,!?]|$)`;
+const legacyMode = "(?:ultrawork|ulw)";
+const nativeGoalInvocation = new RegExp(String.raw`${invocationStart}(?:${superCommand}|${legacyMode})\b${segmentEnd}${invocationEnd}`, "i");
 const nativeKeyword = /(?<![\p{L}\p{N}_./\\-])(?<!::)(?:ultrathink|orchestrate|workflowz|jevify)(?![\p{L}\p{N}_/\\-])(?!\.[\p{L}\p{N}_-])(?!\()/u;
 const ulwPolicyBlock = /^<(?:om[op]-ulw-policy|omp-ulw-continuation-paused)>/;
-const workflows: Array<{ name: string; pattern: RegExp; nativeKeyword?: string }> = [
-  { name: "mass-ulw", pattern: /\b(?:mass[\s-]*ulw|ulw[\s-]*mass|mulw|meth)\b/i, nativeKeyword: "workflowz" },
-  { name: "ulw-plan", pattern: /\bulw[\s-]*plan\b/i, nativeKeyword: "ultrathink" },
-  { name: "ulw-loop", pattern: /\bulw[\s-]*loop\b/i, nativeKeyword: "orchestrate" },
-  { name: "ulw-execute", pattern: /\bulw[\s-]*execute\b/i, nativeKeyword: "orchestrate" },
-  { name: "ulw-research", pattern: /\b(?:ulw|mass[\s-]*ulw|ulw[\s-]*mass|mulw|meth)[\s-]*research\b/i, nativeKeyword: "workflowz" },
+type Workflow = { readonly name: string; readonly pattern: RegExp; readonly command?: string; readonly nativeKeyword?: string };
+const workflowSpecs: readonly Workflow[] = [
+  { name: "mass-ulw", command: "super-graph", pattern: /\b(?:mass[\s-]*ulw|ulw[\s-]*mass|mulw|meth)\b/i, nativeKeyword: "workflowz" },
+  { name: "ulw-plan", command: "super-plan", pattern: /\bulw[\s-]*plan\b/i, nativeKeyword: "ultrathink" },
+  { name: "ulw-loop", command: "super-loop", pattern: /\bulw[\s-]*loop\b/i, nativeKeyword: "orchestrate" },
+  { name: "ulw-execute", command: "super-run", pattern: /\bulw[\s-]*execute\b/i, nativeKeyword: "orchestrate" },
+  { name: "ulw-research", command: "super-research", pattern: /\b(?:ulw|mass[\s-]*ulw|ulw[\s-]*mass|mulw|meth)[\s-]*research\b/i, nativeKeyword: "workflowz" },
   ...["browser", "computer-use", "ultimate-browsing", "coding-agent-sessions", "debugging", "review-work", "eval-integrity", "visual-qa", "visualize", "frontend", "data-scientist", "remove-ai-slops", "hyperplan", "memory-advisor", "reflection", "init-deep", "ast-grep", "lsp-setup", "refactor"].map(name => ({
     name, pattern: new RegExp(name + String.raw`(?=\s|$)`, "i"),
   })),
-].map(workflow => ({ ...workflow, pattern: new RegExp(invocationStart + workflow.pattern.source + notIntoIdentifier + String.raw`(?=[\s:.,!?]|$)`, "i") }));
+];
+const workflows = workflowSpecs.map(workflow => {
+  const pattern = workflow.command ? String.raw`(?:${workflow.command}\b|${workflow.pattern.source})` : workflow.pattern.source;
+  return { ...workflow, pattern: new RegExp(invocationStart + pattern + notIntoIdentifier + invocationEnd, "i") };
+});
+// Like /mass-ulw, /super-graph selects only its graph workflow.
+const superMode = [superCommand, ...workflows.flatMap(({ name, command }) => command && name !== "mass-ulw" ? [command] : [])].join("|");
+const ulwInvocation = new RegExp(String.raw`${invocationStart}(?:${legacyMode}\b${notIntoIdentifier}|(?:${superMode})\b${segmentEnd}${invocationEnd})`, "i");
 
-/** Native ULW ignores quoted code and already-expanded directive/pointer blocks. */
+/** SUPER ignores quoted code and already-expanded directive/pointer blocks. */
 export function visibleUlwText(text: string): string {
   if (/\[IMPORTANT:\s*User invoked the "[^"\r\n]+" skill; follow its instructions\./i.test(text) ||
     /^\s*(?:\[(?:[A-Z][A-Z0-9_-]{2,}|[\w.-]+ -> [\w.-]+)\]|[A-Z][\w.-]{0,30} \([^()\s]{1,40}\)(?:, | to )[\w.-]{1,40}:)/.test(text)) {
@@ -125,8 +135,8 @@ export function ulwRequest(prompt: string): { text: string; workflow?: string; i
 }
 
 export function registerUlw(pi: UlwApi): void {
-  pi.registerFlag("omo-ultrawork-disabled", { description: "Disable automatic Native ULW arming", type: "boolean", default: false });
-  pi.registerFlag("omo-ulw-workflows-disabled", { description: "Disable OMP workflow skill pointers", type: "boolean", default: false });
+  pi.registerFlag("omo-ultrawork-disabled", { description: "Disable automatic SUPER mode activation", type: "boolean", default: false });
+  pi.registerFlag("omo-ulw-workflows-disabled", { description: "Disable SUPER workflow skill pointers", type: "boolean", default: false });
   let armed = false;
   let rearmed = false;
   let inputSource: InputEvent["source"] | undefined;
@@ -181,27 +191,30 @@ export function registerUlw(pi: UlwApi): void {
     if (ctx.agent.kind !== "main" || event.source !== "interactive" || continuation.isStopped(ctx) || continuation.hasNativeGoal(ctx)) return;
     // Route the slash alias before its handler calls sendUserMessage(), which
     // bypasses command expansion and cannot create a native goal.
-    const text = event.text.replace(/^(\s*)\/(ulw)(?=\s|$)/i, "$1$2");
+    const text = event.text.replace(/^(\s*)\/(super|ulw)(?=\s|$)/i, "$1$2");
     const visible = visibleUlwText(text);
     if (nativeGoalInvocation.test(visible) && !workflows.some(workflow => workflow.pattern.test(visible)) && !/^\s*\/goal(?:\s|$)/i.test(event.text)) {
       continuation.expectGoal(ctx, text.trim());
       return { text: `/goal ${text}` };
     }
   });
-  for (const name of ["ulw", ...workflows.map(workflow => workflow.name)]) {
+  for (const { name, command } of [{ name: "ulw", command: superCommand }, ...workflows]) {
     // OMP owns /browser for headless/visible mode; keep that builtin intact.
-    pi.registerCommand(name === "browser" ? "web-browser" : name, {
-      description: `Run the OMP-adapted ${name} workflow`,
-      handler: async (args, ctx) => {
-        commandPending = true;
-        resetProgress();
-        // OMP's sendUserMessage() disables slash-command expansion. A
-        // `/goal ...` payload would therefore be persisted as ordinary user
-        // text instead of creating a native goal.
-        const text = name === "ulw" ? `ulw${args ? ` ${args}` : ""}` : `${name}\n\n${args}`;
-        pi.sendUserMessage(withNativeKeyword(text, ctx)?.text ?? text);
-      },
-    });
+    const primary = command ?? (name === "browser" ? "web-browser" : name);
+    for (const registered of command ? [primary, name] : [primary]) {
+      pi.registerCommand(registered, {
+        description: registered !== primary ? `Legacy alias for /${primary}` : name === "ulw" ? "Enable SUPER mode" : `Run the ${primary} workflow`,
+        handler: async (args, ctx) => {
+          commandPending = true;
+          resetProgress();
+          // Slash expansion is disabled by sendUserMessage(); the input hook
+          // above owns the interactive native goal route.
+          const invocation = name === "browser" ? name : registered;
+          const text = name === "ulw" ? `${invocation}${args ? ` ${args}` : ""}` : `${invocation}\n\n${args}`;
+          pi.sendUserMessage(withNativeKeyword(text, ctx)?.text ?? text);
+        },
+      });
+    }
   }
 
   pi.on("before_agent_start", (event, ctx) => {
@@ -231,14 +244,14 @@ export function registerUlw(pi: UlwApi): void {
     }
     const blocks = event.systemPrompt.filter(block => !ulwPolicyBlock.test(block));
     if (stopped) {
-      blocks.push("<omp-ulw-continuation-paused>The operator stopped automatic ULW continuation in this session. Keep existing work and evidence intact. Ordinary follow-ups, worker results and earlier continuation messages do not resume it. Answer the current request without continuing the stopped work unless the operator explicitly authorizes it.</omp-ulw-continuation-paused>");
+      blocks.push("<omp-ulw-continuation-paused>The operator stopped automatic SUPER continuation in this session. Keep existing work and evidence intact. Ordinary follow-ups, worker results and earlier continuation messages do not resume it. Answer the current request without continuing the stopped work unless the operator explicitly authorizes it.</omp-ulw-continuation-paused>");
     } else if (armed && !pi.getFlag("omo-ultrawork-disabled")) {
       // Keep one current policy across compaction and provider fallback.
       blocks.push(`<omp-ulw-policy>\n<ultrawork-mode>${ulwDirective}</ultrawork-mode>\n</omp-ulw-policy>`);
     }
-    const pointers = selected.map(workflow => `<omp-${workflow.name}-pointer>The user explicitly invoked ${workflow.name}. Read ${join(skillRoot, workflow.name, "SKILL.md")} and follow its workflow contract. This session's run id is ${ctx.sessionManager.getSessionId()}.</omp-${workflow.name}-pointer>`);
+    const pointers = selected.map(workflow => `<omp-${workflow.name}-pointer>The user explicitly invoked ${workflow.command ?? workflow.name}. Read ${join(skillRoot, workflow.name, "SKILL.md")} and follow its workflow contract. This session's run id is ${ctx.sessionManager.getSessionId()}.</omp-${workflow.name}-pointer>`);
     if (rearmed && !stopped) {
-      pointers.unshift("<omp-ultrawork-reminder>ULW is already active. Resume the existing OMP goal or selected workflow state; do not create a duplicate goal or repeat completed work.</omp-ultrawork-reminder>");
+      pointers.unshift("<omp-ultrawork-reminder>SUPER mode is already active. Resume the existing OMP goal or selected workflow state; do not create a duplicate goal or repeat completed work.</omp-ultrawork-reminder>");
       rearmed = false;
     }
     return { systemPrompt: blocks, ...(pointers.length ? { message: { customType: "omo-ultrawork:directive", content: pointers.join("\n"), display: false as const } } : {}) };

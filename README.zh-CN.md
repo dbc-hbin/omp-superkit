@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](README.ko.md) | 简体中文
 
-面向 [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi) 的模型提示词、代码模式和原生 ULW 工作流扩展。工具、权限和执行仍由 OMP 管理；扩展适配模型的工作方式，并提供规划、研究及专业技能。
+面向 [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi) 的模型提示词、代码模式和 SUPER 工作流扩展。工具、权限和执行仍由 OMP 管理；扩展适配模型的工作方式，并提供规划、研究及专业技能。
 
 ## 快速开始
 
@@ -14,24 +14,26 @@ bun ./omp-superkit/upstream/materialize-frontend-refs.mjs
 omp -e ./omp-superkit
 ```
 
-在交互式 TUI 中输入 `/ulw <任务>` 或 `ulw <任务>`，即可启用 ULW 和原生目标。已有目标（包括暂停或达到预算限制的目标）保持不变。RPC 客户端须单独创建原生目标。
+在交互式 TUI 中输入 `/super <任务>` 或 `super <任务>`，即可启用 SUPER。自动续行未停止且没有需要保留的目标时，还会启动 OMP 原生目标。已有目标（包括暂停或达到预算限制的目标）保持不变。RPC 客户端须单独创建原生目标。
 
-命令必须位于输入开头；`Explain /ulw` 等提及不会启用工作流。普通 ULW 不会自动启用专业工作流。修改已安装的扩展后，请重启 OMP。
+命令必须位于输入开头；`Explain /super` 等提及不会启用工作流。基础 SUPER 命令不会自动选择专用工作流，专用命令也不会另外启动基础原生目标。修改已安装的扩展后，请重启 OMP。
 
 ## 工作流与技能
 
 | 命令 | 用途 | 默认 OMP 关键词 |
 | --- | --- | --- |
-| `/ulw` | 为当前会话启用 ULW | — |
-| `/ulw-plan` | 创建经过审查的计划，不进行实现 | `ultrathink` |
-| `/ulw-execute` | 执行并跟踪计划 | `orchestrate` |
-| `/ulw-loop` | 跟踪目标、依赖和证据 | `orchestrate` |
-| `/mass-ulw` | 执行持久化依赖图 | `workflowz` |
-| `/ulw-research` | 包含来源与反证的研究 | `workflowz` |
+| `/super` | 为当前会话启用 SUPER | — |
+| `/super-plan` | 创建经过审查的计划，不进行实现 | `ultrathink` |
+| `/super-run` | 执行并跟踪计划 | `orchestrate` |
+| `/super-loop` | 跟踪目标、依赖和证据 | `orchestrate` |
+| `/super-graph` | 执行持久化依赖图 | `workflowz` |
+| `/super-research` | 开展有来源和反证的研究 | `workflowz` |
 
-`/stop-continuation` 暂停当前会话的 ULW 自动续行，不删除计划或证据。`/resume-continuation` 重新允许符合条件的工作继续。这两个命令不会取消正在运行的子任务。在 TUI 中，它们还可以暂停当前会话通过 `/ulw` 创建的原生目标，并恢复由该命令暂停的同一目标；不会接管其他目标。如果 OMP 提示原生目标正忙，则仅停止了 ULW 自动续行；要暂停该目标，请在当前回合结束后再次运行 `/stop-continuation`。RPC 客户端须通过 goal API 单独控制原生目标。
+表中的命令可以省略开头的 `/`。旧调用方式仍然有效。已安装的技能 ID 和路径、CLI 标志，以及持久化的会话、目标和工作流数据均不变，无需迁移。
 
-专业命令会在尚未指定关键词时添加默认关键词，并遵守 OMP 的关键词设置与工具要求。RPC 请使用带相应 `streamingBehavior` 的 `prompt`；独立的 `steer` 和 `follow_up` 请求会跳过关键词处理。直接调用 `/skill:` 或使用绕过输入钩子的初始 CLI 文本时，需要显式指定关键词。
+`/stop-continuation` 暂停当前会话的 SUPER 自动续行，不删除计划或证据。`/resume-continuation` 重新允许符合条件的工作继续。这两个命令不会取消正在运行的子任务。在 TUI 中，它们还可以暂停当前会话通过基础 SUPER 命令（包括旧别名）创建的原生目标，但只会恢复由该命令暂停的同一目标，不会接管其他目标。如果 OMP 提示原生目标正忙，则仅停止了 SUPER 自动续行；要暂停该目标，请在当前回合结束后再次运行 `/stop-continuation`。RPC 客户端须通过 goal API 单独控制原生目标。
+
+专业命令会在尚未指定关键词时添加默认关键词，并遵守 OMP 的关键词设置与工具要求。RPC 请使用带相应 `streamingBehavior` 的 `prompt`；独立的 `steer` 和 `follow_up` 请求会跳过关键词处理。通过 `/skill:` 直接调用时仍使用已安装的技能 ID。直接调用或初始 CLI 文本若绕过输入钩子，须显式指定关键词。
 
 其他入口：
 

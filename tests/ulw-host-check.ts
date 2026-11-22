@@ -237,7 +237,7 @@ try {
       assert(!JSON.stringify(requests[offset]).includes(`<omp-${name}-pointer>`), "already-expanded native skill must not receive a duplicate pointer");
     }
   }
-  const armed = await run(["/ulw verify this local probe", "continue"]);
+  const armed = await run(["/super verify this local probe", "continue"]);
   assert.equal(armed.length, 2);
   for (const prompt of armed) {
     assert(prompt.includes(`<ultrawork-mode>${directive}</ultrawork-mode>`), "actual provider request must contain the shared shipped directive");
@@ -261,15 +261,23 @@ try {
   assert.equal(disabled.length, 1);
   assert(!disabled[0].includes("<omp-ulw-policy>"));
   const nativeNotices = ["ultrathink-notice", "orchestrate-notice", "workflow-notice", "jevify-notice"];
-  for (const [name, notice] of [["ulw-plan", "ultrathink-notice"], ["ulw-loop", "orchestrate-notice"], ["ulw-execute", "orchestrate-notice"], ["ulw-research", "workflow-notice"], ["mass-ulw", "workflow-notice"]]) {
-    const noticeOffset = messageTypes.length;
-    const specialised = await run([`/${name} exercise this local probe`], [], undefined, undefined, "gpt-6-astra", false, ["task", "eval"]);
-    assert.equal(specialised.length, 1);
-    assert.equal(specialised[0].includes("<omp-ulw-policy>"), name !== "mass-ulw");
-    assert(JSON.stringify(requests.at(-1)).includes(`<omp-${name}-pointer>`));
-    assert.deepEqual(messageTypes.slice(noticeOffset).filter(type => nativeNotices.includes(type)), [notice], `${name} must activate its native execution mode exactly once`);
+  for (const [canonical, legacy, notice] of [
+    ["super-plan", "ulw-plan", "ultrathink-notice"], ["super-loop", "ulw-loop", "orchestrate-notice"],
+    ["super-run", "ulw-execute", "orchestrate-notice"], ["super-research", "ulw-research", "workflow-notice"], ["super-graph", "mass-ulw", "workflow-notice"],
+  ]) {
+    for (const command of [canonical, legacy]) {
+      const noticeOffset = messageTypes.length;
+      const specialised = await run([`/${command} exercise this local probe`], [], undefined, undefined, "gpt-6-astra", false, ["task", "eval"]);
+      assert.equal(specialised.length, 1);
+      assert.equal(specialised[0].includes("<omp-ulw-policy>"), legacy !== "mass-ulw");
+      assert(JSON.stringify(requests.at(-1)).includes(`<omp-${legacy}-pointer>`), `${command} must select the existing workflow`);
+      assert.deepEqual(messageTypes.slice(noticeOffset).filter(type => nativeNotices.includes(type)), [notice], `${command} must activate its native execution mode exactly once`);
+    }
   }
   for (const [input, expected] of [
+    ["super-plan exercise bare command", ["ultrathink-notice"]],
+    ["super-run workflowz exercise override", ["workflow-notice"]],
+    ["Explain `/super-plan`", []],
     ["ulw plan exercise alias", ["ultrathink-notice"]],
     ["mass ulw research exercise combined alias", ["workflow-notice"]],
     ["/ulw-execute workflowz exercise override", ["workflow-notice"]],

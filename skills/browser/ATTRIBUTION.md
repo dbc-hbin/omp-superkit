@@ -25,9 +25,9 @@ by the original documentation do not replace the license for that documentation.
 | `scripts/*`, runtime staging and package ignores | Intentionally omitted: loaders, doctor/onboarding, built-in OmO grant adapter and BrowserSkill daemon are not OMP interfaces |
 
 The browser-related sections of upstream `packages/prompts-core/prompts/ultrawork/{codex,default,gemini,glm,gpt}.md`
-are represented by the shared native browser guidance and the existing local ULW/workflow pointers.
+are represented by the shared native browser guidance and the existing local SUPER workflow pointers.
 They do not add another model-specific execution policy. Debugging, frontend, review-work,
-ulw-execute, ultrawork, ulw-loop, visual-qa and visualize retain their own deliverables while routing
+SUPER Run, SUPER mode, SUPER Loop, visual-qa and visualize retain their own deliverables while routing
 page work through this skill; native desktop work uses the shipped `computer-use`
 skill and OMP's native Eval `computer` prelude.
 
@@ -51,7 +51,7 @@ This is the browser-integration inventory; the complete 21-reader reference map 
 Planning and hyperplan entrypoints also carry the conditional source-access contract so their
 own native skill invocations and fresh perspective workers can resolve required web evidence.
 Static URLs still use `read`; research's upstream browser-for-every-source rule, worker quotas and
-legacy team/load-skills APIs are not copied. Browser instructions do not implicitly activate ULW.
+legacy team/load-skills APIs are not copied. Browser instructions do not implicitly activate SUPER.
 Original snapshot/import CLI commands are not invented where the local report tools do not expose
 them; observed HTML and provenance are saved through native file tools instead.
 

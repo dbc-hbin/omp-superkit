@@ -1,4 +1,4 @@
-# ulw-research - LaTeX reports
+# SUPER Research - LaTeX reports
 
 Use this route for a requested `.tex`/LaTeX report or an agreed typeset PDF. Deliver the sources and compiled PDF; if compilation is unavailable, resolve the PDF promise as blocked/failed rather than calling sources a compiled deliverable. Report state, outcome rows and applicable gates remain defined in [deliverable-phase.md](deliverable-phase.md).
 

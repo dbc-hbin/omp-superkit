@@ -187,12 +187,12 @@ try {
   }
   for (const prompt of [
     "Refactor the parser.", "/refactor the parser",
-    "/mass-ulw Fix the login failure.",
+    "/super-graph Fix the login failure.", "/mass-ulw Fix the login failure.",
     "Implement the fix without changes to the public API.",
     "Fix login. Do not modify unrelated files.",
   ]) {
     const [explanation, execution] = await run([
-      { prompt: "/mass-ulw Explain the login failure." },
+      { prompt: "/super-graph Explain the login failure." },
       { prompt, artifact: "review-regression.txt" },
     ]);
     assert(explanation && execution);
@@ -200,7 +200,7 @@ try {
     assert.equal(execution.observations[0]?.enabled, true);
     assert(execution.calls.some(call => call.model === targetModel), `implementation must restore prewalk: ${prompt}`);
   }
-  for (const prompt of ["/ulw-execute Do not modify any files yet.", "/refactor Do not implement for now."]) {
+  for (const prompt of ["/super-run Do not modify any files yet.", "/ulw-execute Do not modify any files yet.", "/refactor Do not implement for now."]) {
     const [waiting, continuation, execution] = await run([
       { prompt }, { prompt: "continue" }, { prompt: "Fix the implementation now.", artifact: "after-wait.txt" },
     ]);

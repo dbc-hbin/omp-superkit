@@ -2,7 +2,7 @@
 
 English | [한국어](README.ko.md) | [简体中文](README.zh-CN.md)
 
-Model-specific prompts, code mode and native ULW workflows for [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi). OMP retains control of tools, permissions and execution; this extension adapts working methods and adds planning, research and specialist skills.
+Model-specific prompts, code mode and SUPER workflows for [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi). OMP retains control of tools, permissions and execution; this extension adapts working methods and adds planning, research and specialist skills.
 
 ## Getting started
 
@@ -14,24 +14,26 @@ bun ./omp-superkit/upstream/materialize-frontend-refs.mjs
 omp -e ./omp-superkit
 ```
 
-In the interactive TUI, enter `/ulw <task>` or `ulw <task>` to activate ULW and a native goal. Existing goals, including paused or budget-limited ones, are preserved. RPC clients must create native goals separately.
+In the interactive TUI, enter `/super <task>` or `super <task>` to activate SUPER. It starts an OMP-native goal if continuation isn't stopped and there is no existing goal to preserve. Existing goals, including paused or budget-limited ones, are preserved. RPC clients must create native goals separately.
 
-Commands must start the input; mentions such as `Explain /ulw` do not activate them. Plain ULW does not automatically enable specialized workflows. Restart OMP after changing the installed extension.
+Commands must start the input; mentions such as `Explain /super` do not activate them. Plain SUPER does not automatically select a specialized workflow, and specialized commands do not start a separate plain native goal. Restart OMP after changing the installed extension.
 
 ## Workflows and skills
 
 | Command | Purpose | Default OMP keyword |
 | --- | --- | --- |
-| `/ulw` | Activate ULW for the session | — |
-| `/ulw-plan` | Create a reviewed plan without implementation | `ultrathink` |
-| `/ulw-execute` | Execute and track a plan | `orchestrate` |
-| `/ulw-loop` | Track goals, dependencies and evidence | `orchestrate` |
-| `/mass-ulw` | Execute a persistent dependency graph | `workflowz` |
-| `/ulw-research` | Research with sources and counterarguments | `workflowz` |
+| `/super` | Activate SUPER for the session | — |
+| `/super-plan` | Create a reviewed plan without implementation | `ultrathink` |
+| `/super-run` | Execute and track a plan | `orchestrate` |
+| `/super-loop` | Track goals, dependencies and evidence | `orchestrate` |
+| `/super-graph` | Execute a persistent dependency graph | `workflowz` |
+| `/super-research` | Research with sources and counterarguments | `workflowz` |
 
-Use `/stop-continuation` to pause automatic ULW continuation for the current session without deleting its plan or evidence. Use `/resume-continuation` to re-enable eligible work. These commands do not cancel running workers. In the TUI they can also pause the native goal created by this session's `/ulw` and resume the goal they paused; they do not take over an unrelated goal. If OMP reports the native goal is busy, automatic ULW continuation is stopped but the goal has not been paused. To pause it too, run `/stop-continuation` again when idle. RPC clients control native goals separately through the goal API.
+All commands in the table also work without the leading `/`. Existing invocations still work. Installed skill IDs and paths, CLI flags, and persisted session, goal and workflow data are unchanged; no migration is required.
 
-Specialized commands add their default keyword unless one is already specified, respecting OMP's keyword settings and tool requirements. For RPC, use `prompt` with the appropriate `streamingBehavior`; separate `steer` and `follow_up` requests bypass keyword processing. Direct `/skill:` calls and initial CLI text that bypass the input hook need an explicit keyword.
+Use `/stop-continuation` to pause automatic SUPER continuation for the current session without deleting its plan or evidence. Use `/resume-continuation` to re-enable eligible work. These commands do not cancel running workers. In the TUI they can also pause the native goal created by this session's plain SUPER invocation (including a legacy alias) and resume only the goal they paused; they do not take over an unrelated goal. If OMP reports the native goal is busy, automatic SUPER continuation is stopped but the goal has not been paused. To pause it too, run `/stop-continuation` again when idle. RPC clients control native goals separately through the goal API.
+
+Specialized commands add their default keyword unless one is already specified, respecting OMP's keyword settings and tool requirements. For RPC, use `prompt` with the appropriate `streamingBehavior`; separate `steer` and `follow_up` requests bypass keyword processing. Direct `/skill:` calls still use the installed skill IDs. Those calls and initial CLI text need an explicit keyword when they bypass the input hook.
 
 Other entry points:
 

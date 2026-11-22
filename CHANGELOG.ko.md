@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-22 SUPER 워크플로 명령
+
+- SUPER를 워크플로의 공개 이름으로 사용합니다. `/super`, `/super-plan`, `/super-run`, `/super-loop`, `/super-graph`, `/super-research`는 `/` 없이도 사용할 수 있습니다. 기존 별칭도 `/` 유무와 관계없이 계속 지원합니다.
+- `/stop-continuation`, `/resume-continuation`, OMP 키워드, CLI 플래그, 설치된 스킬 ID와 경로, 저장된 세션·목표·워크플로 형식은 그대로입니다. 마이그레이션은 필요하지 않습니다.
+
 ### 2026-11-22 슈퍼킷 자체 모델 프리셋
 
 - 현재 모델별 템플릿과 라우팅은 [prompts/models/](prompts/models/)에서 직접 관리합니다. [GPT‑6.2 Astra/Sol 본문](prompts/gpt-6.2.ts)은 기존 로컬 버전으로 일원화합니다. 업스트림에서 가져와 프리셋을 생성하는 명령은 제거하고 출처와 라이선스는 보존합니다.

@@ -1,4 +1,4 @@
-# ulw-research - deliverable contract
+# SUPER Research - deliverable contract
 
 This reference owns report state, format promises, evidence-preserving validation and the existing report-tools interface. Use the [responsibility boundary](../../ulw-loop/references/omp-contract.md) for working methods and permissions. Keep the requested destination/format; a demo or reproduction does not replace a promised report.
 
