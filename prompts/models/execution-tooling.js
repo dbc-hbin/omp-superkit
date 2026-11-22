@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: MIT
+
+const EXECUTION_TOOLING_RULES = [
+  {
+    id: "eval-routing-decision",
+    concern: "code-cell-routing",
+    directive: {
+      claude: "Sort each multi-call step first: independent reads/searches/symbol lookups/probes -> ONE `eval` cell via `parallel(thunks)`. Edits, side effects, deploys, approvals, any call fed by an unseen result -> one at a time, observe each before next.",
+      kimi: "Sort a multi-call step before you write it: put independent reads, searches, symbol lookups, and probes into one `eval` cell together with `parallel(thunks)`, and run edits, side-effecting commands, deploys, approvals, and any call that depends on a result you have not seen yet one at a time, looking at each result before the next."
+    },
+    fullDirective: {
+      claude: "Sort a multi-call step before you write it: independent reads, searches, symbol lookups, and probes go into ONE `eval` cell together via `parallel(thunks)` - an extra read-only call in that wave is nearly free, a stale assumption costs the turn - while edits, side-effecting commands, deploys, approvals, and any call whose input is a result you have not seen yet run one at a time, each observed before the next.",
+      kimi: "Sort a multi-call step before you write it: put independent reads, searches, symbol lookups, and probes into one `eval` cell together with `parallel(thunks)`, and run edits, side-effecting commands, deploys, approvals, and any call that depends on a result you have not seen yet one at a time, looking at each result before the next."
+    }
+  },
+  {
+    id: "eval-evidence-return",
+    concern: "code-cell-routing",
+    directive: {
+      claude: "Name expected state before running a cell; on return COMPARE evidence to it; for a mutating cell also confirm nothing changed beyond it.",
+      kimi: "Name the state a cell should produce before running it; when it returns, compare the returned evidence with that state, and for a cell that changed something also check that nothing changed beyond it."
+    },
+    fullDirective: {
+      claude: "Name the state a cell should produce before running it; when it returns, COMPARE the returned evidence with that state, and for a cell that changed something also check that nothing changed beyond it. A result that hides a failed item or a truncated tail is not evidence.",
+      kimi: "Name the state a cell should produce before running it; when it returns, compare the returned evidence with that state, and for a cell that changed something also check that nothing changed beyond it. A result that hides a failed item or a truncated tail is not evidence."
+    }
+  },
+  {
+    id: "perceived-state-loop",
+    concern: "code-cell-routing",
+    directive: {
+      claude: "Result must be SEEN (page, component, image, 3D scene, layout): one change -> render/screenshot -> look -> next. 3D: several angles. Page: desktop + mobile widths. Compare to reference or stated intent; ask only where two readings of intent diverge.",
+      kimi: "When the result must be seen rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge."
+    },
+    fullDirective: {
+      claude: "When the result must be SEEN rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge.",
+      kimi: "When the result must be seen rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge."
+    }
+  },
+  {
+    id: "eval-stay-direct",
+    concern: "code-cell-routing",
+    directive: {
+      claude: "Direct tool call only when: one call suffices, result decides next call, semantic judgment sits between calls, or action needs approval.",
+      kimi: "Use a direct tool call when one call is enough, when each result decides the next call, or when the action needs approval - then stop deliberating and make it."
+    },
+    fullDirective: {
+      claude: "Call a tool directly only when one call is enough, the result decides the next call, semantic judgment sits between calls, or the action needs approval.",
+      kimi: "Use a direct tool call when one call is enough, when each result decides the next call, or when the action needs approval - then stop deliberating and make it."
+    }
+  }
+];
+const CONCERN_TOOL = {
+  "code-cell-routing": "eval"
+};
+export function buildExecutionToolingSection(options) {
+  const paragraphs = EXECUTION_TOOLING_RULES.filter((rule) => options.toolNames.includes(CONCERN_TOOL[rule.concern])).map((rule) => (options.sharedSections === "full" ? rule.fullDirective : rule.directive)[options.dialect]);
+  if (paragraphs.length === 0) {
+    return "";
+  }
+  const body = paragraphs.join(`
+
+`);
+  return options.dialect === "claude" ? `<execution_tooling>
+${body}
+</execution_tooling>` : body;
+}
+export function buildExecutionToolingParagraph(options) {
+  const section = buildExecutionToolingSection(options);
+  return section ? `${section}
+
+` : "";
+}

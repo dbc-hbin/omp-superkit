@@ -44,7 +44,7 @@ See [skills/](skills/) for individual instructions. Cross-product session discov
 
 ## Prompts and code mode
 
-Supported model profiles are adapted to OMP and applied independently to main and supported child sessions. Specialist roles, project instructions, permissions and completion protocols remain intact. Custom templates and unsupported models retain native behavior. Explicit investigation and planning-only requests temporarily suppress prewalk; implementation requests restore only overrides owned by this extension.
+Superkit ships its own model profiles and applies them independently to main and supported child sessions. Specialist roles, project instructions, permissions and completion protocols remain intact. Custom templates and unsupported models retain native behavior. Explicit investigation and planning-only requests temporarily suppress prewalk; implementation requests restore only overrides owned by this extension.
 
 This extension does not apply model presets or code mode to Gemini models. For other models, code mode depends on request capabilities:
 
@@ -68,14 +68,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 A GitHub source archive omits submodules and generated references. For deployment without Git, copy the complete materialized `skills/` tree. Initialization and upstream updates need network access; reference generation is local.
 
-To update model presets:
-
-```bash
-bun upstream/update.mjs --ref main --check
-bun upstream/update.mjs --ref main
-```
-
-`--ref` accepts a branch, tag or commit SHA. The updater validates before replacing generated presets and leaves local adaptations and skills untouched. `--check` returns 0 for no change, 1 for a change or error; `GITHUB_TOKEN` can help with API rate limits.
+Edit model templates directly in [prompts/models/](prompts/models/) or, for GPT‑6.2 Astra/Sol, in [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts). [Model routing](prompts/models/model-routing.js) handles aliases, and [presets.ts](presets.ts) combines the templates with active OMP tool and session guidance. Presets are no longer fetched or generated from OMO or Senpi.
 
 ```bash
 bun test
@@ -87,4 +80,4 @@ Host checks use the installed OMP with isolated state and a scripted local provi
 
 ## History and attribution
 
-[Change history](CHANGELOG.md). Upstream revisions, sources and licenses are retained in [upstream/](upstream/) and each skill's attribution files.
+[Change history](CHANGELOG.md). The original preset source is credited in the [catalog](prompts/models/catalog.js) and its [MIT license](prompts/models/LICENSE). Skill sources and licenses are recorded in their attribution files.

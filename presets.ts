@@ -1,4 +1,4 @@
-import { ASYNC_DEFAULT, MONITOR_CONDITIONS, TURN_END_IS_WAIT, buildPreset, resolvePresetName } from "./upstream/presets.js";
+import { ASYNC_DEFAULT, MONITOR_CONDITIONS, TURN_END_IS_WAIT, buildPreset, resolvePresetName } from "./prompts/models/catalog.js";
 import { gpt62Body } from "./prompts/gpt-6.2";
 
 export interface PresetModel {
@@ -15,7 +15,7 @@ export function isGeminiModel({ id, name, identity }: Partial<PresetModel>): boo
 
 export function renderPreset(model: PresetModel, options: PresetOptions): { name: string; prompt: string } | undefined {
   if (isGeminiModel(model)) return undefined;
-  let name = resolvePresetName({ id: model.id, name: model.name, provider: model.provider }, { promptPreset: "auto" });
+  let name = resolvePresetName(model);
   // GPT-6.1 Terra shares Astra's profile in main and child sessions.
   if (!name) {
     const terra = /(^|[/@:._-])gpt[._-]?6(?:[._-]1|1)[._-]terra(?=$|[/@:._-])/i;
@@ -23,7 +23,7 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
       id: model.id.replace(terra, "$1gpt-6-astra"),
       name: model.name?.replace(/\s+/g, "-").replace(terra, "$1gpt-6-astra"),
       provider: model.provider,
-    }, { promptPreset: "auto" });
+    });
   }
   if (!name) return undefined;
   const hasAsk = options.toolNames.includes("ask");
@@ -55,7 +55,7 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
     ].filter(Boolean).join("\n\n");
     return { name, prompt };
   }
-  // Upstream gates its question directive on its own tool name; transport is adapted below.
+  // Base templates use the question tool name below; the emitted text uses OMP's `ask`.
   const selectedTools = options.toolNames.map(tool => tool === "ask" ? "request_user_input" : tool);
   const preset = buildPreset(name, { surface: options.surface, selectedTools });
   if (!preset) return undefined;
@@ -160,7 +160,7 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
       routingLine + "\n\n",
     );
   }
-  // Preserve upstream reporting moments and model-specific cadence, not fixed labels or ledgers.
+  // Preserve the template's reporting moments and cadence, not fixed labels or ledgers.
   prompt = prompt
     .replace(
       /## Handoff\n\n((?:A handoff is|Handoff moments:|At a handoff -)[^\n]+)\n\n[\s\S]*?(?=\n\n## |$)/,
@@ -364,7 +364,7 @@ Never invent evidence or claim unperformed checks passed.`,
   if (hasBash) {
     prompt += "\n\n" + shellRules;
   }
-  // Apply generic wording only after matching the intact upstream async directives.
+  // Apply generic wording only after matching the intact base async directives.
   prompt = prompt.replaceAll("session tools", "available process controls");
   // Grok 4.5 remains an orchestrator, but uses omp workers rather than recursive CLI invocations.
   prompt = prompt.replace(

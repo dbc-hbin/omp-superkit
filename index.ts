@@ -1,5 +1,5 @@
 /**
- * OMP model-prompt port, generated from pinned upstream GitHub sources. Installed in the global extensions directory;
+ * OMP model prompts maintained in this extension. Installed in the global extensions directory;
  * new omp sessions discover index.ts automatically. Restart omp to load it.
  * Changelog: initial faithful core/shared-builder/tuning port, with omp tool
  * transport adaptation and request-model refresh for supported provider hooks.
@@ -25,8 +25,8 @@
  * retain omp behavior; runtime requires neither upstream packages nor network access.
  * Cursor blob prompts and providers bypassing onPayload (including command-code-go
  * and GitLab workflow) receive turn-start profiles but cannot refresh them mid-turn.
- * Regression checks: bun test in this directory. Upstream provenance and the
- * reproducible updater live in upstream/; presets.ts contains transport adaptations.
+ * Regression checks: bun test in this directory. Model templates live in
+ * prompts/models/; presets.ts assembles them for the active OMP capabilities.
  */
 import { registerCodeMode } from "./code-mode";
 import type { CodeModeApi } from "./code-mode";

@@ -44,7 +44,7 @@ omp -e ./omp-superkit
 
 ## 프롬프트와 코드모드
 
-지원 모델의 프롬프트를 OMP에 맞게 보정하고, 메인과 지원되는 자식 세션에 각각 적용합니다. 전문 역할·프로젝트 지침·권한·완료 프로토콜은 보존합니다. 커스텀 템플릿과 미지원 모델은 native 동작을 유지합니다. 명시적인 조사·계획 전용 요청에서는 prewalk를 잠시 억제하고, 구현 요청으로 전환하면 이 확장이 소유한 override만 복원합니다.
+슈퍼킷이 자체 관리하는 모델 프리셋을 메인 세션과 지원되는 자식 세션에 각각 적용합니다. 전문 역할·프로젝트 지침·권한·완료 프로토콜은 보존합니다. 커스텀 템플릿과 미지원 모델은 native 동작을 유지합니다. 명시적인 조사·계획 전용 요청에서는 prewalk를 잠시 억제하고, 구현 요청으로 전환하면 이 확장이 소유한 override만 복원합니다.
 
 이 확장은 Gemini 모델에 프리셋이나 코드모드를 적용하지 않습니다. 그 외 모델의 코드모드는 요청의 기능 조건에 따라 적용합니다.
 
@@ -68,14 +68,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 GitHub 소스 압축 파일에는 서브모듈과 생성 참조가 없습니다. Git 없이 배포할 때는 생성이 완료된 `skills/` 트리 전체를 복사합니다. 초기화와 upstream 갱신에는 네트워크가 필요하며, 참조 생성은 로컬에서 수행합니다.
 
-모델 프리셋 갱신:
-
-```bash
-bun upstream/update.mjs --ref main --check
-bun upstream/update.mjs --ref main
-```
-
-`--ref`에는 브랜치·태그·커밋 SHA를 지정할 수 있습니다. 검증이 성공한 뒤 생성 프리셋만 교체하며, 로컬 보정 코드와 스킬은 유지합니다. `--check`는 변경 없음에 0, 변경 또는 오류에 1을 반환합니다. API 호출 제한 시 `GITHUB_TOKEN`을 사용할 수 있습니다.
+모델별 템플릿은 [prompts/models/](prompts/models/)에서 직접 수정합니다. GPT‑6.2 Astra/Sol은 [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts)를 사용합니다. [모델 라우팅](prompts/models/model-routing.js)이 별칭을 판별하고, [presets.ts](presets.ts)가 OMP의 활성 도구와 세션에 맞춰 템플릿을 조합합니다. OMO·Senpi에서 프리셋을 가져오거나 다시 생성하지 않습니다.
 
 ```bash
 bun test
@@ -87,4 +80,4 @@ bun run test:host
 
 ## 변경 이력과 출처
 
-[변경 이력](CHANGELOG.ko.md). 원본 리비전·출처·라이선스는 [upstream/](upstream/)과 각 스킬의 attribution 파일에 보존합니다.
+[변경 이력](CHANGELOG.ko.md). 프리셋 원본 출처와 [MIT 라이선스](prompts/models/LICENSE)는 [카탈로그](prompts/models/catalog.js)와 함께 보존합니다. 스킬 출처와 라이선스는 각 스킬의 attribution 파일에 기록합니다.

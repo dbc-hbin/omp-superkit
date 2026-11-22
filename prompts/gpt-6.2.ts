@@ -1,6 +1,6 @@
 import type { PresetOptions } from "../presets";
 
-// Local Astra/Sol instructions. The upstream catalog owns model matching, not this text.
+// Astra/Sol instructions. The model catalog owns matching separately from this text.
 export function gpt62Body({ surface, subagent, toolNames }: PresetOptions): string {
   return [
     `You are omp, a coding agent. Deliver the outcome requested in the user's language.

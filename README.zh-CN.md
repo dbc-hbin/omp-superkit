@@ -68,14 +68,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 GitHub 源码压缩包不包含子模块和生成的参考文件。无需 Git 的部署应复制生成后的完整 `skills/` 目录。初始化和上游更新需要网络；参考生成在本地完成。
 
-更新模型预设：
-
-```bash
-bun upstream/update.mjs --ref main --check
-bun upstream/update.mjs --ref main
-```
-
-`--ref` 接受分支、标签或提交 SHA。更新器验证成功后才替换生成的预设，不覆盖本地适配代码或技能。`--check` 在没有更改时返回 0，发现更改或错误时返回 1；遇到 API 限流时可使用 `GITHUB_TOKEN`。
+在 [prompts/models/](prompts/models/) 中直接编辑模型模板。GPT‑6.2 Astra/Sol 使用 [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts)。[模型路由](prompts/models/model-routing.js) 识别模型别名，[presets.ts](presets.ts) 根据 OMP 的活动工具和会话组合提示。预设不再从 OMO 或 Senpi 下载或生成。
 
 ```bash
 bun test
@@ -87,4 +80,4 @@ bun run test:host
 
 ## 更新历史与来源
 
-[更新历史](CHANGELOG.md)。上游版本、来源和许可证保留在 [upstream/](upstream/) 及各技能的 attribution 文件中。
+[更新历史](CHANGELOG.md)。预设的原始来源和 [MIT 许可证](prompts/models/LICENSE) 随[目录](prompts/models/catalog.js)保留。技能的来源和许可证记录在各自的 attribution 文件中。

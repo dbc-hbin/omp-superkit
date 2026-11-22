@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-22 Superkit-owned model presets
+
+- Maintain the current model templates and routing directly in [prompts/models/](prompts/models/), with a single [GPT‑6.2 Astra/Sol body](prompts/gpt-6.2.ts). Remove the upstream fetch and preset generation command; keep source attribution and licensing.
+- Preserve current model selection and rendered prompts for supported sessions and active tools. Frontend reference generation is separate and unchanged.
+
 ### 2026-11-22 ULW continuation, recovery and research delivery
 
 - For scaffold plans, only the numbered tasks under Todos and Final verification wave drive continuation. Notes, examples, and nested checkboxes do not reopen or block finished work. Simple checklists and approved native plans keep their own formats.

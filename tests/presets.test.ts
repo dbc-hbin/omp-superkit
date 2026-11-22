@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderPreset } from "../presets";
-import { buildPreset, presetNames } from "../upstream/presets.js";
+import { buildPreset, presetNames } from "../prompts/models/catalog.js";
 
 const toolNames = ["eval", "ask", "task", "bash", "wait", "read", "grep", "glob", "write", "edit", "todo", "web_search"];
 const models: Record<string, string> = {
@@ -8,15 +8,18 @@ const models: Record<string, string> = {
   "kimi-k2-6": "kimi-k2.6", "kimi-k2-7": "kimi-for-coding-highspeed", "kimi-k2-8": "kimi-for-coding",
 };
 
-describe("faithful omo presets", () => {
+describe("local model presets", () => {
   test("catalog renders preserve model routing and OMP tool transport across surfaces and capabilities", () => {
     for (const name of presetNames) {
       for (const surface of ["terminal", "app"] as const) {
         for (const activeTools of [toolNames, toolNames.filter(tool => tool !== "eval"), []]) {
-          const original = buildPreset(name, { surface, selectedTools: activeTools });
-          expect(original?.name).toBe(name);
-          expect(original?.prompt).not.toMatch(/\$\{|\bundefined\b|\[object Object\]/);
-          // gpt-5 is explicit-only upstream.
+          // GPT-6.2 has its own complete body; the other profiles adapt a base template.
+          const base = name === "gpt-6.2" ? undefined : buildPreset(name, { surface, selectedTools: activeTools });
+          if (name !== "gpt-6.2") {
+            expect(base?.name).toBe(name);
+            expect(base?.prompt).not.toMatch(/\$\{|\bundefined\b|\[object Object\]/);
+          }
+          // Generic GPT-5 is not automatically selected.
           if (name === "gpt-5") continue;
           const rendered = renderPreset({ id: models[name] ?? name }, { surface, toolNames: activeTools });
           expect(rendered?.name).toBe(name);
@@ -24,13 +27,15 @@ describe("faithful omo presets", () => {
           expect(rendered?.prompt).not.toMatch(/request_user_input|ask_user_question|wait_for_answer|waitForAnswer|`(?:tool\.)?monitor(?:`|\()|--print/);
           expect(rendered?.prompt).not.toMatch(/<workstation>|<context_files>|<skills>/);
           const prompt = rendered!.prompt;
-          const moments = original!.prompt.match(/^(?:A handoff is|Handoff moments:|At a handoff -)[^\n]+/m)?.[0];
-          expect(moments).toBeDefined();
-          expect(prompt).toContain(moments!.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:"));
+          if (base) {
+            const moments = base.prompt.match(/^(?:A handoff is|Handoff moments:|At a handoff -)[^\n]+/m)?.[0];
+            expect(moments).toBeDefined();
+            expect(prompt).toContain(moments!.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:"));
+          }
           expect(prompt).toContain("Briefly connect the outcome so far to the user's requested result");
           expect(prompt).toContain("execute any stated next action in the same response with tool calls");
           expect(prompt.includes("after each tool wave that changes what you know")).toBe(
-            name === "claude-opus-5-5" || original!.prompt.includes("after each tool wave that changes what you know"),
+            name === "claude-opus-5-5" || (base?.prompt.includes("after each tool wave that changes what you know") ?? false),
           );
           expect(prompt).not.toMatch(/Ask: \[|You need: \[|Now: \[|Next: \[|Now and Next are todo labels verbatim/);
           if (name === "gpt-6-astra") {
@@ -44,7 +49,7 @@ describe("faithful omo presets", () => {
             expect(prompt).toContain("On continuation or confirmation turns, keep the settled scope and act without repeating the opening");
             expect(prompt).not.toMatch(/Open every turn|I read this as \[intent\]/);
           } else {
-            expect(prompt.includes("I read this as [intent]")).toBe(original!.prompt.includes("I read this as [intent]"));
+            expect(prompt.includes("I read this as [intent]")).toBe(base?.prompt.includes("I read this as [intent]") ?? false);
             expect(prompt).not.toContain("On continuation or confirmation turns");
           }
         }
