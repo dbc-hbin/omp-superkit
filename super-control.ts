@@ -1,11 +1,11 @@
-import { readContinuation } from "./ulw-continuation";
-import type { UlwApi, UlwContext, UlwGoalEvent } from "./ulw";
+import { readContinuation } from "./super-continuation";
+import type { SuperApi, SuperContext, SuperGoalEvent } from "./super";
 
 const controlType = "omo-ultrawork:continuation";
 const ownerType = "omo-ultrawork:goal-owner";
 const disabledFlag = "omo-ulw-continuation-disabled";
 type Control = { readonly sessionId: string; readonly stopped: boolean; readonly pausedGoalId?: string };
-type Goal = NonNullable<UlwGoalEvent["goal"]>;
+type Goal = NonNullable<SuperGoalEvent["goal"]>;
 
 function isGoal(value: unknown): value is Required<Goal> {
   return typeof value === "object" && value !== null &&
@@ -14,21 +14,21 @@ function isGoal(value: unknown): value is Required<Goal> {
     "status" in value && typeof value.status === "string";
 }
 
-function nativeHint(ctx: UlwContext, action: "pause" | "resume"): string {
+function nativeHint(ctx: SuperContext, action: "pause" | "resume"): string {
   return ctx.mode === "rpc"
     ? `Use OMP's native goal RPC command with op=${action} to manage that goal separately.`
     : `Use OMP's /goal ${action} control for that goal.`;
 }
 
-export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerprint?: string) => void) {
-  pi.registerFlag(disabledFlag, { description: "Disable SUPER loop/execute continuation", type: "boolean", default: false });
+export function registerContinuationControls(pi: SuperApi, resetProgress: (fingerprint?: string) => void) {
+  pi.registerFlag(disabledFlag, { description: "Disable SUPER Loop and SUPER Run continuation", type: "boolean", default: false });
   let sessionId: string | undefined;
   let control: Control | undefined;
   let nativeGoal: Goal | undefined;
   let ownedGoalId: string | undefined;
   let expectedObjective: string | undefined;
 
-  const restore = (ctx: UlwContext) => {
+  const restore = (ctx: SuperContext) => {
     const id = ctx.sessionManager.getSessionId();
     sessionId = id;
     control = undefined;
@@ -53,7 +53,7 @@ export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerp
     if ((mode?.mode === "goal" || mode?.mode === "goal_paused") && typeof mode.data === "object" &&
       mode.data !== null && "goal" in mode.data && isGoal(mode.data.goal)) nativeGoal = mode.data.goal;
   };
-  const syncSession = (ctx: UlwContext) => {
+  const syncSession = (ctx: SuperContext) => {
     if (sessionId !== ctx.sessionManager.getSessionId()) restore(ctx);
   };
 
@@ -67,13 +67,13 @@ export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerp
     pi.appendEntry(ownerType, { sessionId: ctx.sessionManager.getSessionId(), goalId: ownedGoalId });
   });
 
-  const save = async (ctx: UlwContext, next: Control) => {
+  const save = async (ctx: SuperContext, next: Control) => {
     pi.appendEntry(controlType, next);
     control = next;
     resetProgress();
     await ctx.sessionManager.ensureOnDisk?.();
   };
-  const read = (ctx: UlwContext) => {
+  const read = (ctx: SuperContext) => {
     try {
       return readContinuation(ctx.cwd, ctx.sessionManager.getSessionId());
     } catch (error) {
@@ -82,7 +82,7 @@ export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerp
       return null;
     }
   };
-  const canControl = (args: string, ctx: UlwContext, command: string) => {
+  const canControl = (args: string, ctx: SuperContext, command: string) => {
     if (ctx.agent.kind !== "main") return false;
     if (args.trim()) {
       ctx.ui.notify(`/${command} takes no arguments.`, "warning");
@@ -128,7 +128,7 @@ export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerp
     handler: async (args, ctx) => {
       if (!canControl(args, ctx, "resume-continuation")) return;
       if (pi.getFlag(disabledFlag)) {
-        ctx.ui.notify("SUPER continuation is disabled by --omo-ulw-continuation-disabled; no work was resumed.", "warning");
+        ctx.ui.notify(`SUPER continuation is disabled by --${disabledFlag}; no work was resumed.`, "warning");
         return;
       }
       if (!control?.stopped) {
@@ -177,17 +177,17 @@ export function registerContinuationControls(pi: UlwApi, resetProgress: (fingerp
     read,
     restore,
     isEnabled: () => !pi.getFlag(disabledFlag),
-    isStopped(ctx: UlwContext): boolean {
+    isStopped(ctx: SuperContext): boolean {
       syncSession(ctx);
       return control?.stopped === true;
     },
-    hasNativeGoal(ctx: UlwContext): boolean {
+    hasNativeGoal(ctx: SuperContext): boolean {
       syncSession(ctx);
       const status = nativeGoal?.status;
       const host = ctx.sessionModes?.getState().goal.status;
       return host === "active" || host === "paused" || (status !== undefined && status !== "complete" && status !== "dropped");
     },
-    expectGoal(ctx: UlwContext, objective: string | undefined) {
+    expectGoal(ctx: SuperContext, objective: string | undefined) {
       syncSession(ctx);
       expectedObjective = objective;
     },

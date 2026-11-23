@@ -186,6 +186,17 @@ test("model guidance owns behavioral sections while native capability and permis
   expect(result.includes("# 4. Implement\nPERMISSION_BOUNDARY")).toBe(true);
 });
 
+test("model projection preserves native file-structure routing", () => {
+  const nativeRouting = "- File structure/names: use `glob` for named patterns; follow the tool's native defaults.";
+  const template = base.replace("Edit using the active editing tool", `Edit using the active editing tool\n${nativeRouting}`);
+  const profile = "<omp-model-preset>For text or filename search, use the available search tools.</omp-model-preset>";
+  const prepared = replaceHostBehavior([template], profile);
+  if (!prepared) throw new Error("Expected recognized host template");
+
+  const source = prepared.blocks[0];
+  expect(projectHostGuidance(source, source, true).split("\n")).toContain(nativeRouting);
+});
+
 test("native fallback restores its original policy without replacing the current profile or appended context", () => {
   const prepared = replaceHostBehavior([base], "<omp-model-preset>FALLBACK_ROLE</omp-model-preset>");
   if (!prepared) throw new Error("Expected recognized host template");

@@ -15,7 +15,12 @@ export const bridgeProbe = {
     return { content: [{ type: "text" as const, text: value }], details: { value } };
   },
 };
-export const mountedProbe = { ...bridgeProbe, name: "code-mode-mounted-probe", loadMode: "discoverable" };
+export const mountedProbe = {
+  ...bridgeProbe,
+  name: "code-mode-mounted-probe",
+  loadMode: "discoverable",
+  description: "Return the supplied value from the discoverable native command.",
+};
 export interface WireTool {
   type: string;
   function: { name: string; description?: string; parameters: Record<string, unknown> };

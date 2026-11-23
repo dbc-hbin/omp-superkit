@@ -28,7 +28,7 @@ const state = { schema_version: 1, run_id: "validator-self-check", objective: "V
 assert.deepEqual(verify(state, { goalId: "G1" }), { ok: true, criteria_checked: 1 });
 const filesState = structuredClone(state); Object.assign(filesState.goals[0].criteria[0], filesCapture);
 assert.equal(verify(filesState, { goalId: "G1" }).ok, true);
-for (const patch of [{ status: "pending" }, { artifacts: [] }, { cleanup: [] }, { worktree_diff: "stale" }, { tree: "stale" }, { adversarial_classes: [{ name: "stale_state", status: "pass" }] }, { expected_evidence: "/nonexistent-ulw-proof" }]) {
+for (const patch of [{ status: "pending" }, { artifacts: [] }, { cleanup: [] }, { worktree_diff: "stale" }, { tree: "stale" }, { adversarial_classes: [{ name: "stale_state", status: "pass" }] }, { expected_evidence: "/nonexistent-super-proof" }]) {
  const bad = structuredClone(state); Object.assign(bad.goals[0].criteria[0], patch);
  assert.throws(() => verify(bad, { goalId: "G1" }));
 }

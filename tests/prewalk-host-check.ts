@@ -48,18 +48,19 @@ const server = Bun.serve({
   },
 });
 const root = mkdtempSync(join(tmpdir(), "omp-prewalk-host-"));
-async function run(inputs: Array<{ prompt: string; artifact?: string }>, options: { enabled?: boolean; auto?: "off" | "on"; seed?: "runtime" | "operator-clear"; skills?: boolean } = {}): Promise<Turn[]> {
+async function run(inputs: Array<{ prompt: string; artifact?: string }>, options: { enabled?: boolean; auto?: "off" | "on"; seed?: "runtime" | "operator-clear"; skill?: "super-plan" | "ulw-plan" } = {}): Promise<Turn[]> {
   const start = turns.length;
   const cwd = mkdtempSync(join(root, "workspace-"));
   const home = join(cwd, "home");
   mkdirSync(home);
   const config = join(cwd, "config.yml");
-  const settings = `compaction:\n  enabled: false\nprewalk:\n  enabled: ${options.enabled ?? true}\n  model: ${provider}/${targetModel}\n  auto: ${options.auto ?? "off"}\n`;
+  const settings = `compaction:\n  enabled: false\nprewalk:\n  enabled: ${options.enabled ?? true}\n  model: ${provider}/${targetModel}\n  auto: ${options.auto ?? "off"}\n` +
+    (options.skill ? `skills:\n  customDirectories: [${JSON.stringify(resolve("skills"))}]\n` : "");
   writeFileSync(config, settings);
   const child = Bun.spawn([
     "omp", "--mode", "rpc", "--no-ui", "--no-extensions", "-e", resolve("tests/fixtures/prewalk-provider.ts"),
     "--model", `${provider}/${sourceModel}`, "--cwd", cwd, "--config", config,
-    "--tools", "read,write,todo", ...(options.skills ? ["--skills", "ulw-plan"] : ["--no-skills"]),
+    "--tools", "read,write,todo", ...(options.skill ? ["--skills", options.skill] : ["--no-skills"]),
     "--no-rules", "--no-title", "--no-session", "--no-lsp",
   ], { cwd, stdin: "pipe", stdout: "pipe", stderr: "pipe", env: {
     PATH: process.env.PATH, LANG: process.env.LANG ?? "en_US.UTF-8", TMPDIR: process.env.TMPDIR ?? tmpdir(),
@@ -133,9 +134,9 @@ function restricted(result: Turn, requests: number): void {
 }
 try {
   const [investigation, continuation, planning, implementation] = await run([
-    { prompt: "/ulw Investigate only; report findings without edits." },
+    { prompt: "/super Investigate only; report findings without edits." },
     { prompt: "continue" },
-    { prompt: "/ulw-plan fix login", artifact: "doc/plans/probe.md" },
+    { prompt: "/super-plan fix login", artifact: "doc/plans/probe.md" },
     { prompt: "Fix the implementation now.", artifact: "implementation.txt" },
   ]);
   assert(investigation && continuation && planning && implementation);
@@ -151,14 +152,18 @@ try {
     assert(profile);
     assert(system.includes(profile.prompt), "handoff must refresh the model's actual working profile");
     assert.equal(system.match(/<omp-model-preset>/g)?.length, 1);
-    assert(system.includes("<omp-ulw-policy>"), "task scope changes must preserve armed ULW");
+    assert(system.includes("<omp-ulw-policy>"), "task scope changes must preserve armed SUPER");
   }
   const steering = implementation.calls.map(call => messages(call, ["user"])).join("\n");
   assert(steering.includes("Prewalk checkpoint:"));
   assert(!steering.includes("STOP: In NEXT reply") && !steering.includes("5–9 items"), "native prewalk must not reinstate forced planning");
-  const [nativePlan] = await run([{ prompt: "/skill:ulw-plan fix login", artifact: "doc/plans/native.md" }], { skills: true });
-  assert(nativePlan);
-  restricted(nativePlan, 3);
+  for (const skill of ["super-plan", "ulw-plan"] as const) {
+    const [nativePlan] = await run([{ prompt: `/skill:${skill} fix login`, artifact: "doc/plans/native.md" }], { skill });
+    assert(nativePlan);
+    assert(nativePlan.observations.some(observation => observation.prompt.trimStart().startsWith(`[IMPORTANT: User invoked the "${skill}" skill;`)),
+      `OMP must expand /skill:${skill}; observed ${JSON.stringify(nativePlan.observations.map(observation => observation.prompt.slice(0, 160)))}`);
+    restricted(nativePlan, 3);
+  }
   const [automatic] = await run([{ prompt: "Just explain why login fails." }], { enabled: false, auto: "on" });
   assert(automatic);
   restricted(automatic, 1);
@@ -210,7 +215,7 @@ try {
     assert.equal(execution.observations[0]?.enabled, true);
     assert(execution.calls.some(call => call.model === targetModel), "a later request must release the temporary prohibition");
   }
-  console.log(`PASS: ${turns.length} real OMP prewalk turns; scoped suppression, plan writes, native skill, handoff, preset/ULW state, auto judge, override ownership and persisted settings`);
+  console.log(`PASS: ${turns.length} real OMP prewalk turns; scoped suppression, plan writes, native skill, handoff, preset/SUPER state, auto judge, override ownership and persisted settings`);
 } finally {
   server.stop(true);
   rmSync(root, { recursive: true, force: true });

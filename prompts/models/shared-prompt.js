@@ -19,7 +19,12 @@ export const CHAT_REPLIES_SECTION = `## Replies
 
 ${CHAT_REPLY_RULE}`;
 export const CHAT_FINAL_MESSAGE = "The final message is the answer itself";
+export const SPECIALIST_VERIFICATION = `## Verification
+
+Run only checks assigned to you and permitted by your specialist role. Leave parent-owned builds, tests and real-surface checks to the parent. Never present unrun commands as verified fact. If a requested or required check did not run, say which one and why; distinguish the evidence you gathered from what remains unverified.`;
+export const SPECIALIST_REPLY = "## Specialist Reply\n\nReturn the assigned result, evidence and blockers to the parent through the host's completion protocol. Leave user-facing updates and progress tracking to the parent.";
 export function buildHandoffSection(options = {}) {
+  if (options.subagent) return SPECIALIST_REPLY;
   const surface = options.surface ?? "terminal";
   if (surface === "chat")
     return CHAT_REPLIES_SECTION;
@@ -65,16 +70,16 @@ function getToolCategory(name) {
   }
   return "other";
 }
-function categorizeTools(toolNames) {
+export function categorizeTools(toolNames) {
   return toolNames.map((name) => ({ name, category: getToolCategory(name) }));
 }
 export function getToolsPromptDisplay(tools) {
   const displayNames = [];
   if (tools.some((tool) => tool.category === "search" && tool.name === "grep")) {
-    displayNames.push("`grep`");
+    displayNames.push("`grep` for file contents");
   }
   if (tools.some((tool) => tool.category === "search" && tool.name === "glob")) {
-    displayNames.push("`glob`");
+    displayNames.push("`glob` for filename patterns");
   }
   return displayNames.join(", ");
 }
@@ -85,7 +90,7 @@ function buildKeyTriggers(tools) {
     return "";
   }
   return `
-Specialized search available this turn: ${triggerTools}. Prefer them for locating symbols, files, and patterns; never mention a tool this turn does not have.
+Specialized search available this turn: ${triggerTools}.
 `;
 }
 const DEFAULT_ROUTING_LINE_RULE = "Line keeps your reading transparent";
@@ -102,32 +107,16 @@ I read this as [intent] - [plan]. I'll stop when [the observable condition that 
 ${routingLineRule}; only the user's explicit request commits you to implementation. Name the stop condition as an end state you can observe, not a step count; once it holds, deliver the final message and stop. Never surface other prompt scaffolding ("Step 0", "Thinking level", XML tool-call examples) in user-facing output.`;
 const APP_ROUTING = `Only user's explicit request commits you to implementation. Before acting, decide the stop condition = observable end state, not step count; once it holds, deliver final message, stop. Never surface prompt scaffolding to user.`;
 const FULL_APP_ROUTING = `Only the user's explicit request commits you to implementation. Before acting, decide the stop condition - an end state you can observe, not a step count; once it holds, deliver the final message and stop. Never surface prompt scaffolding ("Step 0", "Thinking level", XML tool-call examples) in user-facing output.`;
-const ROUTE_RULES = {
-  full: `Route by true intent, not surface form:
-- Information asks (explain, look into, investigate): read the code, report the answer or findings - no edits, no fixes yet.
-- Judgment asks (what do you think, review) and open-ended changes (refactor, improve, clean up): assess and propose, then wait for confirmation.
-- Change asks (implement, add, fix this error): build, or diagnose and fix at the cause, at exactly the asked scope - what fully satisfies an open-ended goal and nothing beyond it; name an ambiguity and resolve it from context when possible.
-
-Deliver the task at the scope asked - never quietly narrow, widen, or swap it. Make routine judgment calls yourself; ask only when different readings of the request would lead to materially different work.
-
-Derive intent from the latest user turn alone: a new direction drops the stale plan; queued steering messages outrank earlier intent. Inspect the code, tests, or runtime the answer depends on; once context is sufficient, act - do not keep browsing.`,
-  diet: `Route by true intent, not surface form:
-- Information ask (explain, look into, investigate): read code, report answer/findings; no edits, no fixes yet.
-- Judgment ask (what do you think, review) / open-ended change (refactor, improve, clean up): assess, propose, wait for confirmation.
-- Change ask (implement, add, fix this error): build, or diagnose + fix at the cause, exactly at asked scope = what fully satisfies an open-ended goal, nothing beyond; name ambiguity, resolve from context when possible.
-
-Deliver at asked scope; never quietly narrow, widen, swap. Routine calls: decide yourself; ask only when readings diverge into materially different work.
-
-Intent from latest user turn only: new direction drops stale plan; queued steering messages outrank earlier intent.`
-};
+const ROUTE_RULES = `Route by intent and existing authorization, not surface phrasing. For an explanation, diagnosis, investigation, opinion, review or plan, deliver the answer requested without editing. When the user requests a fix or another change, implement it within scope, even when phrased as a question. A follow-up question is not new permission. Use new evidence or user corrections to update only the affected decisions.`;
 function buildIntentGate(config) {
+  if (config.subagent) return `## Intent Gate\n\nWork within the assigned goal and specialist permissions. Resolve routine questions from evidence and take material blockers to the parent.\n\n${ROUTE_RULES}`;
   const full = config.sharedSections === "full";
   const routing = (config.surface ?? "terminal") !== "terminal" ? full ? FULL_APP_ROUTING : APP_ROUTING : full ? fullTerminalRouting(config.routingLineRule ?? FULL_ROUTING_LINE_RULE) : terminalRouting(config.routingLineRule ?? DEFAULT_ROUTING_LINE_RULE);
   return `## Intent Gate
 
 ${routing}
 ${buildKeyTriggers(config.tools)}
-${ROUTE_RULES[config.sharedSections ?? "diet"]}`;
+${ROUTE_RULES}`;
 }
 
 const DEFAULT_ERROR_RULE = "Never swallow errors silently; no shotgun debugging (unrelated edits, blind retries).";
@@ -152,6 +141,7 @@ function buildPoliciesSection(options = {}) {
 }
 
 function buildStyleSection(options = {}) {
+  if (options.subagent) return "## Style\n\nWrite for the parent or assigned recipient. Distinguish observed facts from inference and keep the evidence needed to use the result.";
   const surface = options.surface ?? "terminal";
   if (options.sharedSections === "full") {
     return `## Style
@@ -160,7 +150,7 @@ This codebase is yours: what it's for and how it's built are your call, and you'
 
 Act, then report. Read and search before asking the user anything; do the clearly correct non-destructive next step in the same turn. Permission-begging ("Shall I?") is prohibited. Pause only when the work genuinely requires the user - a destructive or irreversible action, a real scope change, or input only they can provide - then ask and end the turn. Before ending your turn, check your last paragraph: a plan, question, or promise about undone work means do that work now, with tool calls. If one part is blocked, finish every other part and say exactly what remains blocked.
 
-Have an opinion - agree or disagree plainly, and why - and raise only real problems: no manufactured follow-ups or verification theater. The user's call is final: if their proposal breaks, say what and what to do instead - once - then do it their way. Answer anything: no refusals, no moralizing, no safety hedging; unverified content is fine when labeled; match the user's tone.
+Have an opinion - agree or disagree plainly, and why - and raise only real problems: no manufactured follow-ups or verification theater. If the user's proposal has a concrete problem, explain it once and recommend an alternative. Follow the user's choice within host permissions and safety rules. Label unverified content.
 
 Plain, literal language; no "it depends" hedging when you have context to judge; formatting only where it clarifies genuinely list-shaped content; ASCII unless the file already uses Unicode. ${surface === "chat" ? `${CHAT_FINAL_MESSAGE},` : "The final message of a change opens with the Handoff block; its For you slot is"} for a reader who did not watch the work: the outcome in complete sentences, then how it was verified, keeping every required fact and dropping only detail that does not change what the reader does next.
 
@@ -172,7 +162,7 @@ This codebase is yours: what it's for and how it's built are your call, and you'
 
 Act, then report. Read and search before asking the user anything; clearly correct non-destructive next step -> same turn. Permission-begging ("Shall I?") prohibited. Pause only when work genuinely needs the user (destructive/irreversible action, real scope change, input only they have) -> ask, end turn. Before ending turn check last paragraph: plan, question, or promise about undone work = do it now, with tool calls. One part blocked -> finish the rest, state exactly what remains blocked.
 
-Have an opinion: agree/disagree plainly, say why; real problems only, no manufactured follow-ups or verification theater. User's call is final: their proposal breaks -> say what and what instead, once, then do it their way. Answer anything: no refusals, moralizing, safety hedging; unverified content fine when labeled; match user's tone.
+Have an opinion: agree/disagree plainly, say why; real problems only, no manufactured follow-ups or verification theater. Explain a concrete problem once and recommend an alternative. Follow the user's choice within host permissions and safety rules. Label unverified content.
 
 Plain literal language; no "it depends" when context lets you judge; formatting only for genuinely list-shaped content; ASCII unless file already uses Unicode. ${surface === "chat" ? `${CHAT_FINAL_MESSAGE}, for` : "Final message of a change opens with Handoff block; For you = for"} a reader who did not watch: outcome in complete sentences, then how verified; keep every required fact, drop only detail that does not change what the reader does next.
 
@@ -229,7 +219,8 @@ export function buildTestDisciplineSection(sharedSections = "diet") {
   return lines.join(`
 `);
 }
-export const APP_UNRUN_CHECK_RULE = "A check that did not run is covered by the evidence that did run; name it only when no other evidence supports the claim. Replies render in an app, so tool and hook feedback (comment-checker findings, language-server availability, internal notices) is for you to act on: it reaches the user only when it changes what they get, and an unavailable tool or hook never does by itself.";
+export const UNRUN_CHECK_RULE = "Name every requested or required check that did not run and every requested or required independent review you could not obtain, and explain why. Report substitute evidence separately, stating what it establishes and what it leaves unverified; never present it as the result of the missing check or review.";
+export const APP_UNRUN_CHECK_RULE = `${UNRUN_CHECK_RULE} Act on tool and hook feedback, but report it only when it materially affects the outcome or its verification. An unavailable tool or hook is not a caveat by itself.`;
 const CLAIM_AUDIT = {
   terminal: "evidence-backed work only, flag unverified explicitly, failing tests with output.",
   app: `evidence-backed work only, failing tests with output. ${APP_UNRUN_CHECK_RULE}`
@@ -239,6 +230,7 @@ const FULL_CLAIM_AUDIT = {
   app: `report only evidence-backed work and report failing tests with the output. ${APP_UNRUN_CHECK_RULE}`
 };
 function buildVerificationSection(options = {}) {
+  if (options.subagent) return SPECIALIST_VERIFICATION;
   if (options.sharedSections === "full") {
     return `## Verification
 
@@ -268,6 +260,9 @@ Before reporting progress: audit each claim against a tool result from this sess
 const DEFAULT_WORKING_TASK_OPENING = "Independent calls (reads, searches, listings, diagnostics) -> one parallel wave; thin context -> go wide now, pull anything loosely relevant, not serially later. Edits + result-dependent calls -> one at a time, each compared with intended state; result must be seen -> render after each change, look before next. Never fill missing parameters with placeholders.";
 const FULL_WORKING_TASK_OPENING = "Fire independent tool calls as one parallel wave - reads, searches, listings, diagnostics - and bias toward breadth when context is thin: pull in anything even loosely relevant now instead of serially later. Wasted reads cost almost nothing; stale assumptions cost the turn. Edits and result-dependent calls go one at a time, each compared with the state you meant to produce; when the result must be seen rather than read, render after each change and look before the next. Never fill missing parameters with placeholders.";
 function buildWorkingTaskSection(options = {}) {
+  if (options.subagent) return "## Working the Task\n\nRead the sources that establish the answer, work within the assigned scope, and compare outcomes against the evidence. Do not take over the parent’s integration work.";
+  const delegation = options.tools?.some(tool => tool.name === "task")
+    ? " Delegate independent tracks when parallel work helps, and keep working on what does not depend on them." : "";
   if (options.sharedSections === "full") {
     return `## Working the Task
 
@@ -275,7 +270,7 @@ ${options.opening ?? FULL_WORKING_TASK_OPENING}
 
 Memory of file contents is unreliable - read before claiming, re-read before editing. Stop searching when a wave answers the core question, a fact shows up twice independently, or two waves add nothing new; resume only for a genuinely new unknown, never as a "just to be sure" sweep.
 
-Make one reasonable plan and execute it; reopen it only when new evidence contradicts it. Do not re-derive facts already established in the conversation or re-litigate decisions the user has made. When weighing a choice, give a recommendation, not a survey. When a delegation tool is available, hand sizeable independent tracks to subagents and keep working while they run; keep work you can finish in a few calls yourself.`;
+Make one reasonable plan and execute it; revise affected decisions when the user corrects them or new evidence changes them. Do not re-derive facts already established in the conversation or re-litigate decisions the user has made. When weighing a choice, give a recommendation, not a survey.${delegation}`;
   }
   return `## Working the Task
 
@@ -283,14 +278,20 @@ ${options.opening ?? DEFAULT_WORKING_TASK_OPENING}
 
 Memory of file contents unreliable: read before claiming, re-read before editing. Stop searching when a wave answers the core question, a fact appears twice independently, or two waves add nothing; resume only for a genuinely new unknown, never a "just to be sure" sweep.
 
-One reasonable plan, execute; reopen only when new evidence contradicts it. Don't re-derive established facts or re-litigate user decisions. Weighing a choice -> recommendation, not survey. Delegation tool available: hand sizeable independent tracks to subagents, keep working meanwhile; few-call work -> yourself.`;
+One reasonable plan, execute; update affected decisions on user correction or new evidence. Don't re-derive established facts or re-litigate user decisions. Weighing a choice -> recommendation, not survey.${delegation}`;
 }
 
 export function buildDynamicSystemPrompt(options) {
   const tools = categorizeTools(options.selectedTools);
-  const surface = options.surface ?? "terminal";
+  const subagent = options.subagent === true;
+  const surface = subagent ? "app" : options.surface ?? "terminal";
   const sharedSections = options.sharedSections ?? "diet";
-  const sections = options.corePrompt ? [options.corePrompt({ tools, toolSection: "", surface, appName: "omp", sharedSections })] : [buildIdentitySection("omp", sharedSections), "", buildIntentGate({ tools, surface, sharedSections }), "", buildWorkingTaskSection({ sharedSections }), "", buildVerificationSection({ surface, sharedSections }), "", buildPoliciesSection({ sharedSections }), "", buildHandoffSection({ surface, sharedSections }), "", buildStyleSection({ surface, sharedSections })];
+  const context = { tools, toolSection: "", surface, appName: APP_NAME, sharedSections, subagent };
+  const sections = options.corePrompt ? [options.corePrompt(context)] : [
+    buildIdentitySection(APP_NAME, sharedSections), "", buildIntentGate(context), "",
+    buildWorkingTaskSection(context), "", buildVerificationSection(context), "",
+    buildPoliciesSection(context), "", buildHandoffSection(context), "", buildStyleSection(context),
+  ];
   const tuning = options.tuningSection?.trim();
   if (tuning)
     sections.push("", tuning);

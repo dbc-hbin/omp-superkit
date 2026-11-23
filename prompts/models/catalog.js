@@ -24,7 +24,7 @@ import { buildGpt53CodexPrompt } from "./gpt-5.3-codex.js";
 import { buildGpt54Prompt } from "./gpt-5.4.js";
 import { buildGpt55Prompt } from "./gpt-5.5.js";
 import { buildGpt56Prompt } from "./gpt-5.6.js";
-import { GPT6_ASTRA_RULES, buildGpt6AstraPrompt } from "./gpt-6-astra.js";
+import { buildGpt6AstraPrompt } from "./gpt-6-astra.js";
 import { buildGrok45Prompt } from "./grok-4.5.js";
 import { buildGrok46Prompt } from "./grok-4.6.js";
 import { buildGrok47Prompt } from "./grok-4.7.js";
@@ -72,10 +72,6 @@ const builders = new Map([
 
 export const presetNames = [...builders.keys(), "gpt-6.2"];
 
-const rules = new Map(GPT6_ASTRA_RULES.map(rule => [rule.id, rule.directive]));
-export const ASYNC_DEFAULT = rules.get("async-default");
-export const TURN_END_IS_WAIT = rules.get("turn-end-is-wait");
-export const MONITOR_CONDITIONS = rules.get("monitor-conditions");
 export { resolvePresetName };
 
 export function buildPreset(name, options) {

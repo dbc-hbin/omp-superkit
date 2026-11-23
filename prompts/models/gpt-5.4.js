@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 import { buildFileOperationsTuning } from "./file-operations.js";
-import { buildGptEvalRoutingTuning } from "./gpt-eval-routing.js";
 import { buildDynamicSystemPrompt } from "./shared-prompt.js";
 
 function buildGpt54Tuning(toolNames) {
-  return `Use explicit section structure and step sequences for multi-step tasks: ordered steps with dependencies. When a specific response shape is needed, declare exact fields and order upfront, no extra text.
+  return `Organize multi-step work into explicit ordered steps with dependencies. When the request specifies a response shape, follow its fields and ordering without extra text.
 
-Default to medium reasoning effort. Escalate to high only for multi-constraint optimization, subtle bugs, or novel architecture decisions. Use low for classification, extraction, formatting.
+Match reasoning depth to the problem: use a short pass for classification, extraction, and formatting, and reason more deeply for multi-constraint optimization, subtle bugs, and novel architecture decisions.
 
-State when each tool should and should not be called. Specify parallel vs sequential tool use.
-
-${buildGptEvalRoutingTuning()}
+Before a multi-tool step, decide which results are independent and which calls require earlier results. Keep tool setup out of the reported result unless it affects the evidence.
 
 ${buildFileOperationsTuning({ toolNames })}`;
 }

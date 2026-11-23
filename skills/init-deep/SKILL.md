@@ -6,7 +6,7 @@ argument-hint: "[--create-new] [--max-depth=N]"
 
 # init-deep
 
-Generate useful root guidance and complexity-scored subdirectory guidance, not a file in every directory. Consult [the OMP contract](../ulw-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read [scoring and templates](references/knowledge-base.md) and [native node contracts](references/nodes.md) for the corresponding work.
+Generate useful root guidance and complexity-scored subdirectory guidance, not a file in every directory. Consult [the OMP contract](../super-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read [scoring and templates](references/knowledge-base.md) and [native node contracts](references/nodes.md) for the corresponding work.
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
@@ -52,7 +52,7 @@ An empty section says `none`; an unavailable measurement says `unmeasured`, not 
 
 ## Every dependency wave: collect the pending set
 
-Record actual child ids in the pending set and logical node ledger immediately. Collect results under the [native wait contract](../ulw-loop/references/omp-contract.md#waiting-for-native-results).
+Record actual child ids in the pending set and logical node ledger immediately. Collect results under the [native wait contract](../super-loop/references/omp-contract.md#waiting-for-native-results).
 
 Validate the delivered terminal response or the actual agent URI; use structured.status and structured.data only when returned, and never treat previews as completion. Validate path receipts and evidence before marking the node successful. A reducer starts only after all its input nodes have terminal success. A root writer starts only after all required digest reductions succeed.
 

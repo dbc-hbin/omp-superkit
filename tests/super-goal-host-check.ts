@@ -1,4 +1,4 @@
-// Run: bun tests/ulw-goal-host-check.ts (installed omp, Bun with POSIX Terminal support).
+// Run: bun tests/super-goal-host-check.ts (installed omp, Bun with POSIX Terminal support).
 // Exercises the editor, not RPC prompt text or a programmatic sendUserMessage.
 import { strict as assert } from "node:assert";
 import { EventEmitter } from "node:events";
@@ -11,7 +11,7 @@ type RecordValue = Record<string, any>;
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const objective = 'super preserve the full objective: 한글, "quoted path", and the final criterion END-OF-GOAL';
 const followup = "ulw keep the original goal and check FOLLOWUP-DO-NOT-REPLACE";
-const firstChunk = "ULW-GOAL-INITIAL-STREAM";
+const firstChunk = "SUPER-GOAL-INITIAL-STREAM";
 const events = new EventEmitter();
 const deadline = new AbortController();
 let phase = "starting TUI";
@@ -53,7 +53,7 @@ function journal(): RecordValue[] {
 function goalRecords(rows: RecordValue[]): RecordValue[] {
   return rows.filter(row => row.type === "mode_change" && (row.mode === "goal" || row.mode === "goal_paused") && row.data?.goal);
 }
-const root = mkdtempSync(join(tmpdir(), "omo-ulw-goal-tui-"));
+const root = mkdtempSync(join(tmpdir(), "omo-super-goal-tui-"));
 let terminal: Bun.Terminal | undefined;
 let child: Bun.Subprocess | undefined;
 let server: Bun.Server<undefined> | undefined;
@@ -97,7 +97,7 @@ try {
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
             const send = (value: unknown) => controller.enqueue(new TextEncoder().encode(`data: ${typeof value === "string" ? value : JSON.stringify(value)}\n\n`));
-            send({ id: `goal-probe-${number}`, object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: number === 1 ? firstChunk : `ULW-GOAL-STREAM-${number}` }, finish_reason: null }] });
+            send({ id: `goal-probe-${number}`, object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: number === 1 ? firstChunk : `SUPER-GOAL-STREAM-${number}` }, finish_reason: null }] });
             streams.set(number, () => {
               streams.delete(number);
               send({ id: `goal-probe-${number}`, object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } });
@@ -128,8 +128,8 @@ try {
     },
   });
   child = Bun.spawn([
-    "omp", "--no-extensions", "-e", join(repo, "index.ts"), "-e", join(repo, "tests/fixtures/ulw-goal-provider.ts"),
-    "--model", "omo-ulw-probe/gpt-6.1-sol", "--cwd", cwd, "--session-dir", sessions,
+    "omp", "--no-extensions", "-e", join(repo, "index.ts"), "-e", join(repo, "tests/fixtures/super-goal-provider.ts"),
+    "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", cwd, "--session-dir", sessions,
     "--config", config, "--no-tools", "--no-skills", "--no-rules", "--no-title", "--no-lsp",
     "Keep this local model stream open for the terminal input regression.",
   ], {
@@ -137,9 +137,9 @@ try {
     env: {
       ...process.env, TERM: "xterm-256color",
       PI_CONFIG_DIR: configRoot, PI_CODING_AGENT_DIR: agentDir,
-      OMO_ULW_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
-      OMO_ULW_GOAL_EVENTS_URL: `http://127.0.0.1:${server.port}/events`,
-      OMO_ULW_PROBE_PROVIDER: "", OMO_ULW_PROBE_MODEL: "gpt-6.1-sol", OMO_ULW_PROBE_CONTINUATION: "",
+      OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
+      OMO_SUPER_GOAL_EVENTS_URL: `http://127.0.0.1:${server.port}/events`,
+      OMO_SUPER_PROBE_PROVIDER: "", OMO_SUPER_PROBE_MODEL: "gpt-6.1-sol", OMO_SUPER_PROBE_CONTINUATION: "",
     },
     onExit(_child, code, signal, error) { if (!stopping) fail(error ?? new Error(`TUI exited early: ${code}/${signal}`)); },
   });
@@ -189,7 +189,7 @@ try {
   await thinkingNotice;
   const planning = await planningRequest;
   const records = goalRecords(journal());
-  assert(records.length > 0, "success requires a persisted native mode_change, not an ULW policy marker");
+  assert(records.length > 0, "success requires a persisted native mode_change, not a SUPER policy marker");
   for (const row of records) {
     assert.equal(row.data.goal.id, creation.goal.id, "follow-up must not replace native goal identity");
     assert.equal(row.data.goal.objective, objective, "follow-up must not replace the objective");
@@ -206,7 +206,7 @@ try {
   assert.equal(goals.at(-1)?.goal?.status, "active", "busy mode control must not claim to have paused the active goal");
   assert(streams.has(planning.number), "stop must not abort the in-flight model turn");
   const idle = expectEvent("probe_idle", event => event.label === "planning");
-  terminal.write("/ulw-probe-wait-idle planning\r");
+  terminal.write("/super-probe-wait-idle planning\r");
   streams.get(planning.number)?.();
   await idle;
 
@@ -229,7 +229,7 @@ try {
   const ordinaryRequest = await ordinary;
   assert(JSON.stringify(ordinaryRequest.body).includes("<omp-ulw-continuation-paused>"));
   const ordinaryIdle = expectEvent("probe_idle", event => event.label === "ordinary");
-  terminal.write("/ulw-probe-wait-idle ordinary\r");
+  terminal.write("/super-probe-wait-idle ordinary\r");
   streams.get(ordinaryRequest.number)?.();
   await ordinaryIdle;
   assert.equal(goals.at(-1)?.goal.status, "paused");

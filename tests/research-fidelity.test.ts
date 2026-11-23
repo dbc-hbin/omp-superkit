@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const cliPath = fileURLToPath(new URL("../skills/ulw-research/scripts/report-tools.mjs", import.meta.url));
+const cliPath = fileURLToPath(new URL("../skills/super-research/scripts/report-tools.mjs", import.meta.url));
 const roots: string[] = [];
 const origin = "https://example.org/annual-review";
 const count = "The venue welcomed 12.5 million visitors.";

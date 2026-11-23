@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rewritePresetPayload, rewriteToolGuidancePayload } from "./payload";
+import { rewritePresetPayload, rewriteToolGuidancePayload, syncCodeModeBlock } from "./payload";
 import { adaptResearchRouting } from "./host";
 import { adaptToolGuidance } from "./host-guidance";
 import { renderPreset } from "./presets";
@@ -178,6 +178,7 @@ test("Antigravity aliases adapt task routing while preserving native bash guidan
 	const schema = { type: "object", description: taskDescription, properties: { command: { type: "string", description: bashDescription } } };
 	const task = { name: "invoke_subagent", description: taskDescription, parameters: schema };
 	const bash = { name: "run_command", description: bashDescription, parameters: schema };
+	const enabled = [{ name: "task" }, { name: "bash" }];
 	const customTask = { ...task, description: "User-authored subagent contract" };
 	const customBash = { ...bash, description: "User-authored command contract" };
 	const unknown = { name: "custom_tool", description: taskDescription, parameters: schema };
@@ -193,15 +194,49 @@ test("Antigravity aliases adapt task routing while preserving native bash guidan
 	const changedBash = { ...bash, description: adaptToolGuidance("bash", bashDescription, profile) };
 	expect(changedTask.description).not.toBe(taskDescription);
 	expect(changedBash.description).toBe(bashDescription);
-	const result = rewriteToolGuidancePayload(payload, "antigravity-cli", profile);
+	const result = rewriteToolGuidancePayload(payload, "antigravity-cli", profile, enabled);
 	expect(result).toEqual({
 		...payload,
 		request: { ...payload.request, tools: [{ functionDeclarations: [changedTask, changedBash, customTask, customBash, unknown] }] },
 	});
 	expect(payload).toEqual(snapshot);
-	expect(rewriteToolGuidancePayload(result, "antigravity-cli", profile)).toBe(result);
-	expect(rewriteToolGuidancePayload(payload, "google-gemini-cli", profile)).toBe(payload);
+	expect(rewriteToolGuidancePayload(result, "antigravity-cli", profile, enabled)).toBe(result);
+	expect(rewriteToolGuidancePayload(payload, "google-gemini-cli", profile, enabled)).toBe(payload);
+	expect(rewriteToolGuidancePayload(payload, "antigravity-cli", profile, [...enabled, { name: "invoke_subagent" }])).toBe(payload);
 });
+
+test("Anthropic alias metadata matches unprefixed guidance without touching wire names or schemas", () => {
+	const descriptions = {
+		task: "Read-only research MUST use `scout` only when files unknown.",
+		todo: nativeTodo,
+		eval: nativeEval(nativeShBlocks[0]),
+		bash: "Persistent bash 5.3.",
+	};
+	const schema = { type: "object", properties: { code: { type: "string", description: descriptions.task } } };
+	const tools = Object.entries(descriptions).map(([name, description]) => ({
+		name, description, input_schema: schema, cache_control: { type: "ephemeral" },
+	}));
+	const apiKey = { tools };
+	const prefixed = { tools: tools.map(tool => ({ ...tool, name: `_${tool.name}` })) };
+	const adapted = tools.map(tool => ({ ...tool, description: tool.name === "task"
+		? adaptResearchRouting(tool.description) : adaptToolGuidance(tool.name, tool.description, profile) }));
+	expect(rewriteToolGuidancePayload(apiKey, "anthropic-messages", profile)).toEqual({ tools: adapted });
+	const expected = { tools: adapted.map(tool => ({ ...tool, name: `_${tool.name}` })) };
+	const result = rewriteToolGuidancePayload(prefixed, "anthropic-messages", profile, tools);
+	expect(result).toEqual(expected);
+	expect(rewriteToolGuidancePayload(result, "anthropic-messages", profile, tools)).toBe(result);
+	expect(rewriteToolGuidancePayload(prefixed, "anthropic-messages", profile, prefixed.tools)).toBe(prefixed);
+});
+
+const devinPresetPayload = {
+	$typeName: "exa.api_server_pb.GetChatMessageRequest",
+	prompt: oldText,
+	chatMessagePrompts: [{ $typeName: "exa.chat_pb.ChatMessagePrompt", prompt: oldPreset }],
+	configuration: { maxTokens: 8192n },
+	metadata: { text: oldPreset },
+	tools: [{ $typeName: "exa.chat_pb.ChatToolDefinition", name: "eval", jsonSchemaString: '{"type":"object"}' }],
+	toolChoice: { $typeName: "exa.chat_pb.ChatToolChoice", choice: { case: "optionName", value: "auto" } },
+};
 
 const realisticShapes: { api: string; payload: unknown; expected: unknown }[] = [
 	... ["ollama", "ollama-chat"].map(api => ({
@@ -214,6 +249,7 @@ const realisticShapes: { api: string; payload: unknown; expected: unknown }[] = 
 		payload: { $typeName: "agent.v1.AgentRunRequest", customSystemPrompt: oldText, conversationId: "c1", conversationState: { rootPromptMessagesJson: [new Uint8Array([1, 2, 3])] }, action: { case: "userMessage", value: { text: oldPreset } }, requestedModel: { modelId: "gpt-5.4" } },
 		expected: { $typeName: "agent.v1.AgentRunRequest", customSystemPrompt: newText, conversationId: "c1", conversationState: { rootPromptMessagesJson: [new Uint8Array([1, 2, 3])] }, action: { case: "userMessage", value: { text: oldPreset } }, requestedModel: { modelId: "gpt-5.4" } },
 	},
+	{ api: "devin-agent", payload: devinPresetPayload, expected: { ...devinPresetPayload, prompt: newText } },
 	... ["gitlab-duo-workflow", "gitlab-duo-agent"].flatMap(api => [false, true].map(wrapped => {
 		const prompt = { name: "omp-inline", prompt_id: "omp-inline", unit_primitives: ["duo_agent_platform"], prompt_template: { system: oldText, user: oldPreset, placeholder: "history" } };
 		const flowConfig = { version: "v1", environment: "ambient", prompts: [prompt], components: [{ name: "agent", type: "AgentComponent" }] };
@@ -311,6 +347,26 @@ const realisticShapes: { api: string; payload: unknown; expected: unknown }[] = 
 		payload: { project: "project-1", model: "gemini-3-pro", request: { systemInstruction: { role: "user", parts: [{ text: oldText }] }, contents: [{ role: "user", parts: [{ text: oldPreset }] }], sessionId: "s1" }, requestId: "req-1" },
 		expected: { project: "project-1", model: "gemini-3-pro", request: { systemInstruction: { role: "user", parts: [{ text: newText }] }, contents: [{ role: "user", parts: [{ text: oldPreset }] }], sessionId: "s1" }, requestId: "req-1" },
 	})),
+	{
+		api: "factory-droid-agent",
+		payload: { model: "gemini", systemInstruction: { parts: [{ text: oldText }] }, contents: [{ role: "user", parts: [{ text: oldPreset }] }], generationConfig: { temperature: 0.5 } },
+		expected: { model: "gemini", systemInstruction: { parts: [{ text: newText }] }, contents: [{ role: "user", parts: [{ text: oldPreset }] }], generationConfig: { temperature: 0.5 } },
+	},
+	{
+		api: "gitlab-duo-agent",
+		payload: { max_tokens: 8192, system: [{ type: "text", text: oldText }], messages: [{ role: "user", content: oldPreset }] },
+		expected: { max_tokens: 8192, system: [{ type: "text", text: newText }], messages: [{ role: "user", content: oldPreset }] },
+	},
+	{
+		api: "gitlab-duo-agent",
+		payload: { model: "gpt", messages: [{ role: "developer", content: oldText }, { role: "user", content: oldPreset }] },
+		expected: { model: "gpt", messages: [{ role: "developer", content: newText }, { role: "user", content: oldPreset }] },
+	},
+	{
+		api: "gitlab-duo-agent",
+		payload: { instructions: oldText, input: [{ role: "user", content: oldPreset }] },
+		expected: { instructions: newText, input: [{ role: "user", content: oldPreset }] },
+	},
 	... [false, true].map(wrapped => {
 		const payload = { system: [{ text: oldText }, { cachePoint: { type: "default", ttl: "1h" } }], messages: [{ role: "user", content: [{ text: oldPreset }] }], inferenceConfig: { maxTokens: 8192 } };
 		const expected = { ...payload, system: [{ text: newText }, { cachePoint: { type: "default", ttl: "1h" } }] };
@@ -383,5 +439,158 @@ describe("rewritePresetPayload", () => {
 		expect(block.cache_control).toBe(cache);
 		if (!("messages" in rewritten)) throw new Error("Expected unchanged messages");
 		expect(rewritten.messages).toBe(payload.messages);
+	});
+});
+
+describe("syncCodeModeBlock", () => {
+	const current = "<omp-code-mode>\nnew tool route\n</omp-code-mode>";
+	const stale = "<omp-code-mode>\nold tool route\n</omp-code-mode>";
+	const mixed = `Custom system text mentioning ${stale} inline.`;
+	const user = { role: "user", content: stale };
+
+	test("adds, updates and removes just the standalone block in Anthropic system arrays", () => {
+		const cache = { type: "ephemeral" };
+		const prefix = { type: "text", text: mixed, cache_control: cache };
+		const notText = { type: "image", text: stale };
+		const original = { system: [prefix, notText], messages: [user] };
+		const appended = syncCodeModeBlock(original, "anthropic-messages", stale);
+		const updated = syncCodeModeBlock(appended, "anthropic-messages", current);
+		expect(updated).toEqual({ ...original, system: [prefix, notText, { type: "text", text: current }] });
+		expect(syncCodeModeBlock(updated, "anthropic-messages", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "anthropic-messages")).toEqual(original);
+	});
+
+	test("updates terminal Responses instructions without rewriting an embedded marker or history", () => {
+		const historical = { role: "developer", content: stale };
+		const input = [user, historical];
+		const original = { instructions: `${mixed}\r\n`, input };
+		const appended = syncCodeModeBlock(original, "openai-responses", stale);
+		const updated = syncCodeModeBlock(appended, "openai-responses", current);
+		expect(updated).toEqual({ ...original, instructions: `${original.instructions}\n\n${current}` });
+		expect(syncCodeModeBlock(updated, "openai-responses", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "openai-responses")).toEqual(original);
+		expect(syncCodeModeBlock({ instructions: stale, input }, "openai-responses")).toEqual({ input });
+	});
+
+	test("updates one coalesced Chat instruction string without touching history or metadata", () => {
+		const assistant = { role: "assistant", tool_calls: [
+			{ id: "call_1", type: "function", function: { name: "eval", arguments: JSON.stringify({ code: stale }) } },
+		] };
+		const output = { role: "tool", tool_call_id: "call_1", content: stale };
+		const historical = { role: "developer", content: stale };
+		const history = [user, assistant, output, historical];
+		for (const role of ["system", "developer"]) {
+			const leading = { role, content: `Provider prefix\r\n\r\n${mixed}\r\n`, name: "policy" };
+			const payload = { model: "qwen-3", messages: [leading, ...history], metadata: { text: stale } };
+			const appended = syncCodeModeBlock(payload, "openai-completions", stale);
+			const updated = syncCodeModeBlock(appended, "openai-completions", current);
+			expect(updated).toEqual({ ...payload, messages: [{ ...leading, content: `${leading.content}\n\n${current}` }, ...history] });
+			expect(syncCodeModeBlock(updated, "openai-completions", current)).toBe(updated);
+			expect(syncCodeModeBlock(updated, "openai-completions")).toEqual(payload);
+		}
+	});
+
+	test("adds and refreshes typed blocks inside the existing Chat system message", () => {
+		const content = [
+			{ type: "text", text: mixed, cache_control: { type: "ephemeral" } },
+			{ type: "image_url", image_url: { url: "data:image/png;base64,aaaa" }, text: stale },
+		];
+		const lead = { role: "system", content, name: "policy" };
+		const payload = { messages: [lead, user] };
+		const withBlock = (block: { type: string; text: string; cache_control?: { type: string } }) => ({
+			messages: [{ ...lead, content: [...content, block] }, user],
+		});
+		expect(syncCodeModeBlock(payload, "openai-completions", current)).toEqual(withBlock({ type: "text", text: current }));
+		const owned = { type: "text", text: stale, cache_control: { type: "ephemeral" } };
+		const updated = syncCodeModeBlock(withBlock(owned), "openai-completions", current);
+		expect(updated).toEqual(withBlock({ ...owned, text: current }));
+		expect(syncCodeModeBlock(updated, "openai-completions", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "openai-completions")).toEqual(payload);
+	});
+
+	test("reuses a terminal Chat guidance paragraph wrapped into a typed block", () => {
+		const prefix = { type: "text", text: `Provider prefix\r\n\r\n${mixed}`, cache_control: { type: "ephemeral" } };
+		const chat = (text: string) => ({ messages: [{ role: "system", content: [{ ...prefix, text }] }, user] });
+		const payload = chat(`${prefix.text}\n\n${stale}`);
+		const refreshed = syncCodeModeBlock(payload, "openai-completions", current);
+		expect(refreshed).toEqual(chat(`${prefix.text}\n\n${current}`));
+		expect(syncCodeModeBlock(refreshed, "openai-completions", current)).toBe(refreshed);
+		expect(syncCodeModeBlock(refreshed, "openai-completions")).toEqual(chat(prefix.text));
+	});
+
+	test("only creates a Chat system message when there is no live instruction slot", () => {
+		const payload = { messages: [user, { role: "developer", content: stale }] };
+		expect(syncCodeModeBlock(payload, "openai-completions")).toBe(payload);
+		const updated = syncCodeModeBlock(payload, "openai-completions", current);
+		expect(updated).toEqual({ messages: [{ role: "system", content: current }, ...payload.messages] });
+		expect(syncCodeModeBlock(updated, "openai-completions", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "openai-completions")).toEqual(payload);
+		const retained = { role: "system", content: current, name: "policy" };
+		expect(syncCodeModeBlock({ messages: [retained, user] }, "openai-completions"))
+			.toEqual({ messages: [{ ...retained, content: "" }, user] });
+	});
+
+	test("inserts full Responses Lite guidance beside live instructions, not history", () => {
+		const control = { type: "additional_tools", role: "developer", tools: [] };
+		const leading = { role: "system", content: mixed };
+		const historical = { role: "developer", content: stale };
+		const payload = { input: [control, leading, user, historical] };
+		const guidance = { type: "message", role: "developer", content: [{ type: "input_text", text: current }] };
+		const updated = syncCodeModeBlock(payload, "openai-codex-responses", current);
+		expect(updated).toEqual({ input: [control, leading, guidance, user, historical] });
+		expect(syncCodeModeBlock(updated, "openai-codex-responses", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "openai-codex-responses")).toEqual(payload);
+	});
+
+	test("does not insert standalone guidance into chained Responses WebSocket deltas", () => {
+		const functionOutput = { type: "function_call_output", call_id: "call_1", output: stale };
+		const base = {
+			type: "response.create",
+			model: "gpt-5.4",
+			client_metadata: { turn: "turn-2" },
+			tools: [{ type: "function", name: "eval", parameters: { type: "object" } }],
+		};
+		for (const continuation of [
+			{ ...base, previous_response_id: "resp_1", input: [functionOutput] },
+			{ ...base, previous_response_id: "resp_2", input: [user], instructions: mixed },
+		]) {
+			const next = syncCodeModeBlock(continuation, "openai-codex-responses", current);
+			expect(next).toBe(continuation);
+			expect(syncCodeModeBlock(next, "openai-codex-responses", current)).toBe(continuation);
+			const noTools = { ...continuation, tools: [] };
+			expect(syncCodeModeBlock(noTools, "openai-codex-responses")).toBe(noTools);
+		}
+		const fresh = { ...base, input: [functionOutput] };
+		const guidance = { type: "message", role: "developer", content: [{ type: "input_text", text: current }] };
+		expect(syncCodeModeBlock(fresh, "openai-codex-responses", current)).toEqual({ ...fresh, input: [guidance, functionOutput] });
+		const fullInstructions = { ...fresh, previous_response_id: "resp_3", instructions: oldText };
+		expect(rewritePresetPayload(fullInstructions, "openai-codex-responses", newPreset)).toEqual({ ...fullInstructions, instructions: newText });
+	});
+
+	test("syncs unmarked Devin guidance only in the protobuf prompt", () => {
+		const history = [{ $typeName: "exa.chat_pb.ChatMessagePrompt", prompt: stale }];
+		const payload = {
+			$typeName: "exa.api_server_pb.GetChatMessageRequest",
+			chatMessagePrompts: history, prompt: mixed, metadata: { text: stale },
+		};
+		const appended = syncCodeModeBlock(payload, "devin-agent", stale);
+		const updated = syncCodeModeBlock(appended, "devin-agent", current);
+		expect(updated).toEqual({ ...payload, prompt: `${mixed}\n\n${current}` });
+		expect(syncCodeModeBlock(updated, "devin-agent", current)).toBe(updated);
+		expect(syncCodeModeBlock(updated, "devin-agent")).toEqual(payload);
+		expect(syncCodeModeBlock({ ...payload, prompt: stale }, "devin-agent")).toEqual({ ...payload, prompt: "" });
+		const unknown = { prompt: mixed, chatMessagePrompts: history };
+		expect(syncCodeModeBlock(unknown, "unknown-api", current)).toBe(unknown);
+	});
+
+	test("syncs Google SDK system parts without changing request contents or siblings", () => {
+		const contents = [{ role: "user", parts: [{ text: stale }] }];
+		const instruction = { role: "user", parts: [{ text: mixed }, { inlineData: { mimeType: "image/png", data: "bytes" } }] };
+		const original = { contents, config: { systemInstruction: instruction, temperature: 0.5 } };
+		const result = syncCodeModeBlock(original, "google-generative-ai", current);
+		expect(result).toEqual({ contents, config: { ...original.config, systemInstruction: { ...instruction, parts: [...instruction.parts, { text: current }] } } });
+		expect(syncCodeModeBlock(result, "google-generative-ai")).toEqual(original);
+		const unknown = { instructions: stale, metadata: { system: stale }, contents: [user] };
+		expect(syncCodeModeBlock(unknown, "unknown-api", current)).toBe(unknown);
 	});
 });

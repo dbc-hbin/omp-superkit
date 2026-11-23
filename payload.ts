@@ -1,38 +1,104 @@
-import { adaptResearchRouting, PRESET_REGION } from "./host";
-import { adaptToolGuidance } from "./host-guidance";
+import { PRESET_REGION } from "./host";
+import { payloadObject, requestLayout, rewriteArray, rewriteField } from "./request-tools";
 
-type PayloadObject = Record<string, unknown>;
+export { requestToolView, rewriteToolGuidancePayload } from "./request-tools";
+
+type PayloadObject = NonNullable<ReturnType<typeof payloadObject>>;
 type PromptReplacement = string | ((match: string) => string);
 
-function payloadObject(value: unknown): PayloadObject | undefined {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-	return value as PayloadObject;
+const codexApi = "openai-codex-responses";
+const codexLiteMetadata = "ws_request_header_x_openai_internal_codex_responses_lite";
+
+type CodexRequestModel = {
+	readonly api: string;
+	readonly id: string;
+	readonly provider?: string;
+	readonly baseUrl?: string;
+};
+
+export type CodexCompletion = {
+	readonly api: string;
+	readonly model: string;
+	readonly provider: string;
+	readonly responseId?: string;
+	readonly stopReason: string;
+};
+
+type CodexGuidance = {
+	readonly guidance: string;
+	readonly liteTools: readonly unknown[] | undefined;
+};
+
+/** Keep one confirmed anchor per recent Codex socket scope, never a transcript. */
+export function createCodexCodeModeChain() {
+	const accepted = new Map<string, CodexGuidance & { readonly responseId: string }>();
+	let pending: (CodexGuidance & {
+		readonly scope: string;
+		readonly sessionId: string;
+		readonly wireSession: string | undefined;
+		readonly modelId: string;
+		readonly provider: string | undefined;
+	}) | undefined;
+
+	return {
+		request(payload: unknown, model: CodexRequestModel, session: { getSessionId(): string }) {
+			if (model.api !== codexApi) return;
+			const sessionId = session.getSessionId();
+			const body = payloadObject(payload);
+			const metadata = payloadObject(body?.client_metadata);
+			const wireSession = typeof metadata?.session_id === "string" ? metadata.session_id : undefined;
+			// Side conversations have their own wire session. They do not
+			// produce the main loop's assistant_message completion.
+			if (pending?.sessionId === sessionId && pending.wireSession === sessionId && wireSession && wireSession !== sessionId) return;
+			pending = undefined;
+			if (!body || body.type !== "response.create" || !Array.isArray(body.input)) return;
+			const lite = metadata?.[codexLiteMetadata] === "true";
+			const scope = JSON.stringify([
+				sessionId, model.provider, model.baseUrl, model.id, body.model, body.prompt_cache_key,
+				wireSession, metadata?.thread_id, metadata?.["x-codex-window-id"], lite,
+			]);
+			const previous = typeof body.previous_response_id === "string" && body.previous_response_id;
+			const anchor = accepted.get(scope);
+			const carried = previous && anchor?.responseId === previous ? anchor : undefined;
+			const first = payloadObject(body.input[0]);
+			const declared = first?.type === "additional_tools" && first.role === "developer" && Array.isArray(first.tools)
+				? first.tools : undefined;
+			const liteTools = declared ?? (lite ? carried?.liteTools : undefined);
+			// In Lite, the socket already holds the leading additional_tools
+			// item. Use it to interpret *this* choice without moving tools on wire.
+			const toolView = liteTools && !declared && body.tools === undefined
+				? { ...body, input: [{ type: "additional_tools", role: "developer", tools: liteTools }] }
+				: payload;
+			return {
+				toolView,
+				previousGuidance: carried?.guidance,
+				observe(guidance: string) {
+					if (!previous || carried) {
+						pending = { scope, sessionId, wireSession, modelId: model.id, provider: model.provider, guidance, liteTools };
+					}
+				},
+			};
+		},
+		complete(message: CodexCompletion, session: { getSessionId(): string }) {
+			if (!pending || message.api !== codexApi || pending.sessionId !== session.getSessionId() ||
+				message.model !== pending.modelId || message.provider !== pending.provider) return;
+			const { scope, guidance, liteTools } = pending;
+			pending = undefined;
+			if (!message.responseId || message.stopReason === "error" || message.stopReason === "aborted") return;
+			accepted.delete(scope);
+			accepted.set(scope, { responseId: message.responseId, guidance, liteTools });
+			if (accepted.size > 8) {
+				const oldest = accepted.keys().next().value;
+				if (oldest !== undefined) accepted.delete(oldest);
+			}
+		},
+	};
 }
 
 function rewriteText(value: unknown, replacement: PromptReplacement, region: RegExp): unknown {
 	if (typeof value !== "string") return value;
 	// Callback replacement keeps literal dollar sequences in preset text intact.
 	return value.replace(region, typeof replacement === "string" ? () => replacement : replacement);
-}
-
-function rewriteField(object: PayloadObject, key: string, rewrite: (value: unknown) => unknown): PayloadObject {
-	const value = object[key];
-	const rewritten = rewrite(value);
-	return rewritten === value ? object : { ...object, [key]: rewritten };
-}
-
-function rewriteArray(value: unknown, rewrite: (item: unknown) => unknown): unknown {
-	if (!Array.isArray(value)) return value;
-	let result: unknown[] | undefined;
-	for (let index = 0; index < value.length; index++) {
-		const item: unknown = value[index];
-		const rewritten = rewrite(item);
-		if (rewritten !== item) {
-			result ??= value.slice();
-			result[index] = rewritten;
-		}
-	}
-	return result ?? value;
 }
 
 function rewriteBlocks(value: unknown, replacement: PromptReplacement, typed: boolean, region: RegExp): unknown {
@@ -78,141 +144,194 @@ function rewriteGitLabFlow(object: PayloadObject, replacement: PromptReplacement
 	});
 }
 
-function rewriteToolDefinition(value: unknown, profile: string, api: string): unknown {
-	const object = payloadObject(value);
-	if (!object || typeof object.name !== "string") return value;
-	const name = api === "antigravity-cli"
-		? object.name === "invoke_subagent" ? "task" : object.name === "run_command" ? "bash" : object.name
-		: object.name;
-	if (!["task", "todo", "bash", "eval"].includes(name)) return value;
-	return rewriteField(object, "description", description =>
-		typeof description === "string"
-			? name === "task" ? adaptResearchRouting(description) : adaptToolGuidance(name, description, profile)
-			: description);
-}
-
-/** Change known native guidance only; schemas, execution and custom tools stay intact. */
-export function rewriteToolGuidancePayload(payload: unknown, api: string, profile: string): unknown {
-	const object = payloadObject(payload);
-	if (!object) return payload;
-	const rewriteDefinition = (value: unknown): unknown => rewriteToolDefinition(value, profile, api);
-	const rewriteFunctions = (value: unknown): unknown => rewriteArray(value, tool => {
-		const entry = payloadObject(tool);
-		if (!entry) return tool;
-		if (entry.type === "namespace" && entry.name === "functions") {
-			return rewriteField(entry, "tools", rewriteFunctions);
-		}
-		return entry.type === "function" ? rewriteDefinition(entry) : tool;
-	});
-	const rewriteChatTools = (value: unknown): unknown => rewriteArray(value, tool => {
-		const entry = payloadObject(tool);
-		return entry?.type === "function" ? rewriteField(entry, "function", rewriteDefinition) : tool;
-	});
-	const rewriteGoogleTools = (value: unknown): unknown => rewriteArray(value, tool => {
-		const entry = payloadObject(tool);
-		return entry ? rewriteField(entry, "functionDeclarations", declarations => rewriteArray(declarations, rewriteDefinition)) : tool;
-	});
-	const rewriteBedrock = (value: unknown): unknown => {
-		const entry = payloadObject(value);
-		return entry ? rewriteField(entry, "toolConfig", config => {
-			const configObject = payloadObject(config);
-			return configObject ? rewriteField(configObject, "tools", tools => rewriteArray(tools, tool => {
-				const definition = payloadObject(tool);
-				return definition ? rewriteField(definition, "toolSpec", rewriteDefinition) : tool;
-			})) : config;
-		}) : value;
-	};
-	switch (api) {
-		case "openai-responses":
-		case "openai-codex-responses":
-		case "azure-openai-responses":
-			return rewriteField(object, "tools", rewriteFunctions);
-		case "openai-completions":
-		case "openrouter":
-		case "ollama":
-		case "ollama-chat":
-			return rewriteField(object, "tools", rewriteChatTools);
-		case "anthropic-messages":
-			return rewriteField(object, "tools", tools => rewriteArray(tools, rewriteDefinition));
-		case "google-generative-ai":
-		case "google-vertex": {
-			const rewritten = rewriteField(object, "tools", rewriteGoogleTools);
-			return rewriteField(rewritten, "config", config => {
-				const entry = payloadObject(config);
-				return entry ? rewriteField(entry, "tools", rewriteGoogleTools) : config;
-			});
-		}
-		case "google-gemini-cli":
-		case "antigravity-cli":
-			return rewriteField(object, "request", request => {
-				const entry = payloadObject(request);
-				return entry ? rewriteField(entry, "tools", rewriteGoogleTools) : request;
-			});
-		case "bedrock-converse-stream":
-			return rewriteField(rewriteBedrock(object) as PayloadObject, "commandInput", rewriteBedrock);
-		default:
-			return payload;
-	}
-}
-
 /** Replace only complete extension-owned regions in known provider system-prompt paths.
- * Unknown APIs/shapes, missing markers, and already-current presets retain identity.
+ * Unrecognized shapes, missing markers, and already-current presets retain identity.
  * Regions must be wholly contained in a single text field; blocks are never merged.
  */
 export function rewritePresetPayload(payload: unknown, api: string, replacement: PromptReplacement, region = PRESET_REGION): unknown {
-	const object = payloadObject(payload);
-	if (!object) return payload;
-	switch (api) {
-		case "openai-responses":
-		case "openai-codex-responses":
-		case "azure-openai-responses": {
-			const rewritten = rewriteField(object, "instructions", text => rewriteText(text, replacement, region));
-			return rewriteField(rewritten, "input", input => rewriteMessages(input, replacement, region));
-		}
-		case "openai-completions":
-		case "openrouter":
-		case "ollama":
-		case "ollama-chat":
-			return rewriteField(object, "messages", messages => rewriteMessages(messages, replacement, region));
-		case "cursor-agent":
-			// Root prompt blob IDs and request-context rules are outside this hook.
-			return rewriteField(object, "customSystemPrompt", text => rewriteText(text, replacement, region));
-		case "gitlab-duo-workflow":
-		case "gitlab-duo-agent": {
-			const rewritten = rewriteGitLabFlow(object, replacement, region);
-			return rewriteField(rewritten, "startRequest", request => {
-				const nested = payloadObject(request);
-				return nested ? rewriteGitLabFlow(nested, replacement, region) : request;
-			});
-		}
-		case "anthropic-messages":
-			return rewriteField(object, "system", system => rewriteBlocks(system, replacement, true, region));
-		case "google-generative-ai":
-		case "google-vertex": {
-			// omp's hook receives SDK params with config; wire bodies use the root field.
-			const rewritten = rewriteGoogle(object, replacement, region);
-			return rewriteField(rewritten, "config", config => {
-				const nested = payloadObject(config);
-				return nested ? rewriteGoogle(nested, replacement, region) : config;
-			});
-		}
-		case "google-gemini-cli":
-		case "antigravity-cli":
-			return rewriteField(object, "request", request => {
-				const nested = payloadObject(request);
-				return nested ? rewriteGoogle(nested, replacement, region) : request;
-			});
-		case "bedrock-converse-stream": {
-			// Current omp passes commandInput directly; also support an explicit wrapper.
-			const rewritten = rewriteField(object, "system", system => rewriteBlocks(system, replacement, false, region));
-			return rewriteField(rewritten, "commandInput", commandInput => {
-				const nested = payloadObject(commandInput);
-				return nested
-					? rewriteField(nested, "system", system => rewriteBlocks(system, replacement, false, region))
-					: commandInput;
-			});
-		}
-		default:
-			return payload;
+	const root = payloadObject(payload);
+	const layout = root && requestLayout(root, api);
+	if (!root || !layout) return payload;
+	const { kind, body, path } = layout;
+	let next;
+	switch (kind) {
+		case "responses":
+			next = rewriteField(rewriteField(body, "instructions", text => rewriteText(text, replacement, region)),
+				"input", input => rewriteMessages(input, replacement, region));
+			break;
+		case "chat": next = rewriteField(body, "messages", messages => rewriteMessages(messages, replacement, region)); break;
+		case "devin": next = rewriteField(body, "prompt", text => rewriteText(text, replacement, region)); break;
+		case "cursor": next = rewriteField(body, "customSystemPrompt", text => rewriteText(text, replacement, region)); break;
+		case "gitlab": next = rewriteGitLabFlow(body, replacement, region); break;
+		case "google": next = rewriteGoogle(body, replacement, region); break;
+		case "anthropic":
+		case "bedrock":
+			next = rewriteField(body, "system", system => rewriteBlocks(system, replacement, kind === "anthropic", region));
+			break;
 	}
+	return path ? rewriteField(root, path, () => next) : next;
+}
+
+const standaloneCodeMode = /^<omp-code-mode>(?:(?!<\/?omp-code-mode>)[\s\S])*<\/omp-code-mode>$(?![\s\S])/;
+
+function syncText(value: unknown, guidance: string): unknown {
+	if (typeof value !== "string") return value;
+	// String-only carriers have no block boundary. We own the complete slot or a
+	// terminal paragraph we appended, never markers embedded inside custom text.
+	const start = value.lastIndexOf("<omp-code-mode>");
+	const standalone = standaloneCodeMode.test(value.slice(Math.max(start, 0)));
+	if (standalone && start === 0) return guidance || undefined;
+	if (standalone && value.slice(start - 2, start) === "\n\n") {
+		const prefix = value.slice(0, start - 2);
+		return guidance ? `${prefix}\n\n${guidance}` : prefix;
+	}
+	return guidance ? value ? `${value}\n\n${guidance}` : guidance : value;
+}
+
+function syncField(body: PayloadObject, key: string, sync: (value: unknown) => unknown): PayloadObject {
+	const value = body[key];
+	const next = sync(value);
+	if (next === value) return body;
+	if (next !== undefined) return { ...body, [key]: next };
+	const { [key]: removed, ...rest } = body;
+	return rest;
+}
+
+function syncBlocks(value: unknown, guidance: string, typed: boolean): unknown {
+	if (typeof value === "string") return syncText(value, guidance);
+	if (!Array.isArray(value)) return value;
+	const blocks: readonly unknown[] = value;
+	let kept = false;
+	const next = blocks.flatMap(block => {
+		const item = payloadObject(block);
+		if (!item || (typed && item.type !== "text") || typeof item.text !== "string" || !standaloneCodeMode.test(item.text)) return [block];
+		if (!guidance || kept) return [];
+		kept = true;
+		return [rewriteField(item, "text", () => guidance)];
+	});
+	if (guidance && !kept) next.push(typed ? { type: "text", text: guidance } : { text: guidance });
+	return next.length === blocks.length && next.every((item, index) => item === blocks[index]) ? value : next;
+}
+
+function syncChatContent(value: unknown, guidance: string): unknown {
+	if (Array.isArray(value)) {
+		// A gateway may wrap a string (including our terminal paragraph) in
+		// a typed content block. Reuse that paragraph instead of appending.
+		const tail = payloadObject(value.at(-1));
+		if (tail?.type === "text" && typeof tail.text === "string") {
+			const prefix = syncText(tail.text, "");
+			if (typeof prefix === "string" && prefix !== tail.text) {
+				const updated = rewriteField(tail, "text", text => syncText(text, guidance));
+				return updated === tail ? value : [...value.slice(0, -1), updated];
+			}
+		}
+	}
+	return syncBlocks(value, guidance, true);
+}
+
+function syncChatMessages(value: unknown, guidance: string): unknown {
+	if (!Array.isArray(value)) return value;
+	const items: readonly unknown[] = value;
+	const first = payloadObject(items[0]);
+	if (!first || (first.role !== "system" && first.role !== "developer")) {
+		return guidance ? [{ role: "system", content: guidance }, ...items] : value;
+	}
+	// OMP may have already coalesced all instructions into one message for a
+	// template that rejects a second system message. Reuse that leading slot.
+	const content = syncChatContent(first.content, guidance);
+	if (content === first.content) return value;
+	if (content === undefined && Object.keys(first).length === 2) return items.slice(1);
+	return [{ ...first, content: content ?? "" }, ...items.slice(1)];
+}
+
+function responsesCodeModeItem(guidance: string) {
+	return { type: "message", role: "developer", content: [{ type: "input_text", text: guidance }] };
+}
+
+function syncResponsesInput(value: unknown, guidance: string): unknown {
+	if (!Array.isArray(value)) return value;
+	const items: readonly unknown[] = value;
+	// Only touch the leading live instructions. Developer items in the middle
+	// of history (including additional_tools controls) are not the current slot.
+	let end = 0;
+	let owned: { readonly index: number; readonly entry: PayloadObject } | undefined;
+	for (const item of items) {
+		const entry = payloadObject(item);
+		if (end === 0 && entry?.type === "additional_tools" && entry.role === "developer") {
+			end++;
+			continue;
+		}
+		if (!entry || (entry.role !== "system" && entry.role !== "developer") || (entry.type !== undefined && entry.type !== "message")) break;
+		const part = Array.isArray(entry.content) && entry.content.length === 1 ? payloadObject(entry.content[0]) : undefined;
+		const text = part?.type === "input_text" || part?.type === "text" ? part.text : entry.content;
+		if (typeof text === "string" && standaloneCodeMode.test(text)) owned = { index: end, entry };
+		end++;
+	}
+	if (owned) {
+		const { index, entry } = owned;
+		if (!guidance) return [...items.slice(0, index), ...items.slice(index + 1)];
+		const updated = rewriteField(entry, "content", content => Array.isArray(content)
+			? rewriteArray(content, part => {
+				const block = payloadObject(part);
+				return block ? rewriteField(block, "text", () => guidance) : part;
+			})
+			: guidance);
+		return updated === entry ? value : [...items.slice(0, index), updated, ...items.slice(index + 1)];
+	}
+	if (!guidance) return value;
+	return [...items.slice(0, end), responsesCodeModeItem(guidance), ...items.slice(end)];
+}
+
+/** Synchronize the one standalone fallback block without touching the model role or transcript. */
+export function syncCodeModeBlock(payload: unknown, api: string, guidance = "", previousGuidance?: string): unknown {
+	const root = payloadObject(payload);
+	const layout = root && requestLayout(root, api);
+	if (!root || !layout) return payload;
+	const { kind, body, path } = layout;
+	let next;
+	switch (kind) {
+		case "anthropic":
+		case "bedrock":
+			next = syncField(body, "system", system => syncBlocks(
+				system === undefined && guidance && Array.isArray(body.messages) ? [] : system, guidance, kind === "anthropic"));
+			break;
+		case "google":
+			next = syncField(body, "systemInstruction", instruction => {
+				if (typeof instruction === "string") return syncText(instruction, guidance);
+				const content = payloadObject(instruction);
+				if (content) {
+					const updated = rewriteField(content, "parts", parts => syncBlocks(parts, guidance, false));
+					return updated !== content && Array.isArray(updated.parts) && updated.parts.length === 0 && Object.keys(updated).length === 1
+						? undefined : updated;
+				}
+				return instruction === undefined && guidance && (Array.isArray(body.contents) || path === "config" && Array.isArray(root.contents))
+					? { parts: [{ text: guidance }] } : instruction;
+			});
+			break;
+		case "chat": next = rewriteField(body, "messages", messages => syncChatMessages(messages, guidance)); break;
+		case "devin":
+			// Keep the protobuf string field, even when it contained only guidance.
+			next = rewriteField(body, "prompt", prompt => syncText(prompt, guidance) ?? "");
+			break;
+		case "responses":
+			if (typeof body.previous_response_id === "string" && body.previous_response_id.length > 0) {
+				if (previousGuidance === undefined || previousGuidance === guidance || api !== codexApi ||
+					body.type !== "response.create" || !Array.isArray(body.input)) return payload;
+				// Codex reattaches its unprojected prefix when a hook drops the
+				// anchor. That prefix is capability-neutral. A new live item must
+				// be in the delta, not in the unseen prefix, to survive the replay.
+				const { previous_response_id: removed, ...replay } = body;
+				return guidance ? { ...replay, input: [...body.input, responsesCodeModeItem(guidance)] } : replay;
+			}
+			next = typeof body.instructions === "string"
+				? syncField(body, "instructions", instructions => syncText(instructions, guidance))
+				: Array.isArray(body.input)
+					? rewriteField(body, "input", input => syncResponsesInput(input, guidance))
+					: typeof body.input === "string" && body.instructions === undefined && guidance
+						? { ...body, instructions: guidance } : body;
+			break;
+		case "gitlab":
+		case "cursor": return payload;
+	}
+	return path ? rewriteField(root, path, () => next) : next;
 }

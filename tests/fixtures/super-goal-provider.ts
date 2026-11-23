@@ -1,4 +1,4 @@
-import registerProvider from "./ulw-provider";
+import registerProvider from "./super-provider";
 
 interface ProbeContext {
   cwd: string;
@@ -12,7 +12,7 @@ type ProbeApi = Parameters<typeof registerProvider>[0] & {
 // Observe the real host only: never create a goal, rewrite input, or append records.
 export default function probe(pi: ProbeApi): void {
   registerProvider(pi);
-  const endpoint = process.env.OMO_ULW_GOAL_EVENTS_URL;
+  const endpoint = process.env.OMO_SUPER_GOAL_EVENTS_URL;
   if (!endpoint) throw new Error("Missing local goal probe event endpoint");
   const url = new URL(endpoint);
   if (url.hostname !== "127.0.0.1" || url.protocol !== "http:") throw new Error("Goal probe requires a loopback endpoint");
@@ -30,7 +30,7 @@ export default function probe(pi: ProbeApi): void {
   pi.on("goal_updated", report);
   pi.on("message_update", report);
   pi.on("message_end", report);
-  pi.registerCommand("ulw-probe-wait-idle", {
+  pi.registerCommand("super-probe-wait-idle", {
     description: "Observe the current test session settling",
     handler: async (label, ctx) => {
       await ctx.waitForIdle();

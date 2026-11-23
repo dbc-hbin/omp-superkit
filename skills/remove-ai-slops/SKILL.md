@@ -6,7 +6,7 @@ argument-hint: "[file ...]"
 
 # Remove AI slops - Bounded behavior-preserving cleanup
 
-Consult [the OMP contract](../ulw-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Activate when explicitly requested. An explicit request naming this bounded cleanup and its file set or established diff authorizes ordinary owned edits. For an open-ended assessment, or when the requested scope is ambiguous or destructive, produce a proposal before editing and obtain the needed scope decision. No commits or external writes are implied.
+Consult [the OMP contract](../super-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Activate when explicitly requested. An explicit request naming this bounded cleanup and its file set or established diff authorizes ordinary owned edits. For an open-ended assessment, or when the requested scope is ambiguous or destructive, produce a proposal before editing and obtain the needed scope decision. No commits or external writes are implied.
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
@@ -112,7 +112,7 @@ await tool.task({
 });
 ```
 
-Omit agent for the default worker; senior-task only when listed and difficult reasoning merits it. No category; pass `model` only as an exact ID the live task schema advertises as approved. Replace example artifacts with observed paths. Track actual child IDs and collect results under the [native wait contract](../ulw-loop/references/omp-contract.md#waiting-for-native-results). Validate each delivered terminal result or actual `agent://` output. Retain verified siblings, collect a failed terminal child before any replacement, and never duplicate a live writer. Integrate owned results before opening the next batch; the final report requires an empty pending set.
+Omit agent for the default worker; senior-task only when listed and difficult reasoning merits it. No category; pass `model` only as an exact ID the live task schema advertises as approved. Replace example artifacts with observed paths. Track actual child IDs and collect results under the [native wait contract](../super-loop/references/omp-contract.md#waiting-for-native-results). Validate each delivered terminal result or actual `agent://` output. Retain verified siblings, collect a failed terminal child before any replacement, and never duplicate a live writer. Integrate owned results before opening the next batch; the final report requires an empty pending set.
 
 ## Phase 4b - Prove the test cuts serially, then cut
 

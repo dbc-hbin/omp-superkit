@@ -2,34 +2,39 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-24 SUPER 스킬 경로
+
+- 배포 스킬 ID와 구현 디렉터리를 여섯 SUPER 명령과 일치시켰습니다. 기존 프롬프트 이름, 스킬 ID, 참조 경로와 문서에 안내된 Node 스크립트 경로도 같은 구현을 계속 사용합니다.
+- 세션과 원장 경로, 저장 형식, OMP 키워드 및 CLI 플래그는 그대로입니다. 마이그레이션은 필요하지 않습니다.
+
 ### 2026-11-22 SUPER 워크플로 명령
 
 - SUPER를 워크플로의 공개 이름으로 사용합니다. `/super`, `/super-plan`, `/super-run`, `/super-loop`, `/super-graph`, `/super-research`는 `/` 없이도 사용할 수 있습니다. 기존 별칭도 `/` 유무와 관계없이 계속 지원합니다.
-- `/stop-continuation`, `/resume-continuation`, OMP 키워드, CLI 플래그, 설치된 스킬 ID와 경로, 저장된 세션·목표·워크플로 형식은 그대로입니다. 마이그레이션은 필요하지 않습니다.
+- `/stop-continuation`, `/resume-continuation`, OMP 키워드, CLI 플래그, 저장된 세션·목표·워크플로 형식은 그대로입니다. 마이그레이션은 필요하지 않습니다.
 
 ### 2026-11-22 슈퍼킷 자체 모델 프리셋
 
 - 현재 모델별 템플릿과 라우팅은 [prompts/models/](prompts/models/)에서 직접 관리합니다. [GPT‑6.2 Astra/Sol 본문](prompts/gpt-6.2.ts)은 기존 로컬 버전으로 일원화합니다. 업스트림에서 가져와 프리셋을 생성하는 명령은 제거하고 출처와 라이선스는 보존합니다.
 - 지원 세션과 활성 도구에 따른 모델 선택 및 프롬프트 출력을 유지합니다. 프런트엔드 참조 생성은 별도이므로 변경하지 않습니다.
 
-### 2026-11-22 ULW 이어가기·복구 및 연구 보고서 완료 판정
+### 2026-11-22 SUPER 이어가기·복구 및 연구 보고서 완료 판정
 
 - 구조화된 계획에서는 `Todos`와 `Final verification wave` 아래의 번호가 붙은 작업만 이어가기 대상으로 셉니다. 메모·예시·하위 체크박스 때문에 끝난 작업이 다시 열리거나 막히지 않습니다. 단순 체크리스트와 네이티브 승인 계획은 기존 형식을 유지합니다.
-- `/stop-continuation`과 `/resume-continuation`으로 현재 세션의 자동 이어가기를 제어합니다. Boulder·루프·연구 기록은 삭제하지 않으며, TUI 네이티브 목표는 이 세션의 ULW 호출로 생성된 경우에만 제어합니다.
-- [mass-ulw 복구 지침](skills/mass-ulw/references/planning.md#operator-controls)에서 현재 작업의 조회·정정·취소와 새 시도를 구분합니다. 재시작 후에는 소유 세션, 작업 시도, 산출물을 대조한 뒤 핸들을 재사용합니다.
-- 연구 보고서의 숫자·단위·직접 인용을 보관한 원문과 대조하고 최종 파일의 바이트에 검증 결과를 연결합니다. 기존 manifest도 읽을 수 있지만 완료하려면 해당 파일의 검증 기록이 필요합니다. PDF 등 변환본은 내용 자동 검증이 아니라 검증된 원본과 실제 검사 기록으로 구분합니다. [CLI 예시](skills/ulw-research/references/deliverable-phase.md#edition-fidelity)
+- `/stop-continuation`과 `/resume-continuation`으로 현재 세션의 자동 이어가기를 제어합니다. Boulder·루프·연구 기록은 삭제하지 않으며, TUI 네이티브 목표는 이 세션의 SUPER 호출로 생성된 경우에만 제어합니다.
+- [SUPER Graph 복구 지침](skills/super-graph/references/planning.md#operator-controls)에서 현재 작업의 조회·정정·취소와 새 시도를 구분합니다. 재시작 후에는 소유 세션, 작업 시도, 산출물을 대조한 뒤 핸들을 재사용합니다.
+- 연구 보고서의 숫자·단위·직접 인용을 보관한 원문과 대조하고 최종 파일의 바이트에 검증 결과를 연결합니다. 기존 manifest도 읽을 수 있지만 완료하려면 해당 파일의 검증 기록이 필요합니다. PDF 등 변환본은 내용 자동 검증이 아니라 검증된 원본과 실제 검사 기록으로 구분합니다. [CLI 예시](skills/super-research/references/deliverable-phase.md#edition-fidelity)
 
 ### 2026-11-22 모델별 정정 지시와 독립 리뷰
 
 - [Senpi의 정정 규칙](https://github.com/code-yeongyu/senpi/blob/d713160e3b9224d42143c2096b5d6f9cb1685b78/packages/coding-agent/src/core/extensions/builtin/prompt-preset/deepseek-v4-1-flash-rules.ts#L69)에 맞춰 사용자가 작업 일부를 정정하면 해당 부분만 바꾸고, 여전히 유효한 이전 지시는 유지합니다.
 - 6.1 Sol·Terra가 공유하는 GPT‑6 Astra 프리셋에서 기존 계획을 통째로 바꾸라는 상충 문구를 제거했습니다. [GPT‑6.2 Astra·Sol](prompts/gpt-6.2.ts)은 호스트 알림을 사용자 지시와 구분하며, 알림을 일시정지·취소된 작업의 재개 승인으로 취급하지 않습니다.
-- Claude Opus 5·5.5, Sonnet 5.5, Haiku 5.5는 자체 검증을 하되 필수 독립 리뷰를 금지하지 않습니다. 리뷰어를 쓸 수 없으면 자체 승인 대신 누락을 알립니다. ULW 계획에서는 독립 리뷰가 요구될 때 동일한 계획에 대한 각 검토자의 판정을 기록합니다.
+- Claude Opus 5·5.5, Sonnet 5.5, Haiku 5.5는 자체 검증을 하되 필수 독립 리뷰를 금지하지 않습니다. 리뷰어를 쓸 수 없으면 자체 승인 대신 누락을 알립니다. SUPER Plan에서는 독립 리뷰가 요구될 때 동일한 계획에 대한 각 검토자의 판정을 기록합니다.
 
 ### 2026-11-21 OMP 19.1 규약 및 업스트림 워크플로 선별 반영
 
 - 코드모드와 배포 스킬을 [OMP 19.1 도구 명령](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` 문서, 네이티브 계획 제출 방식에 맞춥니다. 모델 프롬프트에 호스트의 위임 제한을 보존합니다. Chrome relay 설치, 가려지거나 최소화된 창의 검증, 세션 검색 범위도 갱신합니다.
 - 렌더된 프리셋에서 무조건 거부하지 말라는 지시를 제거합니다. [Senpi의 Opus 5.5·Fable 5.2 변경](https://github.com/code-yeongyu/senpi/tree/3db1d1604ef3693240377136d2b3af670b4d53b9/packages/coding-agent/src/core/extensions/builtin/prompt-preset)에서 요청 정정·대기·응답 규칙을 선별 반영하고 로컬 GPT‑6.2와 Gemini 제외 정책은 유지합니다.
-- [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd)의 계획 템플릿에 맞춰 작업별 쓰기 대상과 의존 사유를 기록합니다. `mass-ulw`는 검증 의무를 유지하되 필요한 때만 별도 검증 노드를 만듭니다. 검증된 연구 보고서는 지원 클라이언트에서 HTML로 표시하고, 미지원 시 파일 링크를 제공합니다.
+- [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd)의 계획 템플릿에 맞춰 작업별 쓰기 대상과 의존 사유를 기록합니다. SUPER Graph는 검증 의무를 유지하되 필요한 때만 별도 검증 노드를 만듭니다. 검증된 연구 보고서는 지원 클라이언트에서 HTML로 표시하고, 미지원 시 파일 링크를 제공합니다.
 
 ### 2026-11-20 Gemini 모델 지원 제거
 
@@ -85,7 +90,7 @@
 
 ### 2026-11-13 프롬프트 중복만 축소
 
-- Sonic 배정 조건과 ULW 모델·호스트 소유권 재설명을 제거하되, 같은 주입 블록의 기존 요구는 유지합니다.
+- Sonic 배정 조건과 SUPER 모델·호스트 소유권 재설명을 제거하되, 같은 주입 블록의 기존 요구는 유지합니다.
 - native todo/sh 설명은 원문을 인식하고 실제 현재 프리셋에 동등한 요구가 있을 때만 중복을 제거합니다. 모델 규칙·고유한 도구 동작·커스텀 설명·미지원 모델 동작은 보존합니다.
 - Delivery, 복원한 조사·추론 조건, 모델 예산·응답 언어·child 경계와 메인·자식 Terra 연결은 유지합니다.
 
@@ -105,7 +110,7 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 ### 2026-11-13 프롬프트 책임 중복 축소
 
 - task 역할 라우팅을 축약하되 전문 역할 경계·미해결 판단·근거 요구와 native 도구 권한을 유지합니다.
-- ULW의 활성화 문법·키워드 매핑 설명은 호스트 책임으로 축소하고, 브라우저 상세는 필요할 때 읽는 스킬 참조로 바꿉니다. 실제 활성화·목표 소유권·저장된 상태·이어하기 동작은 유지합니다.
+- SUPER의 활성화 문법·키워드 매핑 설명은 호스트 책임으로 축소하고, 브라우저 상세는 필요할 때 읽는 스킬 참조로 바꿉니다. 실제 활성화·목표 소유권·저장된 상태·이어하기 동작은 유지합니다.
 - 남아 있는 native 편집 전·전달 지침은 활성 프리셋이나 보존된 Runtime이 같은 규칙을 소유할 때만 제거합니다. 모델 전환으로 해당 근거가 없어지거나 미지원 모델로 fallback하면 복원합니다.
 - 일반 도입부·handoff 주기·보고 형식 설명을 축약하고 모델별 실행·재독해·검증 단계·도구 예산과 upstream 생성 번들은 변경하지 않습니다. Kimi K2의 명시적 routing 계약은 유지합니다.
 - 권한·거절 확정·프로젝트 문맥·자식 Hand-off·native mode와 직전 브라우저·컴퓨터·세션 검색 도입을 보존합니다.
@@ -121,7 +126,7 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 
 ### 2026-11-11 브라우저 워크플로 연동 전수조사
 
-- 공통 ULW 지침이 활성화되지 않는 native 스킬 호출까지 포함해, research와 mass-research에 정적·동적·인증·차단 출처 접근 계약을 직접 연결합니다.
+- 공통 SUPER 지침이 활성화되지 않는 native 스킬 호출까지 포함해, research와 mass-research에 정적·동적·인증·차단 출처 접근 계약을 직접 연결합니다.
 - 수집·확장 작업자에게 browser·ultimate-browsing 참조, 실제 도구 조건, 승인된 상태와 필요한 증거를 명시해 전달합니다. 스킬이나 브라우저 핸들이 부모에게서 상속된다고 가정하지 않습니다.
 - 동적 참조 추출, HTML 보고서 layout probe 평가와 캡처를 native 브라우저 계약에 연결합니다. 문서 head 스타일, 필요한 캡처 범위, 출처 기록과 지원 한계를 보존합니다.
 - core Atlas·ULW 변형과 첨부 절차를 포함한 브라우저 관련 업스트림 문서 69개를 대조합니다. 직접 계획·토론·실행·루프, frontend 근거 수집, 대시보드 확인, native PDF 인쇄와 기존 프로젝트 성능 감사 경로를 보완합니다. 내부 CSRF·업로드 정책 조작 대신 승인된 일반 첨부 UI를 사용하며 외부 게시를 자동 실행하지 않습니다.
@@ -132,7 +137,7 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 
 - `browser` 스킬을 `/web-browser`로 호출해 OMP 자체 `/browser` 모드 명령을 보존하고, 탭·연결 소유권, relay·CDP·native backend, ref·프레임·좌표, JSON·route·HAR·trace, 사람 인계와 탭에 묶인 vault 상태 참조를 추가합니다. OmOWright 작업 지침을 OMP Eval prelude로 옮기며 별도 런타임이나 필수 릴레이를 가정하지 않습니다.
 - `/ultimate-browsing`에서 업스트림 reader 참조 21개의 출처 검증·아카이브·공개 API·소셜·한국 플랫폼·미디어·피드·개발·채용·선택 외부 reader 지식을 모두 대응합니다. 정적 접근은 native `read`·`web_search`가 소유하고 별도 추출 엔진·쿠키 내보내기·서비스 자동 설치는 포함하지 않습니다.
-- debugging·visual-qa·frontend·review·execute·loop·ULW·visualize의 브라우저 지침을 구체적인 native API에 연결합니다. 캡처 범위·권한·거부 확정·실제 인증 상태 조건을 보존합니다. 기기 변경의 재로드, 반환된 캡처 경로와 backend별 한계를 명시합니다.
+- debugging·visual-qa·frontend·review·execute·loop·SUPER·visualize의 브라우저 지침을 구체적인 native API에 연결합니다. 캡처 범위·권한·거부 확정·실제 인증 상태 조건을 보존합니다. 기기 변경의 재로드, 반환된 캡처 경로와 backend별 한계를 명시합니다.
 - 원본 라이선스와 전체 대응표를 보존합니다. cooperation token·사람 호출 배너·프레임 병합 ref·고정 stealth identity·OCR/CAPTCHA helper는 가짜 native 메서드 대신 지원 차이로 기록합니다.
 
 출처: [OMO 42d5746e 브라우저 관련 스킬](https://github.com/code-yeongyu/oh-my-openagent/tree/42d5746e72bfcfb782db6b5182b70a3e9c55f1cc/packages/shared-skills/skills), [OMP 18.18.6 브라우저 계약](https://github.com/can1357/oh-my-pi/blob/v18.18.6/packages/coding-agent/src/prompts/tools/browser.md).
@@ -141,7 +146,7 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 
 - 33개 프리셋 번들을 Senpi `f75b592c51239c4baf30e3f5cb4d200f088205b1`에 고정합니다. 임시 Fable 5.5를 Fable / Mythos 5.2 전용 코어와 라우팅으로 교체하고, 갱신기에서 폐기된 launch 모듈의 import 예외를 제거합니다. 임의 외부 의존성은 계속 거부합니다.
 - OMP의 blocking 질문·권한·거부 확정·자식 역할·도구 계약을 보존합니다. Fable 5.2의 새 장애물 처리는 원인 진단과 제한된 복구로 보정하고, 필요한 승인은 장애물이 드러나는 시점에 해결합니다.
-- 기존 research journal과 mass-ulw 인계에 주장별 `OBSERVED`, DEAD END와 수렴 판단의 `PROBED` 근거를 유지합니다. 기억은 조사 단서로 취급하고 추론을 구분하며, 유효한 기존 근거나 통과한 검사를 일괄 재실행하지 않습니다.
+- 기존 research journal과 SUPER Graph 인계에 주장별 `OBSERVED`, DEAD END와 수렴 판단의 `PROBED` 근거를 유지합니다. 기억은 조사 단서로 취급하고 추론을 구분하며, 유효한 기존 근거나 통과한 검사를 일괄 재실행하지 않습니다.
 - 벤치마크·A/B·holdout·LLM 평가의 독립성을 감사하는 읽기 전용 `eval-integrity` 스킬과 `/eval-integrity` 명령을 추가합니다. 도구 접근·native mode·승인은 OMP가 소유합니다.
 - 번들에는 Haiku 5.5의 native 검색 조건 수정도 포함됩니다. OMP의 검색 안내는 계속 실제 활성 `web_search` 도구에서 결정하며, Senpi의 native 검색 확장이나 브라우저 런타임은 추가하지 않습니다.
 
@@ -161,7 +166,7 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 - 지원 모델의 일반 작업 방식을 모델 프리셋이 소유하도록 정리합니다. 겹치는 native 계획·재읽기·위임·검증 지침을 제거하되 도구·권한·프로젝트·자식 계약은 보존하며, 미지원 모델 fallback에서는 native 기본 행동을 복원합니다.
 - 요청 직전에 활성 도구를 갱신하고, 지원 프리셋에서 eval·todo의 중복 병렬 실행 강제와 bash의 상충하는 리다이렉션 금지 문구를 제거합니다. eval의 workpool 결과 전달·대기 계약은 유지하며, 미지원 모델은 native 도구 설명과 병렬 실행 기본 지침을 유지합니다. native orchestration 알림도 변경 없는 원문·검사를 다시 수행하도록 강제하지 않습니다.
 - 원본 생성 번들을 바꾸지 않고 프리셋 내부의 도입부 주기, blocking 질문, 없는 도구 요구, 설명 요청, 복구 범위와 async·서비스 계약의 불일치를 정리합니다.
-- ULW 명령·별칭은 입력 맨 앞에서만 활성화합니다. 설명 문장의 언급은 무시하고 전문 워크플로의 중복 native goal을 방지하며, paused·budget-limited goal의 소유권을 유지합니다.
+- SUPER 명령·별칭은 입력 맨 앞에서만 활성화합니다. 설명 문장의 언급은 무시하고 전문 워크플로의 중복 native goal을 방지하며, paused·budget-limited goal의 소유권을 유지합니다.
 - 계획은 native local-plan·propose 권한에 맞추고, research 재개는 기존 소유자를 유지합니다. visual-qa는 한 번의 제한된 수리 루프와 해당 캡처 범위를 공유하며, 워크플로 문서의 중복 dispatch 규칙을 제거합니다.
 - 승인된 native local 계획을 명시적으로 선택한 실행 워크플로에 직접 인계합니다. 승인 원본은 유지하고 기존 Boulder 작업에서 계획의 과제 참조와 재개 상태를 추적합니다.
 
@@ -207,19 +212,19 @@ native 계약: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packages
 
 출처: [Senpi 고정 리비전](https://github.com/code-yeongyu/senpi/tree/9815495b8ee5e936e48d1ba5e293eea7642a0529), [Astra 코어 개정](https://github.com/code-yeongyu/senpi/commit/d92272573fc01f38d8798d20391d77dc3853778a), [Opus·Fable 원문 복원](https://github.com/code-yeongyu/senpi/commit/71845495e8bb0362cac2f44a6a11a961be9af659), [OMO 비교 기준](https://github.com/code-yeongyu/oh-my-openagent/commit/8c087588677b63ccb80affb46f2c485625f929b1), [OMP 18.16.0](https://github.com/can1357/oh-my-pi/releases/tag/v18.16.0).
 
-### 2026-11-03 ULW 책임 축소
+### 2026-11-03 SUPER 책임 축소
 
 - 명령 이름·별칭·템플릿·비활성화 플래그와 goal 연결·상태 복원·계속 실행 훅은 보존했습니다.
-- 모델별 장문 ULW 정책을 단일 정책으로 통합하고, 공통 실행·위임·검증 규칙은 OMP에 맡겼습니다.
+- 모델별 장문 SUPER 정책을 단일 정책으로 통합하고, 공통 실행·위임·검증 규칙은 OMP에 맡겼습니다.
 - 계획·실행·루프·DAG·리서치 문서와 관련 참조는 각 기능의 산출물·상태 계약 중심으로 축소했습니다.
 - 실제 호스트 검증은 명령별 포인터, 세션 지속·goal 보존, 상태 기반 계속 실행과 명시적 native 키워드의 독립 동작을 확인합니다.
 - 전문 명령·별칭은 적합한 native 키워드에 자동 연결합니다. 명시적 선택, OMP 비활성화 설정과 도구 조건을 보존하고, native 알림을 중복 구현하지 않습니다.
 
 ### 2026-11-01 OMO 워크플로 스킬 후속 반영
 
-- **`ulw-plan`:** 리뷰 라운드 5회 상한을 없애고 진행 기반 종료로 바꿨습니다. 직전 라운드가 새 blocker를 찾거나 기존 blocker를 닫았을 때만 다음 라운드를 열고, 둘 다 없으면 미해결 blocker를 보고하고 사용자에게 묻습니다. 수렴 계약 JSON(`max_rounds: null`, `continue_while`, `stop_on`)도 같이 바꿨습니다.
+- **SUPER Plan:** 리뷰 라운드 5회 상한을 없애고 진행 기반 종료로 바꿨습니다. 직전 라운드가 새 blocker를 찾거나 기존 blocker를 닫았을 때만 다음 라운드를 열고, 둘 다 없으면 미해결 blocker를 보고하고 사용자에게 묻습니다. 수렴 계약 JSON(`max_rounds: null`, `continue_while`, `stop_on`)도 같이 바꿨습니다.
 - **`visualize`:** 미리보기 전에 `frontend`의 `check-draft-guard.ts` lint를 통과해야 합니다.
-- **`mass-ulw`:** 앞 wave 전체에 의존하는 다음 wave는 리뷰 노드 하나로 연결합니다(n×m 대신 n+m 의존성).
+- **SUPER Graph:** 앞 wave 전체에 의존하는 다음 wave는 리뷰 노드 하나로 연결합니다(n×m 대신 n+m 의존성).
 - 출처: [OMO `9ddcfaac`](https://github.com/code-yeongyu/oh-my-openagent/commit/9ddcfaac8), [`bbd125e3`](https://github.com/code-yeongyu/oh-my-openagent/commit/bbd125e3c), [`634b4ed9`](https://github.com/code-yeongyu/oh-my-openagent/commit/634b4ed9c), OMO `8bda141b`의 `mass-ulw/references/planning.md`.
 
 ### 2026-11-01 OMO 테스트 정리·프론트엔드 검사 이식

@@ -16,12 +16,13 @@
     "host.ts",
     "host-guidance.ts",
     "payload.ts",
+    "request-tools.ts",
     "presets.ts",
     "prewalk.ts",
     "omp-settings.d.ts",
-    "ulw.ts",
-    "ulw-continuation.ts",
-    "ulw-control.ts",
+    "super.ts",
+    "super-continuation.ts",
+    "super-control.ts",
     "prompts/",
     "skills/",
     "README*.md",
@@ -31,7 +32,7 @@
     "build": "bun upstream/materialize-frontend-refs.mjs",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "test:host": "bun tests/ulw-host-check.ts && bun tests/ulw-goal-host-check.ts && bun tests/child-preset-host-check.ts && bun tests/prewalk-host-check.ts && bun tests/code-mode-host-check.ts && bun tests/code-mode-task-host-check.ts"
+    "test:host": "bun tests/super-host-check.ts && bun tests/super-goal-host-check.ts && bun tests/child-preset-host-check.ts && bun tests/prewalk-host-check.ts && bun tests/code-mode-host-check.ts && bun tests/code-mode-host-check.ts --js-only && bun tests/code-mode-host-check.ts --py-only && bun tests/code-mode-task-host-check.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

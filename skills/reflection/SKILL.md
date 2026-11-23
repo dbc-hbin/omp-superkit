@@ -5,7 +5,7 @@ description: "Optional explicit reflection on completed conversation evidence to
 
 # Reflection
 
-Consult [the OMP contract](../ulw-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read [native memory operations](references/mnemopi.md) before memory maintenance. Run only on explicit reflection activation or an explicitly assigned reflection task. This is a finite review of past evidence, not the primary user's live task, an automatic hook, or a replacement memory service.
+Consult [the OMP contract](../super-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read [native memory operations](references/mnemopi.md) before memory maintenance. Run only on explicit reflection activation or an explicitly assigned reflection task. This is a finite review of past evidence, not the primary user's live task, an automatic hook, or a replacement memory service.
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
@@ -73,4 +73,4 @@ Check stale contradictions, provenance, project scope, secrets, ephemeral leakag
 
 Return the strict structured report: coverage summary, durable memory changes with actual ids/receipts, skill operation and receipts, skipped candidates/reasons, unresolved issues/capability gaps, and `no commit`. Make no user-facing commentary from a child; the lead owns delivery.
 
-For delegated review, the lead records actual child IDs and collects results under the [native wait contract](../ulw-loop/references/omp-contract.md#waiting-for-native-results). Validate terminal status and the requested receipt fields in the delivered result or actual agent output. Finish only after all owned persistence receipts are resolved, reviewed coverage is explicit, the pending set is empty, and unpersisted capabilities are honestly reported. An empty result is successful reflection when nothing durable changed.
+For delegated review, the lead records actual child IDs and collects results under the [native wait contract](../super-loop/references/omp-contract.md#waiting-for-native-results). Validate terminal status and the requested receipt fields in the delivered result or actual agent output. Finish only after all owned persistence receipts are resolved, reviewed coverage is explicit, the pending set is empty, and unpersisted capabilities are honestly reported. An empty result is successful reflection when nothing durable changed.

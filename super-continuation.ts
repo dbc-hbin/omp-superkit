@@ -91,6 +91,7 @@ export function readContinuation(cwd: string, sessionId: string): Continuation |
       }
     }
   }
+  // SUPER Loop and Research share this persisted namespace with existing sessions.
   const loopPath = join(cwd, "doc/ulw-loop", sessionId, "goals.json");
   if (!existsSync(loopPath)) return;
   const raw = readFileSync(loopPath, "utf8");

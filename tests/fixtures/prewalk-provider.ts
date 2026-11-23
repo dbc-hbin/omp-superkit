@@ -1,5 +1,4 @@
 import installPreset from "../../index";
-import { fileURLToPath } from "node:url";
 
 export const provider = "omp-prewalk-probe";
 export const sourceModel = "gpt-6.1-sol";
@@ -13,7 +12,6 @@ export interface Observation {
 }
 interface FixtureApi {
   registerProvider(name: string, config: unknown): void;
-  on(event: "resources_discover", handler: () => { skillPaths: string[] }): void;
 }
 
 export default async function prewalkFixture(api: Parameters<typeof installPreset>[0] & FixtureApi): Promise<void> {
@@ -26,9 +24,6 @@ export default async function prewalkFixture(api: Parameters<typeof installPrese
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     })),
   });
-  api.on("resources_discover", () => ({
-    skillPaths: [fileURLToPath(new URL("../../skills/ulw-plan", import.meta.url))],
-  }));
   const [{ lookup }, { findScopedSettings }] = await Promise.all([
     import("@oh-my-pi/pi-coding-agent/config/registry"),
     import("@oh-my-pi/pi-coding-agent/config/settings"),

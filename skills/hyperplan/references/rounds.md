@@ -1,6 +1,6 @@
 # Strict round contracts and native dispatch
 
-Read [the entry](../SKILL.md) and [OMP contract](../../ulw-loop/references/omp-contract.md). The JSON schemas below define the lead's workflow receipts. Request their fields from children without overriding native completion protocols; when a native format is required, retain the raw terminal response and normalize only supported fields in the lead. Do not send outputSchema/schemaMode unless exposed by the current task schema. Every nested receipt object disallows additional properties. Runtime completion status is distinct from workflow payload fields.
+Read [the entry](../SKILL.md) and [OMP contract](../../super-loop/references/omp-contract.md). The JSON schemas below define the lead's workflow receipts. Request their fields from children without overriding native completion protocols; when a native format is required, retain the raw terminal response and normalize only supported fields in the lead. Do not send outputSchema/schemaMode unless exposed by the current task schema. Every nested receipt object disallows additional properties. Runtime completion status is distinct from workflow payload fields.
 
 These receipts cover deliberative perspective rounds and planner synthesis. Assign compatible read-only reasoning workers; this is not code-diff review. Preserve required native completion sections and normalize only observed evidence and verified identity. Missing coverage or verdicts remain unresolved.
 
@@ -103,7 +103,7 @@ The lead checks one response per own finding. DEFEND and REFINE require nonempty
 }
 ```
 
-`completed` requires complete readable plan text in `report` and no blocking questions. In native plan mode or a read-only child assignment, `planPath` identifies the intended canonical artifact, not a claim that the child wrote it; the lead writes the permitted artifact and checks constraints/mitigations/gates before workflow completion. Otherwise the assigned plan artifact must exist. `questions` requires nonempty questions and no claim of completion. Keep native child completion sections intact; the lead normalizes this receipt. Native plan approval is exclusively the lead's [native `propose` submission](../../ulw-loop/references/omp-contract.md#native-plan-submission), never a child or ask/chat approval.
+`completed` requires complete readable plan text in `report` and no blocking questions. In native plan mode or a read-only child assignment, `planPath` identifies the intended canonical artifact, not a claim that the child wrote it; the lead writes the permitted artifact and checks constraints/mitigations/gates before workflow completion. Otherwise the assigned plan artifact must exist. `questions` requires nonempty questions and no claim of completion. Keep native child completion sections intact; the lead normalizes this receipt. Native plan approval is exclusively the lead's [native `propose` submission](../../super-loop/references/omp-contract.md#native-plan-submission), never a child or ask/chat approval.
 
 ## Dispatch construction
 

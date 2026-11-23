@@ -62,7 +62,7 @@ If two hypotheses have identical distinguishing evidence, they aren't actually d
 
 ## OMP investigation workers
 
-Use the native task schema and [OMP contract](../../../ulw-loop/references/omp-contract.md). Keep one hypothesis per independent evidence assignment. The historical debug-squad roles remain useful responsibilities, not team APIs: Runtime State Inspector captures stack/variables/heap/registers without source edits; Log Archaeologist correlates timestamps and silent errors; Reproduction Engineer minimizes exact input/expected/observed output; Trace Correlator synthesizes captured evidence and proposes the next decisive query. The lead alone controls shared debuggee mutations and journal writes. Serialize attach/step/evaluate writers; read-only log/source tracks can run alongside them.
+Use the native task schema and [OMP contract](../../../super-loop/references/omp-contract.md). Keep one hypothesis per independent evidence assignment. The historical debug-squad roles remain useful responsibilities, not team APIs: Runtime State Inspector captures stack/variables/heap/registers without source edits; Log Archaeologist correlates timestamps and silent errors; Reproduction Engineer minimizes exact input/expected/observed output; Trace Correlator synthesizes captured evidence and proposes the next decisive query. The lead alone controls shared debuggee mutations and journal writes. Serialize attach/step/evaluate writers; read-only log/source tracks can run alongside them.
 
 Use scout for read-only discovery; senior-task for difficult investigation when listed, otherwise omit agent. No categories; pass `model` only as an exact ID the live task schema advertises as approved. Each task receives full bug context, its hypothesis, exact allowed paths, source references, no-edit constraints, and bounded acceptance. The default worker may create a repro only in its explicitly owned paths.
 
@@ -84,7 +84,7 @@ await tool.task({
 });
 ```
 
-Record returned child IDs in a pending set and collect results under the [native wait contract](../../../ulw-loop/references/omp-contract.md#waiting-for-native-results). Validate each delivered terminal result or its actual `agent://` output; use `structured.data` only when the runtime returns it. Do not declare the investigation complete with pending children. Message actual roster IDs via write, not fictional team recipients.
+Record returned child IDs in a pending set and collect results under the [native wait contract](../../../super-loop/references/omp-contract.md#waiting-for-native-results). Validate each delivered terminal result or its actual `agent://` output; use `structured.data` only when the runtime returns it. Do not declare the investigation complete with pending children. Message actual roster IDs via write, not fictional team recipients.
 
 ## Evidence capture discipline (both paths)
 

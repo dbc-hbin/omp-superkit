@@ -5,7 +5,7 @@ description: "Optional read-only memory relevance advisor. Use only when explici
 
 # Memory advisor
 
-Consult [the OMP contract](../ulw-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read the [relevance contract](references/relevance.md) before evaluating memory relevance. This optional workflow advises the lead, never the user, and never mutates memory, files, project state, prompts, or skills. Its structured task result and narrowly scoped `agent://` message are the only permitted output writes.
+Consult [the OMP contract](../super-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state details not resolved by current tool schemas and host instructions; reuse it if already read in this session. Read the [relevance contract](references/relevance.md) before evaluating memory relevance. This optional workflow advises the lead, never the user, and never mutates memory, files, project state, prompts, or skills. Its structured task result and narrowly scoped `agent://` message are the only permitted output writes.
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
@@ -45,7 +45,7 @@ When a candidate qualifies, return the strict relevance note to the lead through
 
 ## Lead collection and use
 
-Record the actual child ID and collect results under the [native wait contract](../ulw-loop/references/omp-contract.md#waiting-for-native-results). Validate terminal status and the requested receipt fields in the delivered result or actual agent URI. Missing or invalid required payloads are failed contracts, not an excuse to mutate memory.
+Record the actual child ID and collect results under the [native wait contract](../super-loop/references/omp-contract.md#waiting-for-native-results). Validate terminal status and the requested receipt fields in the delivered result or actual agent URI. Missing or invalid required payloads are failed contracts, not an excuse to mutate memory.
 
 The lead treats the note as reference and checks it against current intent. It may alter the next action only if the observation actually applies. The advisor does not issue commands or store missing memories. For explicitly requested durable persistence, use the separate [reflection workflow](../reflection/SKILL.md), not an expanded advisor role.
 

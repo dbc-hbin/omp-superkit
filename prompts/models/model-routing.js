@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 import {
-  extractClaudeOpusVersion,
+  extractClaudeModel,
   extractGpt5Version,
-  isClaudeFable51Model,
-  isClaudeFable52Model,
-  isClaudeFable5Model,
-  isClaudeHaiku55Model,
-  isClaudeOpus55Model,
-  isClaudeOpus5Model,
-  isClaudeSonnet55Model,
+  extractKimiK3Version,
   isDeepseekV41FlashModel,
   isDeepseekV4Flash0731Model,
   isDeepseekV4FlashModel,
@@ -24,12 +18,28 @@ import {
   isKimiK26Model,
   isKimiK27Model,
   isKimiK28Model,
-  isKimiK31Model,
-  isKimiK3Model,
   isSWE2Model,
 } from "./model-matchers.js";
 
-export function resolvePresetName(model) {
+const CLAUDE_PRESET_VERSIONS = new Set([
+  "fable-5-2", "fable-5-1", "fable-5",
+  "opus-5-5", "opus-5", "opus-4-8", "opus-4-7", "opus-4-6", "opus-4-5",
+  "sonnet-5-5", "haiku-5-5",
+]);
+
+function claudePresetName(identity) {
+  if (!identity) return;
+  const { family, major, minor } = identity;
+  const base = `${family}-${major}`;
+  const exact = `${base}-${minor}`;
+  if (minor !== undefined && CLAUDE_PRESET_VERSIONS.has(exact)) return `claude-${exact}`;
+  if (CLAUDE_PRESET_VERSIONS.has(base)) return `claude-${base}`;
+}
+
+// undefined is unrecognized; null is recognized but must not fall back to metadata.
+function resolveModelAlias(model, claudeCorroboration) {
+  const claude = extractClaudeModel(model.id, { provider: model.provider, corroboration: claudeCorroboration });
+  if (claude !== undefined) return claudePresetName(claude) ?? null;
   if (isGpt62Model(model)) {
     return "gpt-6.2";
   }
@@ -37,13 +47,14 @@ export function resolvePresetName(model) {
     return "gpt-6-astra";
   }
   const gpt5Version = extractGpt5Version(model.id);
-  if (gpt5Version) {
+  if (gpt5Version !== undefined) {
     return gpt5Version;
   }
-  if (isKimiK31Model(model)) {
-    return "kimi-k3-1";
+  const kimiK3Version = extractKimiK3Version(model.id);
+  if (kimiK3Version !== undefined) {
+    return kimiK3Version;
   }
-  if (isSWE2Model(model) || isKimiK3Model(model)) {
+  if (isSWE2Model(model)) {
     return "kimi-k3";
   }
   if (isKimiK28Model(model)) {
@@ -54,31 +65,6 @@ export function resolvePresetName(model) {
   }
   if (isKimiK26Model(model)) {
     return "kimi-k2-6";
-  }
-  if (isClaudeFable52Model(model.id)) {
-    return "claude-fable-5-2";
-  }
-  if (isClaudeFable51Model(model.id)) {
-    return "claude-fable-5-1";
-  }
-  if (isClaudeFable5Model(model.id)) {
-    return "claude-fable-5";
-  }
-  if (isClaudeOpus55Model(model.id)) {
-    return "claude-opus-5-5";
-  }
-  if (isClaudeOpus5Model(model.id)) {
-    return "claude-opus-5";
-  }
-  if (isClaudeSonnet55Model(model.id)) {
-    return "claude-sonnet-5-5";
-  }
-  if (isClaudeHaiku55Model(model.id)) {
-    return "claude-haiku-5-5";
-  }
-  const claudeVersion = extractClaudeOpusVersion(model.id);
-  if (claudeVersion) {
-    return claudeVersion;
   }
   if (isGlm53Model(model)) {
     return "glm-5.3";
@@ -107,7 +93,42 @@ export function resolvePresetName(model) {
   if (isGrok45Model(model)) {
     return "grok-4.5";
   }
-  return;
+}
+
+export function resolvePresetName(model) {
+  const { class: lineage, logicalId } = model.identity ?? {};
+  const alias = logicalId ?? model.name;
+  const allowsClaudeMetadata = lineage === undefined || lineage === "unknown" || lineage === "anthropic";
+  const direct = resolveModelAlias({ id: model.id, provider: model.provider }, allowsClaudeMetadata ? alias : undefined);
+  // Billing variants can omit the snapshot from the wire ID. Refine only
+  // a generic V4 Flash ID, never a specific revision or another family.
+  if (direct === "deepseek-v4-flash" && alias !== undefined &&
+      (lineage === undefined || lineage === "unknown" || lineage === "deepseek") &&
+      resolveModelAlias({ id: alias }) === "deepseek-v4-flash-0731") {
+    return "deepseek-v4-flash-0731";
+  }
+  if (direct !== undefined) return direct ?? undefined;
+
+  if (alias === undefined) return;
+  let preset = resolveModelAlias({ id: alias });
+  if (preset === undefined && logicalId === undefined) {
+    // An OpenAI catalog label can append the concrete model to the deployed
+    // alias, e.g. "Chat Latest (GPT-5.5 Instant)" for "openai/chat-latest".
+    const label = /^(.+?)\s+\(([^()]+)\)$/.exec(alias.trim());
+    const segments = model.id.trim().toLowerCase().split(/[/:@]/);
+    const openai = lineage === "openai" || segments.at(-2) === "openai";
+    if (openai && label && label[1].toLowerCase().replace(/\s+/g, "-") === segments.at(-1)) {
+      preset = extractGpt5Version(label[2]);
+    }
+  }
+
+  if (!preset) return;
+  if (preset.startsWith("claude-") && !allowsClaudeMetadata) return;
+  if (lineage !== undefined && lineage !== "unknown") {
+    if (preset.startsWith("gpt-") && lineage !== "openai") return;
+    if (preset.startsWith("kimi-") && lineage !== "kimi") return;
+  }
+  return preset;
 }
 const FULL_SHARED_SECTION_PRESETS = new Set([
   "claude-fable-5",

@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT
 
 import { buildFileOperationsTuning } from "./file-operations.js";
-import { buildGptEvalRoutingTuning } from "./gpt-eval-routing.js";
 import { buildDynamicSystemPrompt } from "./shared-prompt.js";
 
 function buildGpt53CodexTuning(toolNames) {
-  return `Bias hard toward action. Implement directly with reasonable assumptions rather than stopping to ask. Do not produce upfront plans or preambles before acting: start working immediately.
+  return `Bias hard toward action within the request. For an authorized change, resolve routine gaps with reasonable assumptions and implement directly. Once any required opening is given, take the first useful step without a separate plan announcement unless the user asked for a plan.
 
-Do not re-state the goal between steps. When a milestone completes, move to the next without summarizing unless the user asked for a summary.
+Do not re-state the goal between steps. Move to the next milestone without repeating evidence already reported.
 
-After compaction, continue from the current state rather than re-deriving prior conclusions. Treat compacted items as opaque.
-
-${buildGptEvalRoutingTuning()}
+After automatic compaction, continue from the current state rather than re-deriving prior conclusions. Recover a compacted detail only if the next decision needs it.
 
 ${buildFileOperationsTuning({ toolNames })}`;
 }

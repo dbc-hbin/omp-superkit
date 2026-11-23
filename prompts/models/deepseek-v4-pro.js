@@ -7,7 +7,7 @@ const PRO_INTRO = "You are running on DeepSeek V4 Pro - a deep reasoner with a d
 export function buildDeepseekV4ProPrompt(options) {
   return buildDynamicSystemPrompt({
     ...options,
-    tuningSection: buildDeepseekV4Tuning("deepseek-v4-pro", PRO_INTRO),
+    tuningSection: buildDeepseekV4Tuning("deepseek-v4-pro", PRO_INTRO, options),
     workstationDialect: "claude"
   });
 }

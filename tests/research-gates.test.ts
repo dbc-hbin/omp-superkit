@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { checkStatic } from "../skills/ulw-research/scripts/gates-static.mjs";
-import { parseHtml } from "../skills/ulw-research/scripts/html-lite.mjs";
+import { checkStatic } from "../skills/super-research/scripts/gates-static.mjs";
+import { parseHtml } from "../skills/super-research/scripts/html-lite.mjs";
 
 const report = (body: string) => `<!doctype html><html><body>${body}</body></html>`;
 const defectCodes = (source: string) => new Set(checkStatic(parseHtml(report(source))).defects.map(({ code }) => code));

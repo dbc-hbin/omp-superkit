@@ -2,7 +2,7 @@
 description: Invoke the explicit super-plan workflow
 ---
 
-Use `../skills/ulw-plan/SKILL.md` (relative to this template), or the extension's installed skill path. Activate super-plan for this request and load references only for the current planning artifact. In native plan mode, the lead writes and reviews `local://<slug>-plan.md`, then runs `propose <slug>` through `bash` when mounted or calls the direct `propose` tool otherwise. Never request plan approval in prose.
+Use `../skills/super-plan/SKILL.md` (relative to this template), or the extension's installed skill path. Activate super-plan for this request and load references only for the current planning artifact. In native plan mode, the lead writes and reviews `local://<slug>-plan.md`, then runs `propose <slug>` through `bash` when mounted or calls the direct `propose` tool otherwise. Never request plan approval in prose.
 
 This template starts with planning. If the original request also includes
 implementation, preserve that outcome: in native plan mode, submit the local

@@ -19,7 +19,7 @@ Keep a record of temporary files, processes, ports, scoped environment overrides
 
 ## Load references only when needed
 
-Activation is not a document-loading phase. Start the investigation immediately from the loop above. Reuse relevant instructions already read in this session; do not reread them on each turn or load adjacent workflows. Consult the [OMP contract](../ulw-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state semantics not resolved by the current tool schemas and host instructions.
+Activation is not a document-loading phase. Start the investigation immediately from the loop above. Reuse relevant instructions already read in this session; do not reread them on each turn or load adjacent workflows. Consult the [OMP contract](../super-loop/references/omp-contract.md) only for native dispatch, result handling or workflow-state semantics not resolved by the current tool schemas and host instructions.
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 

@@ -31,9 +31,6 @@ export function projectHostGuidance(text: string, source: string, modelGuidance:
       /^Delegation preferred\. Once design settles, SHOULD fan substantial work to `task`; multi-file changes, refactors, features, tests, investigations strong candidates\. Judge small single-file\/interactive work\.(?:\n|$)/m, "",
     ));
     const profile = region[2];
-    if (profile.includes("For text or filename search")) {
-      policy = policy.replace(/^- File structure\/names:[^\n]*(?:\n|$)/m, "");
-    }
     if (embed) policy += `\n# Inline HTML\n${embed.trimStart()}\n`;
     workflow = workflow?.replace(/(^|\n)# (?:2\. Verify|3\. Cleanup)\n[\s\S]*?(?=\n# \d\. |$)/g, "$1");
     // Recognize coverage in the active profile, never a model-name allowlist.

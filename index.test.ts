@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import ompUlw from "./index";
+import ompSuper from "./index";
 import { renderPreset } from "./presets";
-import type { UlwContext } from "./ulw";
-import { ulwDirective } from "./ulw";
+import type { SuperContext } from "./super";
+import { superDirective } from "./super";
 
 type Handler = (event: never, ctx: never) => unknown;
 
@@ -25,14 +25,14 @@ test("unsupported models preserve native policy and tools at turn start and afte
       ].join("\n")
         : name === "todo" ? "`todo` NEVER takes a turn of its own: emit it in the same response as your next real tool call (parallel tool calls), `init` beside the first read or action, `done`/`start` beside the next action or check. A response whose only call is `todo` wastes a full model round trip.\nTasks identified by verbatim content, NEVER generated IDs (task-1)."
         : "Persistent bash 5.3.\ncwd will reset after each turn, don't rely on cd; `pty` = interactive.",
-      parameters: { type: "object", properties: { value: { type: "string" } } },
+      parameters: { type: "object", properties: name === "eval" ? { language: { enum: ["py", "js"] } } : { value: { type: "string" } } },
     },
   }));
   for (const initialModel of ["unknown-model", "gpt-6.1-sol", "gpt-6.1-terra", "gemini-3.5-flash"]) {
     const handlers = new Map<string, Handler[]>();
     let activeTools = ["eval", "todo", "bash"];
-    ompUlw({
-      setLabel: () => {}, getActiveTools: () => activeTools, getAllTools: () => nativeTools.map(tool => ({ name: tool.function.name })),
+    ompSuper({
+      setLabel: () => {}, getCommands: () => [], getActiveTools: () => activeTools, getAllTools: () => nativeTools.map(tool => tool.function),
       registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
       getFlag: () => false, appendEntry: () => {},
       on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
@@ -60,14 +60,14 @@ test("unsupported models preserve native policy and tools at turn start and afte
       if (typeof message !== "object" || message === null || !("content" in message) || typeof message.content !== "string") throw new Error("Expected system content");
       expect(message.content.split(embed.trimStart())).toHaveLength(2);
       expect(message.content.match(/<\/?omp-model-preset>/g)).toEqual(["<omp-model-preset>", "</omp-model-preset>"]);
+      expect(message.content.includes("<omp-code-mode>")).toBe(!id.startsWith("gemini-"));
       if (id === "unknown-model" || id.startsWith("gemini-")) {
         expect(message.content.slice(message.content.indexOf("\n§ Tool Policy\n"))).toBe(nativeRegion);
         expect(result.tools).toEqual(nativeTools);
       } else {
         expect(message.content.slice(message.content.indexOf("\n§ Tool Policy\n"))).not.toBe(nativeRegion);
         expect(message.content).toMatch(/Never make a todo-only turn: (?:send|emit) todo in the same response as the next real tool call\./);
-        // Model profiles no longer own eval routing or helper documentation;
-        // the native description must retain the runtime contract instead.
+        // The prompt steers usage; helper documentation stays in the native tool.
         expect(message.content).not.toContain("Use `sh()`");
         expect(result.tools).toEqual(nativeTools.map(tool => ({
           ...tool,
@@ -101,13 +101,13 @@ test("unsupported models preserve native policy and tools at turn start and afte
 
 test("provider fallback refreshes the profile even with identical model id and name", () => {
   const handlers = new Map<string, Handler[]>();
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => [], getAllTools: () => [],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => [], getAllTools: () => [],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
   });
-  const ctx: UlwContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
+  const ctx: SuperContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
     cwd: ".", mode: "rpc", agent: { kind: "main" },
     sessionManager: { getSessionId: () => "profile-test", getBranch: () => [] },
     ui: { notify: message => { throw new Error(message); } },
@@ -129,26 +129,26 @@ test("provider fallback refreshes the profile even with identical model id and n
   }
 });
 
-test("ULW policy refreshes stale system blocks across model fallback without touching user or tool text", () => {
+test("SUPER policy refreshes stale system blocks across model fallback without touching user or tool text", () => {
   const handlers = new Map<string, Handler[]>();
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => [], getAllTools: () => [],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => [], getAllTools: () => [],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
   });
-  const ctx: UlwContext & { mode: "rpc"; model: { id: string; api: string } } = {
+  const ctx: SuperContext & { mode: "rpc"; model: { id: string; api: string } } = {
     cwd: ".", mode: "rpc", agent: { kind: "main" },
     sessionManager: { getSessionId: () => "model-fallback", getBranch: () => [] },
     ui: { notify: () => {} }, model: { id: "gpt-6.1-sol", api: "openai-completions" },
   };
   let blocks = ["custom host and project rules"];
   for (const handler of handlers.get("before_agent_start") ?? []) {
-    const result = handler({ prompt: "ulw perform the task", systemPrompt: blocks } as never, ctx as never);
+    const result = handler({ prompt: "super perform the task", systemPrompt: blocks } as never, ctx as never);
     if (typeof result === "object" && result !== null && "systemPrompt" in result && Array.isArray(result.systemPrompt) && result.systemPrompt.every((block: unknown) => typeof block === "string")) blocks = result.systemPrompt;
   }
   const original = blocks.join("\n");
-  const stale = original.replace(ulwDirective, "previously shipped policy");
+  const stale = original.replace(superDirective, "previously shipped policy");
   const payload = { messages: [{ role: "system", content: stale }, { role: "user", content: stale }, { role: "tool", content: stale }], tools: [{ type: "function", function: { name: "task", description: "Read-only research MUST use `scout` only when files unknown." } }] };
   const hook = handlers.get("before_provider_request")![0];
   for (const id of ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-astra-fast", "unknown-model"]) {
@@ -160,13 +160,13 @@ test("ULW policy refreshes stale system blocks across model fallback without tou
 test("child profiles follow their model while preserving role, assignment, tools and completion", () => {
   const handlers = new Map<string, Handler[]>();
   let activeTools = ["read", "eval"];
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => activeTools, getAllTools: () => [{ name: "read" }, { name: "eval" }, { name: "ask" }],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => activeTools, getAllTools: () => [{ name: "read" }, { name: "eval" }, { name: "ask" }],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
   });
-  const ctx: UlwContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
+  const ctx: SuperContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
     cwd: ".", mode: "rpc", agent: { kind: "sub" },
     sessionManager: { getSessionId: () => "child-assignment", getBranch: () => [] },
     ui: { notify: () => {} },
@@ -179,7 +179,7 @@ test("child profiles follow their model while preserving role, assignment, tools
     const result = handler({ prompt: "implement the assigned unit", systemPrompt: blocks } as never, ctx as never);
     if (typeof result === "object" && result !== null && "systemPrompt" in result && Array.isArray(result.systemPrompt)) blocks = result.systemPrompt as string[];
   }
-  const profile = renderPreset({ id: "gpt-6-astra" }, { surface: "app", toolNames: activeTools, subagent: true })!.prompt;
+  const profile = renderPreset({ id: "gpt-6-astra" }, { surface: "app", toolNames: [], subagent: true })!.prompt;
   expect(blocks[0]).toContain(`<omp-model-preset>\n${profile}`);
   expect(blocks.slice(1)).toEqual(assignment.slice(1));
   expect(assignment[0]).toBe(base);
@@ -193,7 +193,7 @@ test("child profiles follow their model while preserving role, assignment, tools
     ctx.model.name = id;
     const expected = id.includes("gemini") || id === "unknown-model"
       ? "Original host role"
-      : renderPreset(ctx.model, { surface: "app", toolNames: activeTools, subagent: true })?.prompt;
+      : renderPreset(ctx.model, { surface: "app", toolNames: ["read"], subagent: true })?.prompt;
     expect(expected).toBeDefined();
     const payload = { messages: [...blocks.map(content => ({ role: "system", content })), user], tools };
     const updated = hook({ payload } as never, ctx as never) as typeof payload;
@@ -207,7 +207,7 @@ test("child profiles follow their model while preserving role, assignment, tools
   }
   // A new turn must use the child's current tool set, not a parent's or an earlier turn's.
   activeTools = ["read"];
-  const currentPayload = { messages: blocks.map(content => ({ role: "system", content })) };
+  const currentPayload = { messages: blocks.map(content => ({ role: "system", content })), tools };
   const refreshed: unknown = Reflect.apply(hook, undefined, [{ payload: currentPayload }, ctx]);
   if (typeof refreshed !== "object" || refreshed === null || !("messages" in refreshed) || !Array.isArray(refreshed.messages)) {
     throw new Error("Expected refreshed provider messages");
@@ -216,14 +216,14 @@ test("child profiles follow their model while preserving role, assignment, tools
   if (!currentProfile) throw new Error("Expected selected child profile");
   expect(refreshed.messages[0].content).toContain(`<omp-model-preset>\n${currentProfile.prompt}`);
   const result = handlers.get("before_agent_start")![1]({ prompt: "continue", systemPrompt: assignment } as never, ctx as never) as { systemPrompt: string[] };
-  expect(result.systemPrompt[0]).toContain(`<omp-model-preset>\n${renderPreset(ctx.model, { surface: "app", toolNames: activeTools, subagent: true })!.prompt}`);
+  expect(result.systemPrompt[0]).toContain(`<omp-model-preset>\n${renderPreset(ctx.model, { surface: "app", toolNames: [], subagent: true })!.prompt}`);
   expect(result.systemPrompt.slice(1)).toEqual(assignment.slice(1));
 });
 
 test("custom child prompts and their request payloads remain untouched", () => {
   const handlers = new Map<string, Handler[]>();
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => ["read"], getAllTools: () => [{ name: "read" }],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => ["read"], getAllTools: () => [{ name: "read" }],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
@@ -236,7 +236,7 @@ test("custom child prompts and their request payloads remain untouched", () => {
   };
   const systemPrompt = ["Custom child system", "Assignment and completion"];
   for (const handler of handlers.get("before_agent_start") ?? []) {
-    expect(handler({ prompt: "ulw inspect", systemPrompt } as never, ctx as never)).toBeUndefined();
+    expect(handler({ prompt: "super inspect", systemPrompt } as never, ctx as never)).toBeUndefined();
   }
   const payload = { messages: systemPrompt.map(content => ({ role: "system", content })) };
   expect(handlers.get("before_provider_request")![0]({ payload } as never, ctx as never)).toBe(payload);
@@ -244,13 +244,13 @@ test("custom child prompts and their request payloads remain untouched", () => {
 
 test("inactive tools mentioned by the host do not enable preset branches", () => {
   const handlers = new Map<string, Handler[]>();
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => ["read"], getAllTools: () => [{ name: "read" }, { name: "ask" }],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => ["read"], getAllTools: () => [{ name: "read" }, { name: "ask" }],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
   });
-  const ctx: UlwContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
+  const ctx: SuperContext & { mode: "rpc"; model: { id: string; name: string; provider: string; api: string } } = {
     cwd: ".", mode: "rpc", agent: { kind: "main" },
     sessionManager: { getSessionId: () => "tool-availability", getBranch: () => [] },
     ui: { notify: () => {} },
@@ -264,13 +264,13 @@ test("inactive tools mentioned by the host do not enable preset branches", () =>
 test("print and json surfaces use app routing without terminal-only preambles", () => {
   for (const mode of ["print", "json"] as const) {
     const handlers = new Map<string, Handler[]>();
-    ompUlw({
-      setLabel: () => {}, getActiveTools: () => [], getAllTools: () => [],
+    ompSuper({
+      setLabel: () => {}, getCommands: () => [], getActiveTools: () => [], getAllTools: () => [],
       registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
       getFlag: () => false, appendEntry: () => {},
       on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
     });
-    const ctx: UlwContext & { mode: typeof mode; model: { id: string; name: string; provider: string; api: string } } = {
+    const ctx: SuperContext & { mode: typeof mode; model: { id: string; name: string; provider: string; api: string } } = {
       cwd: ".", mode, agent: { kind: "main" },
       sessionManager: { getSessionId: () => `surface-${mode}`, getBranch: () => [] },
       ui: { notify: () => {} },
@@ -290,8 +290,8 @@ test("print and json surfaces use app routing without terminal-only preambles", 
 
 test("native prewalk rewriting preserves user and tool content and unsupported profiles", () => {
   const handlers = new Map<string, Handler[]>();
-  ompUlw({
-    setLabel: () => {}, getActiveTools: () => [], getAllTools: () => [],
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => [], getAllTools: () => [],
     registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
     getFlag: () => false, appendEntry: () => {},
     on: (event: string, handler: Handler) => { handlers.set(event, [...(handlers.get(event) ?? []), handler]); },
@@ -302,8 +302,8 @@ test("native prewalk rewriting preserves user and tool content and unsupported p
     ui: { notify: () => {} }, model: { id: "gpt-6.1-sol", api: "openai-completions" },
   };
   const start = handlers.get("before_agent_start")?.[1];
-  const context = handlers.get("context")?.[0];
-  if (!start || !context) throw new Error("Expected model and context hooks");
+  const contextHooks = handlers.get("context");
+  if (!start || !contextHooks?.length) throw new Error("Expected model and context hooks");
   const systemPrompt = [readFileSync(new URL("./tests/fixtures/omp-system-prompt.md", import.meta.url), "utf8")];
   Reflect.apply(start, undefined, [{ systemPrompt }, ctx]);
   const content = "STOP: In NEXT reply write complete plan. Use todo to capture 5–9 items.";
@@ -312,15 +312,22 @@ test("native prewalk rewriting preserves user and tool content and unsupported p
   const custom = { role: "custom", customType: "user-note", content, display: false };
   const native = { role: "custom", customType: "prewalk-plan", content, display: false };
   const messages = [user, tool, custom, native];
-  const result: unknown = Reflect.apply(context, undefined, [{ messages }, ctx]);
-  if (typeof result !== "object" || result === null || !("messages" in result) || !Array.isArray(result.messages)) throw new Error("Expected rewritten native steering");
-  const rewritten: unknown = result.messages[3];
+  function applyContext(): unknown[] {
+    let current: unknown[] = messages;
+    for (const hook of contextHooks ?? []) {
+      const result = Reflect.apply(hook, undefined, [{ messages: current }, ctx]);
+      if (result && typeof result === "object" && "messages" in result && Array.isArray(result.messages)) current = result.messages;
+    }
+    return current;
+  }
+  const projected = applyContext();
+  const rewritten = projected[3];
   if (typeof rewritten !== "object" || rewritten === null || !("content" in rewritten) || typeof rewritten.content !== "string") throw new Error("Expected native steering text");
-  expect(result.messages.slice(0, 3)).toEqual([user, tool, custom]);
+  expect(projected.slice(0, 3)).toEqual([user, tool, custom]);
   expect({ ...rewritten, content }).toEqual(native);
   expect(rewritten.content).toContain("Reuse the approved plan");
   expect(rewritten.content).not.toContain("5–9 items");
   expect(native.content).toBe(content);
   ctx.model.id = "unknown-model";
-  expect(Reflect.apply(context, undefined, [{ messages }, ctx])).toBeUndefined();
+  expect(applyContext()).toBe(messages);
 });

@@ -2,34 +2,39 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-24 Canonical SUPER skills
+
+- The shipped skill IDs and implementation directories now match the six SUPER commands. Existing prompt names, skill IDs, reference paths and documented Node script paths still resolve to the canonical implementations.
+- Existing session and ledger paths, formats, OMP keywords and CLI flags remain unchanged. No migration is required.
+
 ### 2026-11-22 SUPER workflow commands
 
 - Make SUPER the public workflow interface: `/super`, `/super-plan`, `/super-run`, `/super-loop`, `/super-graph` and `/super-research`, all with bare forms. Legacy slash and bare aliases still work.
-- Keep `/stop-continuation`, `/resume-continuation`, OMP keywords, CLI flags, installed skill IDs and paths, and persisted session, goal and workflow formats unchanged. No migration is required.
+- Keep `/stop-continuation`, `/resume-continuation`, OMP keywords, CLI flags and persisted session, goal and workflow formats unchanged. No migration is required.
 
 ### 2026-11-22 Superkit-owned model presets
 
 - Maintain the current model templates and routing directly in [prompts/models/](prompts/models/), with a single [GPT‑6.2 Astra/Sol body](prompts/gpt-6.2.ts). Remove the upstream fetch and preset generation command; keep source attribution and licensing.
 - Preserve current model selection and rendered prompts for supported sessions and active tools. Frontend reference generation is separate and unchanged.
 
-### 2026-11-22 ULW continuation, recovery and research delivery
+### 2026-11-22 SUPER continuation, recovery and research delivery
 
 - For scaffold plans, only the numbered tasks under Todos and Final verification wave drive continuation. Notes, examples, and nested checkboxes do not reopen or block finished work. Simple checklists and approved native plans keep their own formats.
-- `/stop-continuation` and `/resume-continuation` control automatic continuation for the current session without deleting Boulder, loop or research evidence. Native TUI goal control is limited to the goal created through this session's ULW invocation.
-- The [mass-ulw recovery reference](skills/mass-ulw/references/planning.md#operator-controls) distinguishes inspecting, steering and cancelling an owned attempt from starting a replacement. After restart, reconcile the current owner, attempt and artifacts before reusing a handle.
-- Research delivery now checks numbers, units and direct quotes against retained source text and binds the result to the exact edition. Existing manifests stay readable; finishing a delivered edition now needs a matching receipt. PDF and other rendered derivatives need a verified source and recorded inspection, not a claim of automatic content verification. See the [CLI example](skills/ulw-research/references/deliverable-phase.md#edition-fidelity).
+- `/stop-continuation` and `/resume-continuation` control automatic continuation for the current session without deleting Boulder, loop or research evidence. Native TUI goal control is limited to the goal created through this session's SUPER invocation.
+- The [SUPER Graph recovery reference](skills/super-graph/references/planning.md#operator-controls) distinguishes inspecting, steering and cancelling an owned attempt from starting a replacement. After restart, reconcile the current owner, attempt and artifacts before reusing a handle.
+- Research delivery now checks numbers, units and direct quotes against retained source text and binds the result to the exact edition. Existing manifests stay readable; finishing a delivered edition now needs a matching receipt. PDF and other rendered derivatives need a verified source and recorded inspection, not a claim of automatic content verification. See the [CLI example](skills/super-research/references/deliverable-phase.md#edition-fidelity).
 
 ### 2026-11-22 Model steering and independent review
 
 - Match [Senpi's correction semantics](https://github.com/code-yeongyu/senpi/blob/d713160e3b9224d42143c2096b5d6f9cb1685b78/packages/coding-agent/src/core/extensions/builtin/prompt-preset/deepseek-v4-1-flash-rules.ts#L69): a correction updates the affected work and preserves earlier instructions that still apply.
 - Remove the contradictory plan-reset instruction from the GPT‑6 Astra profile shared by 6.1 Sol and Terra. In the local [GPT‑6.2 Astra/Sol profile](prompts/gpt-6.2.ts), distinguish host notifications from user instructions; a notification cannot authorize resuming paused or cancelled work.
-- Claude Opus 5/5.5, Sonnet 5.5 and Haiku 5.5 keep their own checks without prohibiting a required independent review. If the reviewer is unavailable, report the gap rather than self-approving. ULW plan review records independent verdicts on the same frozen plan when required.
+- Claude Opus 5/5.5, Sonnet 5.5 and Haiku 5.5 keep their own checks without prohibiting a required independent review. If the reviewer is unavailable, report the gap rather than self-approving. SUPER Plan review records independent verdicts on the same frozen plan when required.
 
 ### 2026-11-21 OMP 19.1 contracts and selected upstream workflows
 
 - Adopt [OMP 19.1 tool commands](https://github.com/can1357/oh-my-pi/releases/tag/v19.1.0), `help://` topics, and native plan submission across code mode and the shipped skills. Preserve delegation gates when projecting model prompts. Update Chrome relay setup, covered/minimized window verification and scoped archive search.
 - Remove unconditional no-refusal directives from rendered profiles. Selectively port [Senpi's Opus 5.5 and Fable 5.2 steering, waiting and reply changes](https://github.com/code-yeongyu/senpi/tree/3db1d1604ef3693240377136d2b3af670b4d53b9/packages/coding-agent/src/core/extensions/builtin/prompt-preset) without replacing the local GPT-6.2 profile or re-enabling Gemini.
-- From [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd): record write conflicts and reasons for plan dependencies; size mass-ulw graphs to the request and reserve separate verification nodes for checks that need them. Deliver verified research HTML inline when the client supports it, otherwise link the artifact.
+- From [OMO v5.1.79](https://github.com/code-yeongyu/oh-my-openagent/tree/822bd923038c88427b450744de75e0fa7d7401cd): record write conflicts and reasons for plan dependencies; size SUPER Graph runs to the request and reserve separate verification nodes for checks that need them. Deliver verified research HTML inline when the client supports it, otherwise link the artifact.
 
 ### 2026-11-20 Gemini model support removed
 
@@ -89,7 +94,7 @@
 
 ### 2026-11-13 Duplicate-only prompt reduction
 
-- Remove the repeated settled-Sonic condition and ULW model/host ownership explanation while retaining those requirements in the same injected blocks.
+- Remove the repeated settled-Sonic condition and SUPER model/host ownership explanation while retaining those requirements in the same injected blocks.
 - Deduplicate recognized native todo/sh explanations only against the actual current model profile. Keep the model rules, unique tool mechanics, custom descriptions and unsupported-model behavior.
 - Preserve Delivery, restored research/reasoning requirements, model budgets, response-language rules, child boundaries and main/child Terra routing.
 
@@ -109,7 +114,7 @@ Native contracts: [todo](https://github.com/can1357/oh-my-pi/blob/v18.19.0/packa
 ### 2026-11-13 Prompt responsibility debloat
 
 - Shorten task role routing while preserving specialist boundaries, reasoning decisions, evidence requirements and native task permissions.
-- Replace ULW's activation grammar/native-keyword explanation with host ownership and its browser-specific details with on-demand skill pointers. Preserve activation behavior, goal ownership, durable workflow state and continuation.
+- Replace SUPER's activation grammar/native-keyword explanation with host ownership and its browser-specific details with on-demand skill pointers. Preserve activation behavior, goal ownership, durable workflow state and continuation.
 - Remove remaining native pre-editing/delivery duplicates only when the active profile or preserved Runtime already covers them; restore native rules when coverage changes or the model falls back.
 - Compact generic routing preambles, handoff schedules and response-format prose without changing model-specific execution, rereading, verification tiers, tool budgets or the generated upstream bundle. Retain Kimi K2's explicit routing contract.
 - Keep permissions, refusal finality, project context, child Hand-off and native mode contracts intact. Preserve the preceding browser/computer/session-discovery imports.
@@ -126,7 +131,7 @@ Sources: [OMP 18.20 browser contract](https://github.com/can1357/oh-my-pi/blob/v
 ### 2026-11-12 Native computer workflow integration
 
 - Add `/computer-use` and `/skill:computer-use` for OMP's JavaScript/Python Eval `computer` prelude, preserving the native `/computer` operator command.
-- Route native apps, browser chrome, GUI debugging, review, ULW and visual evidence through the shipped skill. Replace legacy window-state/token/frame instructions with native AX, window screenshots, returned element handles and supported app/PTY sizing.
+- Route native apps, browser chrome, GUI debugging, review, SUPER and visual evidence through the shipped skill. Replace legacy window-state/token/frame instructions with native AX, window screenshots, returned element handles and supported app/PTY sizing.
 - Keep availability, OS permissions, background delivery, foreground confirmation and interruption under OMP's live contract. The skill does not enable settings or install an external driver; source attribution and license terms are retained.
 - Verify both invocation paths against the real Quartz capabilities API, disabled-prelude behavior and complete native guidance/helper documentation preservation. Extend the existing command/discovery regressions.
 
@@ -138,7 +143,7 @@ Sources: [OMO computer-use generator](https://github.com/code-yeongyu/oh-my-open
 - Temporarily suppress configured and automatic prewalk for explicit investigation, explanation, review, research and planning-only requests. Recognize English/Korean scope, leading workflow aliases and native skill expansions without inspecting reference prose or making a classifier call.
 - Preserve refactor intent and parse task arguments after inserted native keywords. Treat constraints on public interfaces or unrelated files as scoped implementation limits.
 - Restore only extension-owned runtime overrides for a later explicit implementation request or session transition. Preserve prior runtime values, operator changes and persisted settings; bind changes to the concrete session settings rather than OMP's global proxy.
-- Add deterministic intent/boundary regressions and a real OMP local-provider smoke covering planning-file writes, native skills, later handoff, model/ULW state, automatic judging and override ownership.
+- Add deterministic intent/boundary regressions and a real OMP local-provider smoke covering planning-file writes, native skills, later handoff, model/SUPER state, automatic judging and override ownership.
 
 ### 2026-11-12 Isolated extension host smoke
 
@@ -157,7 +162,7 @@ Sources: [OMP 18.19.0](https://github.com/can1357/oh-my-pi/releases/tag/v18.19.0
 
 ### 2026-11-11 Browser workflow integration audit
 
-- Put static, rendered, authenticated and blocked-source reading contracts directly in research and mass-research, including native skill invocations that do not activate the shared ULW policy.
+- Put static, rendered, authenticated and blocked-source reading contracts directly in research and mass-research, including native skill invocations that do not activate the shared SUPER policy.
 - Pass applicable browser/ultimate-browsing references, real capabilities, authorized state and evidence requirements explicitly to collection/expansion workers instead of assuming inherited skills or browser handles.
 - Connect rendered reference extraction, HTML report layout-probe evaluation and report captures to the native browser contract. Preserve document-head styles, scoped captures, provenance and exact unsupported capabilities.
 - Audit 69 browser-bearing upstream instruction documents, including core Atlas/ULW prompt variants and attachment guidance. Complete direct planning/debate/execution/loop, frontend grounding, dashboard checks, native PDF printing and existing-project performance-audit routing. Ordinary authorized attachment UI replaces private CSRF/upload-policy reconstruction; no external publishing is automatic.
@@ -168,7 +173,7 @@ Sources: [OMO research collection at 42d5746e](https://github.com/code-yeongyu/o
 
 - Add the `browser` skill via `/web-browser`, preserving OMP's builtin `/browser` mode command, with complete native references for tab/connection ownership, relay/CDP/native backends, refs/frames/coordinates, passive JSON, routes, HAR/tracing, human takeover and tab-bound vault state. Port OmOWright workflow knowledge to OMP's Eval prelude without bundling its runtime or assuming a relay is required.
 - Add `/ultimate-browsing` with all 21 upstream reader reference territories mapped into source-validation, archive, public API, social/Korean platform, media, feed, developer/career and optional external-reader guides. Native `read`/`web_search` own static access; no extractor engine, cookie export or automatic service installation is included.
-- Reconnect debugging, visual-qa, frontend, review, execution, loop, ULW and visualization workflows to concrete native browser contracts. Preserve scoped capture matrices, authority, denial-final behavior and real authenticated-state requirements. Device changes can reload; captures use actual returned paths and backend limitations remain explicit.
+- Reconnect debugging, visual-qa, frontend, review, execution, loop, SUPER and visualization workflows to concrete native browser contracts. Preserve scoped capture matrices, authority, denial-final behavior and real authenticated-state requirements. Device changes can reload; captures use actual returned paths and backend limitations remain explicit.
 - Preserve source-license notices and coverage maps. Unsupported cooperation tokens, human banners, merged cross-frame refs, pinned stealth identities and OCR/CAPTCHA helpers are documented as gaps rather than fake native methods.
 
 Source: [OMO browser and related skills at 42d5746e](https://github.com/code-yeongyu/oh-my-openagent/tree/42d5746e72bfcfb782db6b5182b70a3e9c55f1cc/packages/shared-skills/skills), [OMP 18.18.6 browser contracts](https://github.com/can1357/oh-my-pi/blob/v18.18.6/packages/coding-agent/src/prompts/tools/browser.md).
@@ -177,7 +182,7 @@ Source: [OMO browser and related skills at 42d5746e](https://github.com/code-yeo
 
 - Pin the 33-preset bundle to Senpi `f75b592c51239c4baf30e3f5cb4d200f088205b1`. Replace the provisional Fable 5.5 profile with the dedicated Fable / Mythos 5.2 core and routing. Remove the retired launch-module import exception from the updater; arbitrary external dependencies remain rejected.
 - Preserve OMP's blocking question, permission, refusal, child-role and tool contracts. Adapt Fable 5.2's new obstacle handling to diagnosed, bounded recovery and resolve required authorization when the blocker arises.
-- Carry `OBSERVED` evidence for research claims and `PROBED` evidence for dead ends and convergence through the existing research journal and mass-ulw handoffs. Memory supplies investigation leads; inference remains labeled. Reuse valid evidence without mandatory source reopening or rerunning settled checks.
+- Carry `OBSERVED` evidence for research claims and `PROBED` evidence for dead ends and convergence through the existing research journal and SUPER Graph handoffs. Memory supplies investigation leads; inference remains labeled. Reuse valid evidence without mandatory source reopening or rerunning settled checks.
 - Add the read-only `eval-integrity` skill and `/eval-integrity` command for benchmark, A/B, holdout and LLM-judge independence audits. Keep tool access, native modes and approval rules with OMP.
 - The bundled Haiku 5.5 source includes upstream's native-search gate fix. OMP continues to derive search guidance from its active `web_search` tool; Senpi's native-search extension and browser runtime are not introduced.
 
@@ -197,7 +202,7 @@ Sources: [OMO reference manifest](https://github.com/code-yeongyu/oh-my-openagen
 - Give supported model profiles ownership of ordinary working methods. Remove overlapping native planning, rereading, delegation and verification defaults while preserving tools, permissions, project context and child contracts; restore native defaults for unsupported-model fallback.
 - Refresh active capabilities before provider requests, remove redundant eval/todo batching mandates and contradictory bash-redirection wording for supported profiles, and stop native orchestration notices from forcing unchanged source/gate reruns. Eval keeps its workpool delivery and waiting contract; unsupported models keep native tool descriptions and batching defaults.
 - Resolve internal preset cadence, blocking-question, missing-tool, explanation-only intent, recovery and async/service inconsistencies without changing the generated upstream bundle.
-- Require ULW commands and aliases at the start of input. Discussion remains inert, specialized workflows avoid competing native goals, and paused/budget-limited goals retain ownership.
+- Require SUPER commands and aliases at the start of input. Discussion remains inert, specialized workflows avoid competing native goals, and paused/budget-limited goals retain ownership.
 - Align planning with native local-plan/propose permissions, keep research continuation with its owner, and share one bounded visual-QA repair loop and applicable capture matrix. Workflow documents no longer impose duplicate dispatch rules.
 - Pass approved native local plans directly into explicitly selected execution workflows. Keep the approved artifact unchanged and track its task references in the existing Boulder work, including continuation.
 
@@ -243,19 +248,19 @@ Sources: [OMO reference repairs](https://github.com/code-yeongyu/oh-my-openagent
 
 Sources: [Pinned Senpi revision](https://github.com/code-yeongyu/senpi/tree/9815495b8ee5e936e48d1ba5e293eea7642a0529), [Astra core revision](https://github.com/code-yeongyu/senpi/commit/d92272573fc01f38d8798d20391d77dc3853778a), [Restoration of the original Opus and Fable text](https://github.com/code-yeongyu/senpi/commit/71845495e8bb0362cac2f44a6a11a961be9af659), [OMO comparison baseline](https://github.com/code-yeongyu/oh-my-openagent/commit/8c087588677b63ccb80affb46f2c485625f929b1), [OMP 18.16.0](https://github.com/can1357/oh-my-pi/releases/tag/v18.16.0).
 
-### 2026-11-03 Reduced ULW responsibilities
+### 2026-11-03 Reduced SUPER responsibilities
 
 - Preserved command names, aliases, templates, disable flags, goal connections, state restoration, and continuation hooks.
-- Consolidated lengthy model-specific ULW policies into a single policy, leaving shared execution, delegation, and verification rules to OMP.
+- Consolidated lengthy model-specific SUPER policies into a single policy, leaving shared execution, delegation, and verification rules to OMP.
 - Reduced planning, execution, loop, DAG, and research documents and related references to focus on each feature's deliverable and state contracts.
 - Real-host verification checks command-specific pointers, session persistence and goal preservation, state-based continuation, and the independent operation of explicit native keywords.
 - Specialized commands and aliases automatically connect to suitable native keywords. Explicit selections, OMP disable settings, and tool conditions are preserved, without duplicating native notifications.
 
 ### 2026-11-01 Follow-up OMO workflow skill updates
 
-- **`ulw-plan`:** Removed the five-round review limit and switched to progress-based termination. A new round opens only when the previous round found a new blocker or closed an existing blocker; if neither occurred, report unresolved blockers and ask the user. Updated the convergence contract JSON (`max_rounds: null`, `continue_while`, `stop_on`) as well.
+- **SUPER Plan:** Removed the five-round review limit and switched to progress-based termination. A new round opens only when the previous round found a new blocker or closed an existing blocker; if neither occurred, report unresolved blockers and ask the user. Updated the convergence contract JSON (`max_rounds: null`, `continue_while`, `stop_on`) as well.
 - **`visualize`:** Must pass the `frontend` `check-draft-guard.ts` lint before previewing.
-- **`mass-ulw`:** Connect a subsequent wave that depends on the entire preceding wave through one review node (n+m dependencies instead of n×m).
+- **SUPER Graph:** Connect a subsequent wave that depends on the entire preceding wave through one review node (n+m dependencies instead of n×m).
 - Sources: [OMO `9ddcfaac`](https://github.com/code-yeongyu/oh-my-openagent/commit/9ddcfaac8), [`bbd125e3`](https://github.com/code-yeongyu/oh-my-openagent/commit/bbd125e3c), [`634b4ed9`](https://github.com/code-yeongyu/oh-my-openagent/commit/634b4ed9c), and `mass-ulw/references/planning.md` in OMO `8bda141b`.
 
 ### 2026-11-01 OMO test cleanup and frontend check ports

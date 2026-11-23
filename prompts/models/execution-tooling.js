@@ -1,5 +1,20 @@
 // SPDX-License-Identifier: MIT
 
+export const EXECUTION_ORDER = "Run independent reads, searches, and lookups in parallel. Inspect every tool result. Keep edits, side effects, deploys, approvals, native waits, state-dependent shell calls, and result-dependent calls sequential; inspect each before the next. Preserve live schemas, specialized-tool routing, permissions, and job lifecycles. Keep call identities, failures, tool-reported errors, and missing or truncated results visible in the evidence.";
+export const SHELL_STATE = "## OMP shell execution\n\nSequence bash calls that depend on shell state; overlapping calls do not provide state handoffs. When the host reports a call running in a copy of the busy session shell, it sees variables, functions, options and working directory from the last completed command boundary; changes in that copy do not persist in the original shell.";
+
+export function buildAsyncRules(hasBash, hasTask) {
+  return "Use async by default for finite calls that expose it, and keep working on everything that does not need their pending results."
+    + (hasBash ? " Bash async keeps the command deadline; choose a task-appropriate timeout. Named ready services use the service contract, with no async or timeout parameters." : "")
+    + (hasTask ? " Use task's advertised asynchronous, synchronous, or BLOCKING agent contract; never spawn a child just to watch another operation." : "");
+}
+
+export function buildPendingResults(hasWait) {
+  return hasWait
+    ? "When only pending work remains, follow the native `wait` guidance for this session, including when to end the turn for automatic result delivery."
+    : "When only pending work remains, leave it pending for result delivery by the host or parent and do not declare it complete.";
+}
+
 const EXECUTION_TOOLING_RULES = [
   {
     id: "eval-routing-decision",
@@ -54,7 +69,9 @@ const CONCERN_TOOL = {
   "code-cell-routing": "eval"
 };
 export function buildExecutionToolingSection(options) {
-  const paragraphs = EXECUTION_TOOLING_RULES.filter((rule) => options.toolNames.includes(CONCERN_TOOL[rule.concern])).map((rule) => (options.sharedSections === "full" ? rule.fullDirective : rule.directive)[options.dialect]);
+  const paragraphs = EXECUTION_TOOLING_RULES
+    .filter(rule => options.toolNames.includes(CONCERN_TOOL[rule.concern]) && !(options.subagent && rule.id === "perceived-state-loop"))
+    .map(rule => (options.sharedSections === "full" ? rule.fullDirective : rule.directive)[options.dialect]);
   if (paragraphs.length === 0) {
     return "";
   }

@@ -29,7 +29,7 @@ Commands must start the input; mentions such as `Explain /super` do not activate
 | `/super-graph` | Execute a persistent dependency graph | `workflowz` |
 | `/super-research` | Research with sources and counterarguments | `workflowz` |
 
-All commands in the table also work without the leading `/`. Existing invocations still work. Installed skill IDs and paths, CLI flags, and persisted session, goal and workflow data are unchanged; no migration is required.
+All commands in the table also work without the leading `/`. Canonical skill IDs now match these command names. Old invocations and published entry paths remain available for compatibility. CLI flags and saved session, goal and workflow data need no migration.
 
 Use `/stop-continuation` to pause automatic SUPER continuation for the current session without deleting its plan or evidence. Use `/resume-continuation` to re-enable eligible work. These commands do not cancel running workers. In the TUI they can also pause the native goal created by this session's plain SUPER invocation (including a legacy alias) and resume only the goal they paused; they do not take over an unrelated goal. If OMP reports the native goal is busy, automatic SUPER continuation is stopped but the goal has not been paused. To pause it too, run `/stop-continuation` again when idle. RPC clients control native goals separately through the goal API.
 
@@ -48,14 +48,14 @@ See [skills/](skills/) for individual instructions. Cross-product session discov
 
 Superkit ships its own model profiles and applies them independently to main and supported child sessions. Specialist roles, project instructions, permissions and completion protocols remain intact. Custom templates and unsupported models retain native behavior. Explicit investigation and planning-only requests temporarily suppress prewalk; implementation requests restore only overrides owned by this extension.
 
-This extension does not apply model presets or code mode to Gemini models. For other models, code mode depends on request capabilities:
+Gemini receives neither Superkit presets nor code-mode guidance. For other models, guidance is added only to requests that can call Eval, using the kernels that request supports. Custom roles and resumed workers keep their own instructions; tool-free side requests get no Eval guidance. OMP decides which tools are direct or discoverable; Superkit neither removes declarations nor copies schemas into a second catalog.
 
-- Use native Eval (`tool.<name>(args)`) for ordinary work tools. Python is preferred when available; JavaScript is also supported. On OMP 19.1, mounted tools expose usage through `<name> --help` in the session's bash. Eval documentation topics use `help://eval/<topic>`.
-- Session controls, `write`, `bash`, `apply_patch`, reserved bridge names (`defined`, `undefine`), unmapped tools and forced choices retain their native routes. Use direct bash, not a nested Eval call, for mounted plan/preview decisions. Submit `propose <slug>` when mounted, or call the direct `propose` tool when offered; the user chooses whether to execute the plan.
+- Use `language="js"` by default for all bridge calls, including `task`. Use `language="py"` only for a Python library, API, or existing Python kernel state, or when JS is unavailable.
+- Call registered tools with `await tool["name"](args)` and spawn workers with `await tool.task(...)` in either kernel. For a mounted command's arguments, run `await tool.bash({"command": "<name> --help"})` in the same cell.
+- When OMP consumes the outer call's result for an approval, session control or attachment, use its direct route. For `propose`, `resolve` and `reject`, call the direct tool when offered; when mounted, use outer `bash`. Never run these decisions inside Eval. Host permissions and direct declarations are unchanged.
 - Independent reads, searches and lookups can run in parallel; mutations, approvals, waits and dependent calls remain sequential.
-- Code mode requires an active, exposed Python- or JavaScript-capable Eval and a supported provider hook. Restricted agents gain no tools or permissions; unsupported requests remain unchanged with a notice.
 
-Kiro, Cursor Agent, GitLab Duo Agent and Apple Foundation Models have request-hook limitations; code mode is not guaranteed on those paths. Catalog caches are session-local and follow live tool metadata. **Code mode is a model-facing routing policy, not an execution security boundary.**
+**Code mode is model-facing guidance, not a sandbox or an execution security boundary.**
 
 Implementation: [model adaptation](presets.ts), [code mode](code-mode.ts), [session integration](index.ts), [native guidance](host-guidance.ts).
 

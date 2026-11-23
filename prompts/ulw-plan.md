@@ -2,15 +2,6 @@
 description: "Legacy alias for /super-plan"
 ---
 
-Use `../skills/ulw-plan/SKILL.md` (relative to this template), or the extension's installed skill path. Activate super-plan for this request and load references only for the current planning artifact. In native plan mode, the lead writes and reviews `local://<slug>-plan.md`, then runs `propose <slug>` through `bash` when mounted or calls the direct `propose` tool otherwise. Never request plan approval in prose.
-
-This template starts with planning. If the original request also includes
-implementation, preserve that outcome: in native plan mode, submit the local
-plan through native `propose` and follow the user's execution selection. Outside
-that mode, hand the approved plan to `/super-run` in the same session when
-implementation is authorized, or state the exact pending execution decision.
-If the user explicitly selected `/super-run`, preserve that ownership and the
-canonical local URI in the plan's Context before proposal; after native approval,
-handoff that exact URI to the workflow without recreating the approved plan.
+Use `../skills/super-plan/SKILL.md` (relative to this template), or the extension's installed SUPER Plan skill, for this request. Plan first and preserve any explicitly requested implementation for the workflow's execution handoff.
 
 ulw-plan $ARGUMENTS

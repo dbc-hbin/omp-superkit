@@ -48,12 +48,7 @@ function systemText(body: Payload): string {
   }).join("\n");
 }
 function taskArguments(body: Payload): unknown {
-  assert(!body.tools?.some(tool => tool.function.name === "task"), "task must be projected into code mode");
-  const description = body.tools?.find(tool => tool.function.name === "eval")?.function.description ?? "";
-  const taskSection = description.split("await tool.task(args)\n")[1]?.split("\n\nawait tool")[0];
-  const schemaText = taskSection?.match(/^JSON Schema: (.+)$/m)?.[1];
-  assert(schemaText, "eval catalog must expose the native task schema");
-  const schema = JSON.parse(schemaText) as ToolSchema;
+  const schema = body.tools?.find(tool => tool.function.name === "task")?.function.parameters;
   const item = schema?.properties?.tasks?.items;
   assert(item?.properties, "installed task tool must expose native batch schema");
   assert(schema?.required?.includes("context") && schema.required.includes("tasks"));
@@ -84,8 +79,8 @@ const server = Bun.serve({
         parentRequests++;
         assert(parentRequests <= 12, "unexpected parent continuation loop");
         if (parentRequests === 1) return stream({ name: "eval", id: "spawn_children_79b1", args: {
-          language: "js", title: "Spawning native children from code mode",
-          code: `const spawned = await tool.task(${JSON.stringify(taskArguments(body))}); if (spawned.hasError) throw new Error(spawned.text); print(spawned);`,
+          language: "js", title: "Spawning native children from JS eval",
+          code: `print(await tool.task(${JSON.stringify(taskArguments(body))}));`,
         } });
         // Only auto-delivered user messages prove completion. The eval result's
         // progress metadata already contains assignments with these sentinels.
@@ -109,8 +104,8 @@ const server = Bun.serve({
           language: "js",
           code: [
             'const paths = ["eval-batch-left.txt", "eval-batch-missing.txt", "eval-batch-right.txt"];',
-            "const settled = await Promise.allSettled(paths.map(path => tool.read({ path })));",
-            'print(JSON.stringify(settled.map((item, index) => ({ path: paths[index], status: item.status, result: item.status === "fulfilled" ? item.value : String(item.reason) }))));',
+            'const results = await Promise.allSettled(paths.map(path => tool.read({ path })));',
+            'for (const [i, result] of results.entries()) print(paths[i], result.status, result.status === "fulfilled" ? result.value : String(result.reason));',
           ].join("\n"),
           title: "Child preset tool batch",
         } });
@@ -201,13 +196,13 @@ try {
   child.stdin.write(`${JSON.stringify({ type: "set_auto_compaction", id: "probe-configured", enabled: false })}\n`);
   await Promise.race([configured.promise, done.promise]);
   if (failure) throw failure;
-  child.stdin.write(`${JSON.stringify({ type: "prompt", id: "probe-prompt", message: "/ulw exercise the deterministic native child preset contract using the assigned local children" })}\n`);
+  child.stdin.write(`${JSON.stringify({ type: "prompt", id: "probe-prompt", message: "/super exercise the deterministic native child preset contract using the assigned local children" })}\n`);
   await done.promise;
   if (failure) throw failure;
 
   assert.equal(childRequests.size, roles.length);
   const parentSystem = systemText(requests.find(body => body.model === parentModel)!);
-  assert(parentSystem.includes("<omp-ulw-policy>"), "parent must actually activate ULW for the inheritance test");
+  assert(parentSystem.includes("<omp-ulw-policy>"), "parent must actually activate SUPER for the inheritance test");
   const summaries = roles.map(role => {
     const before = observations.filter(item => item.kind === "sub" && item.phase === "before" && item.model.id === childModels[role]);
     const after = observations.filter(item => item.kind === "sub" && item.phase === "after" && item.model.id === childModels[role]);
@@ -228,8 +223,8 @@ try {
       assert.equal(system.split("<omp-model-preset>").length - 1, 1, `${role}: exactly one preset marker`);
       assert.equal(system.split("</omp-model-preset>").length - 1, 1);
       assert(system.includes(`<omp-model-preset>\n${profile.prompt}\n\n`), `${role}: outbound payload must contain the complete shipped profile`);
-      assert(!system.includes("<omp-ulw-policy>"), `${role}: no inherited parent ULW policy`);
-      assert(!system.includes("<ultrawork-mode>"), `${role}: no inherited parent ULW directive`);
+      assert(!system.includes("<omp-ulw-policy>"), `${role}: no inherited parent SUPER policy`);
+      assert(!system.includes("<ultrawork-mode>"), `${role}: no inherited parent SUPER directive`);
       for (const block of injected.blocks.slice(1)) assert(system.includes(block), `${role}: outbound payload must retain each trailing block`);
       assert(JSON.stringify(body.messages).includes(assignment(role)), `${role}: outbound assignment retained`);
       const native = original.blocks.join("\n\n");
@@ -250,7 +245,7 @@ try {
   });
   assert.equal(childRequests.get("task")!.length, 2, "worker must execute real eval and receive its result");
   console.log(JSON.stringify({ status: "PASS", requests: requests.length, scenarios: summaries,
-    assertions: ["native default worker, sonic and scout spawn through eval tool.task", "complete shipped model profiles", "exact trailing-block preservation", "native role/assignment/completion retention", "parent ULW isolation", "unchanged active tools", "readonly scout restrictions", "native worker eval retains batch successes and partial failure", "native async completion delivery"],
+    assertions: ["native default worker, sonic and scout spawn through eval tool.task", "complete shipped model profiles", "exact trailing-block preservation", "native role/assignment/completion retention", "parent SUPER isolation", "unchanged active tools", "readonly scout restrictions", "native worker eval retains batch successes and partial failure", "native async completion delivery"],
     limitations: ["Scripted local responses verify host transport, not model obedience", "Model refresh/fallback and custom-template rejection are covered by unit tests"],
   }, null, 2));
 } finally {

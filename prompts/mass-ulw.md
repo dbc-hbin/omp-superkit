@@ -2,6 +2,6 @@
 description: "Legacy alias for /super-graph"
 ---
 
-Use `../skills/mass-ulw/SKILL.md` (relative to this template), or the extension's installed skill path. Activate super-graph for the dependency graph and recovery records. Load references only as needed; OMP owns dispatch and execution mechanics.
+Use `../skills/super-graph/SKILL.md` (relative to this template), or the extension's installed SUPER Graph skill, for this request.
 
 mass-ulw $ARGUMENTS

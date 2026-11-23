@@ -9,7 +9,7 @@ Resolve relative reference paths from this skill's directory, not the project wo
 
 Verify a rendered UI against the platform baseline, against its reference when one exists, and against the stated intent. Use two independent read-only oracles for an actual rendered surface; pixel/reference-fidelity gates are conditional on an explicit visual-fidelity request or a concrete reference packet. Script numbers focus reviewers and are never the verdict.
 
-Use the [responsibility boundary](../ulw-loop/references/omp-contract.md) for model guidance, native modes and permissions. The two oracle charters define required independent evidence, not a separate dispatch or model-selection policy.
+Use the [responsibility boundary](../super-loop/references/omp-contract.md) for model guidance, native modes and permissions. The two oracle charters define required independent evidence, not a separate dispatch or model-selection policy.
 
 ## Purpose and when to use
 

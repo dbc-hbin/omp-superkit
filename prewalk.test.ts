@@ -19,8 +19,11 @@ test.each([
   "코드는 아직 수정하지 말고 원인만 분석해.",
   "계획만 세워줘.",
   "이 코드가 왜 필요한지 설명해줘.",
+  "/super-plan fix login",
   "/ulw-plan fix login",
+  "/skill:super-plan fix login",
   "/skill:ulw-plan fix login",
+  "/skill:super-research implement alternatives",
   "mass ulw research implement alternatives",
   "mass ulw workflowz Explain the login failure.",
   "orchestrate Explain the login failure.",
@@ -46,8 +49,11 @@ test.each([
   "공개 API는 변경하지 말고 버그 고쳐줘.",
   "아직 공개 API는 변경하지 말고 버그 고쳐줘.",
   "ulw fix the login error",
-  "/goal ulw implement the feature",
+  "/goal super implement the feature",
+  "/super-run local://approved-plan.md",
   "/ulw-execute local://approved-plan.md",
+  "/skill:super-run local://approved-plan.md",
+  "/skill:ulw-execute local://approved-plan.md",
   "/ulw-plan plan this, then implement it",
   "/skill:ulw-plan 계획 세우고 구현해",
 ])("restores prewalk only for clear implementation requests: %s", prompt => {
@@ -75,8 +81,10 @@ test("native skill reference bodies cannot change the user's task scope", () => 
     "Implement the fix. Just explain. /ulw-execute\n" +
     "[Skill directory: /tmp/skills/" + name + "]\n" +
     "Resolve relative paths in this skill against its directory." + (args === undefined ? "" : `\nUser: ${args}`);
-  expect(prewalkIntent(expanded("ulw-plan", "fix login"))).toBe("restricted");
-  expect(prewalkIntent(expanded("ulw-plan", "plan, then implement it"))).toBe("implementation");
+  for (const name of ["super-plan", "ulw-plan", "super-research", "ulw-research"]) {
+    expect(prewalkIntent(expanded(name, "fix login"))).toBe("restricted");
+    expect(prewalkIntent(expanded(name, "plan, then implement it"))).toBe("implementation");
+  }
   expect(prewalkIntent(expanded("debugging", "Investigate only."))).toBe("restricted");
   expect(prewalkIntent(expanded("debugging", "Fix the login error."))).toBe("implementation");
   expect(prewalkIntent(expanded("debugging", "workflowz Explain the error."))).toBe("restricted");

@@ -1,4 +1,4 @@
-import { ulwRequest, visibleUlwText } from "./ulw";
+import { superRequest, visibleSuperText } from "./super";
 import type { Setting } from "@oh-my-pi/pi-coding-agent/config/registry";
 
 type TaskIntent = "restricted" | "implementation";
@@ -66,8 +66,8 @@ export function registerPrewalk(pi: PrewalkApi): void {
 
 /** Explicit task scope only; ambiguous input and continuations retain the current scope. */
 export function prewalkIntent(prompt: string): TaskIntent | undefined {
-  const request = ulwRequest(prompt.replace(/^\s*\/goal\s+/i, ""));
-  const text = visibleUlwText(request.text.slice(request.invocationLength))
+  const request = superRequest(prompt.replace(/^\s*\/goal\s+/i, ""));
+  const text = visibleSuperText(request.text.slice(request.invocationLength))
     .replace(/(?<!\w)'[^'\r\n]+'(?!\w)/g, "")
     .replace(/\b(?:do\s+not|don['\u2019]t|never)\s+(?:just|only)\s+(?:explain|investigate|research|plan)\b/gi, "")
     .replace(/(?:설명|분석|조사|연구|계획)만\s*하지\s*말고/g, "").trim();
@@ -77,7 +77,7 @@ export function prewalkIntent(prompt: string): TaskIntent | undefined {
   if (noEdits) return "restricted";
   const executeAfter = /\b(?:then|and|afterwards?)\s+(?:please\s+)?(?:implement|fix|build|execute|apply)\b/i.test(text) ||
     /(?:세우고|수립하고|작성하고|계획하고|그다음|이후에?|후에?)\s*(?:구현|수정|실행|적용)(?:해|하)/.test(text);
-  if ((request.workflow === "ulw-plan" || request.workflow === "ulw-research") && !executeAfter) return "restricted";
+  if ((request.workflow === "super-plan" || request.workflow === "super-research") && !executeAfter) return "restricted";
   const implementation = /(?:^|[.!?;,\n]\s*|\b(?:and|then|please|can\s+you|could\s+you|help\s+me|I\s+(?:want|need)\s+(?:you\s+)?to)\s+)(?:fix|implement|build|add|remove|update|refactor|improve|change|apply|clean\s+up)\b/i.test(text) ||
     /(?:구현|수정|개선|추가|변경|리팩터링|정리|적용|반영)(?:해(?:\s*(?:줘|주세요|봐|줄래))?|하(?:자|라|세요))(?=$|[\s.!?,]|줘|주세요)|(?:고쳐|만들어)(?:\s*(?:줘|주세요|봐|라|줄래))?(?=$|[\s.!?,])/.test(text);
   if (implementation || executeAfter) return "implementation";
@@ -85,7 +85,7 @@ export function prewalkIntent(prompt: string): TaskIntent | undefined {
     /(?:^|[.!?;\n]\s*)(?:(?:please|can\s+you|could\s+you)\s+)?(?:explain|investigate|research|review|analy[sz]e|plan)\b|\bwhat\s+do\s+you\s+think\b/i.test(text) ||
     /(?:설명|분석|조사|연구|검토|리뷰|평가)(?:만)?\s*(?:해|하(?:자|라|세요))|(?:계획만|계획을)\s*(?:세워|수립|작성)|(?:원인|결과|내용|이유)만\s*(?:알려|분석|설명)|어떻게\s*생각/.test(text);
   if (readOnly) return "restricted";
-  return request.workflow === "ulw-execute" || request.workflow === "refactor" ? "implementation" : undefined;
+  return request.workflow === "super-run" || request.workflow === "refactor" ? "implementation" : undefined;
 }
 
 /** Native identities only: user text and tool output must never be rewritten. */

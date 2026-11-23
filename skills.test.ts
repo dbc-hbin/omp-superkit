@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { resolveSafeDocPath, scaffold } from "./skills/ulw-plan/scripts/scaffold-plan.mjs";
+import { resolveSafeDocPath, scaffold } from "./skills/super-plan/scripts/scaffold-plan.mjs";
 
 const root = resolve("skills");
 
@@ -20,7 +20,7 @@ test("plan scaffolding uses doc, preserves existing files and rejects unsafe pat
     expect(readFileSync(join(cwd, "doc/guide.md"), "utf8")).toBe("Existing documentation");
     expect(existsSync(join(cwd, ".omo"))).toBe(false);
     for (const path of ["../doc/plans/escape.md", "src/doc/plans/escape.md", "doc/../escape.md", ".omo/plans/old.md", "doc/plans/invalid.json"]) expect(() => resolveSafeDocPath(cwd, path)).toThrow();
-    const cli = Bun.spawnSync(["node", resolve("skills/ulw-plan/scripts/scaffold-plan.mjs"), "storage", "--stdout", "--review-required"], { cwd });
+    const cli = Bun.spawnSync(["node", resolve("skills/super-plan/scripts/scaffold-plan.mjs"), "storage", "--stdout", "--review-required"], { cwd });
     expect(cli.exitCode).toBe(0);
     const output = JSON.parse(cli.stdout.toString());
     expect(output.draft.path).toBe("doc/drafts/storage.md");
@@ -55,14 +55,90 @@ test("registered skill metadata and relative resource links resolve inside the s
   }
 });
 
-test("workflow templates resolve their skill resources relative to the template", () => {
-  for (const name of ["ulw-plan", "ulw-execute", "ulw-loop", "ulw-research", "mass-ulw"]) {
-    const template = new URL(`./prompts/${name}.md`, import.meta.url);
+test("canonical workflow templates and legacy aliases point to canonical skill resources", () => {
+  const routes = {
+    "super-plan": "super-plan",
+    "super-run": "super-run",
+    "super-loop": "super-loop",
+    "super-research": "super-research",
+    "super-graph": "super-graph",
+    "ulw-plan": "super-plan",
+    "ulw-execute": "super-run",
+    "ulw-loop": "super-loop",
+    "ulw-research": "super-research",
+    "mass-ulw": "super-graph",
+  } as const;
+  for (const [command, skill] of Object.entries(routes)) {
+    const template = new URL(`./prompts/${command}.md`, import.meta.url);
     const source = readFileSync(template, "utf8");
     const target = source.split("`")[1];
-    expect(target).toBe(`../skills/${name}/SKILL.md`);
-    expect(existsSync(new URL(target!, template))).toBe(true);
+    expect(target).toBe(`../skills/${skill}/SKILL.md`);
+    expect(lstatSync(new URL(target, template)).isFile()).toBe(true);
   }
+});
+
+test("published workflow bookmarks land on the matching canonical section", () => {
+  const bookmarks = [
+    ["mass-ulw/SKILL.md", "super-graph/SKILL.md", ["recovery-and-resume"]],
+    ["mass-ulw/references/planning.md", "super-graph/references/planning.md", ["attempt-record", "operator-controls", "reconciling-after-resume", "verification"]],
+    ["ulw-loop/references/full-workflow.md", "super-loop/references/full-workflow.md", ["dynamic-steering", "final-quality-gate"]],
+    ["ulw-loop/references/omp-contract.md", "super-loop/references/omp-contract.md", ["continuation-and-evidence", "native-plan-submission", "waiting-for-native-results"]],
+    ["ulw-plan/references/full-workflow.md", "super-plan/references/full-workflow.md", ["dependencies-and-verification-evidence"]],
+    ["ulw-research/SKILL.md", "super-research/SKILL.md", ["collection-and-evidence-independence"]],
+    ["ulw-research/references/deliverable-phase.md", "super-research/references/deliverable-phase.md", ["edition-fidelity", "7-show-the-html-report"]],
+    ["ulw-research/references/report-visualization.md", "super-research/references/report-visualization.md", ["reference-compare--requested-visual-reproductions-only"]],
+  ] as const;
+  const sections = (file: string) => {
+    const source = readFileSync(file, "utf8").replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
+    return new Map(source.split(/^#{1,6} +(.+)$/m).slice(1).flatMap((part, index, parts) => {
+      if (index % 2 !== 0) return [];
+      const slug = part.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/ /g, "-");
+      return [[slug, parts[index + 1]] as const];
+    }));
+  };
+  for (const [legacy, canonical, fragments] of bookmarks) {
+    const path = join(root, legacy);
+    const target = join(root, canonical);
+    const oldSections = sections(path);
+    const newSections = sections(target);
+    for (const fragment of fragments) {
+      const links = [...(oldSections.get(fragment) ?? "").matchAll(/\]\(([^#\s)]+)#([-\w]+)\)/g)];
+      expect(links.map(([, href, anchor]) => `${resolve(dirname(path), href)}#${anchor}`)).toContain(`${target}#${fragment}`);
+      expect(newSections.has(fragment)).toBe(true);
+    }
+  }
+});
+
+test("published legacy workflow CLI paths still execute the installed tools", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "super-cli-compat-"));
+  try {
+    writeFileSync(join(cwd, "inputs.json"), JSON.stringify(["evidence.txt"]));
+    writeFileSync(join(cwd, "evidence.txt"), "Relevant input.");
+    const cases = [
+      {
+        path: "ulw-plan/scripts/scaffold-plan.mjs",
+        args: ["compat", "--stdout", "--draft-only"],
+        output: { draft: { path: join("doc", "drafts", "compat.md") } },
+      },
+      {
+        path: "ulw-loop/scripts/verify-state.mjs",
+        args: ["snapshot-files", "inputs.json"],
+        output: { tree: "explicit-files", capture_inputs: ["evidence.txt"] },
+      },
+      {
+        path: "ulw-research/scripts/report-tools.mjs",
+        args: ["--help", "--json"],
+        output: { commands: expect.arrayContaining(["fact verify", "outcome verify"]) },
+      },
+    ] as const;
+    for (const { path, args, output } of cases) {
+      const script = join(root, path);
+      expect(lstatSync(script).isFile()).toBe(true); // npm does not include symlinks
+      const result = Bun.spawnSync(["node", script, ...args], { cwd });
+      expect({ path, status: result.exitCode, stderr: result.stderr.toString() }).toEqual({ path, status: 0, stderr: "" });
+      expect(JSON.parse(result.stdout.toString())).toMatchObject(output);
+    }
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
 test("shipped TUI evidence CLI measures ANSI CJK widths and rejects invalid dimensions", () => {

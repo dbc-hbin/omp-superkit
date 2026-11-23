@@ -1,0 +1,30 @@
+---
+name: super-loop
+description: "Runs an explicitly requested durable multi-goal loop with dependency criteria, evidence-bound checkpoints and resume state."
+argument-hint: "<goal>"
+metadata:
+  short-description: Durable multi-goal criteria and checkpoints
+---
+
+# SUPER Loop
+
+Activate only for an explicit super-loop or durable checkpointed execution request. Bare SUPER does not select it. Use the [host authority boundary](references/omp-contract.md) for model guidance, native modes and permissions. This skill owns the richer multi-goal state and evidence.
+
+## State contract
+
+Before execution, use [Define Goal](references/define-goal.md) to record the binding objective and per-goal criteria in the [durable ledger format](references/omp-ledger.md). Keep one aggregate objective; do not open a competing native goal. Native todos, when used, mirror actions rather than replacing the goal record.
+
+An active native goal belonging to another run blocks this run: report the conflict
+instead of replacing or silently adopting it. Keep this session and the lead-owned
+ledger when delegating implementation, tests, fixes or QA execution through native
+`task`; delegation does not transfer loop state ownership.
+
+For delegated browser criteria, include `skill://browser` and `skill://visual-qa/references/browser-setup.md` explicitly in the child brief, with the criterion's scoped matrix, allowed actions, required Eval/browser capability, authorized public/account state, tab ownership and evidence/cleanup requirements. Parent policy and Eval handles are not inherited capability; preserve child verification limits and return missing access as blocked evidence. Source-reading assignments use `read` for static URLs and `web_search` for discovery; include `skill://ultimate-browsing` when blocked/incomplete sources, archives or platform-specific reading are needed.
+
+The run lives under `doc/ulw-loop/<session-id>/` with `brief.md`, `goals.json` and `ledger.jsonl`. The lead alone writes state. Preserve completed records; unrelated work gets a separate identified run.
+
+Acquire the existing `in_progress` goal, otherwise a pending goal whose dependencies are complete. Record criterion results with actual artifacts, capture fingerprints and cleanup receipts. Non-final checkpoints require essential criteria; final completion requires every criterion plus `quality-gate.json`. The [checkpoint and steering reference](references/full-workflow.md) specifies transitions and final verifier inputs.
+
+After compaction or resume, read brief, goals and ledger first, reconcile actual pending work and continue without replaying completed work. Paused work resumes only on current user direction; cancellation records cleanup and never auto-resumes. An installed continuation hook is not completion evidence.
+
+Use [SUPER Graph](../super-graph/SKILL.md) only if a phase needs a durable dependency graph, file handoffs or node recovery. Its graph references this run's goal; no second goal or criterion ledger is created. On resume, reconcile the linked graph's owned attempts before dispatch or checkpointing. If cancellation or unresolved required node evidence prevents the goal from passing when safe work is exhausted, mark the goal `cancelled` or `blocked` as supported by the evidence and record it in the loop ledger; do not leave the phase eligible for continuation. Research phases may consume an existing research journal, but do not duplicate it here.

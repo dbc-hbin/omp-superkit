@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 import { buildFileOperationsTuning } from "./file-operations.js";
-import { buildGptEvalRoutingTuning } from "./gpt-eval-routing.js";
 import { buildDynamicSystemPrompt } from "./shared-prompt.js";
 
 function buildGpt52Tuning(toolNames) {
-  return `Constrain verbosity explicitly: "3-6 sentences", "max 5 bullets", "no preamble". Do not over-explain simple tasks.
+  return `Set a concise response budget appropriate to the deliverable, such as 3-6 sentences or at most 5 bullets for a simple answer. Omit filler, not required content.
 
-Optimize tool usage with explicit budgets: "maximum 3 tool calls for this lookup" or "one broad search first, only search again if the core question remains unanswered."
+Set an initial retrieval budget, such as one broad search wave. Extend it only when a required fact is still missing.
 
-Implement EXACTLY and ONLY what was requested. No extra features, no scope drift.
+Deliver exactly what was requested. No extra features or scope drift.
 
-Compact after major milestones, not every turn. Keep the system prompt functionally identical when resuming.
-
-${buildGptEvalRoutingTuning()}
+When the host compacts context, continue from the next unfinished milestone. Recover prior details only when the remaining work depends on them.
 
 ${buildFileOperationsTuning({ toolNames })}`;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderPreset } from "../presets";
 import { buildPreset, presetNames } from "../prompts/models/catalog.js";
+import { APP_UNRUN_CHECK_RULE, SPECIALIST_VERIFICATION, UNRUN_CHECK_RULE } from "../prompts/models/shared-prompt.js";
 
 const toolNames = ["eval", "ask", "task", "bash", "wait", "read", "grep", "glob", "write", "edit", "todo", "web_search"];
 const models: Record<string, string> = {
@@ -9,11 +10,32 @@ const models: Record<string, string> = {
 };
 
 describe("local model presets", () => {
+  test("non-Claude workers keep their assignment without inheriting parent QA or progress duties", () => {
+    for (const name of presetNames.filter(name => !name.startsWith("claude-") && name !== "gpt-5")) {
+      const model = { id: models[name] ?? name };
+      for (const active of [[], ["read"], toolNames]) {
+        const main = renderPreset(model, { surface: "app", toolNames: active })!.prompt;
+        const child = renderPreset(model, { surface: "app", toolNames: active, subagent: true })!.prompt;
+        expect({ name, hasMainVerification: main.includes(APP_UNRUN_CHECK_RULE) }).toEqual({ name, hasMainVerification: true });
+        expect(child).toContain(SPECIALIST_VERIFICATION);
+        expect(child).toContain("## Specialist Reply");
+        expect(child).not.toMatch(/worker's Manual QA Gate|Handoff moments:|At a handoff -|you have personally used the deliverable|diagnostics on every changed file/i);
+        for (const prompt of [main, child]) {
+          expect(prompt.includes("native `wait` guidance")).toBe(active.includes("wait"));
+          expect(prompt).not.toMatch(/Block only on a call that finishes within a reply|name it only when no other evidence|use the `grep` tool for filenames/i);
+        }
+      }
+    }
+    const dormant = buildPreset("gpt-5", { surface: "app", selectedTools: [] })!.prompt;
+    expect(dormant).not.toMatch(/answer anything|no refusals/i);
+    expect(dormant).toContain(APP_UNRUN_CHECK_RULE);
+  });
+
   test("catalog renders preserve model routing and OMP tool transport across surfaces and capabilities", () => {
     for (const name of presetNames) {
       for (const surface of ["terminal", "app"] as const) {
         for (const activeTools of [toolNames, toolNames.filter(tool => tool !== "eval"), []]) {
-          // GPT-6.2 has its own complete body; the other profiles adapt a base template.
+          // GPT-6.2 has its own complete body outside the shared catalog.
           const base = name === "gpt-6.2" ? undefined : buildPreset(name, { surface, selectedTools: activeTools });
           if (name !== "gpt-6.2") {
             expect(base?.name).toBe(name);
@@ -27,7 +49,8 @@ describe("local model presets", () => {
           expect(rendered?.prompt).not.toMatch(/request_user_input|ask_user_question|wait_for_answer|waitForAnswer|`(?:tool\.)?monitor(?:`|\()|--print/);
           expect(rendered?.prompt).not.toMatch(/<workstation>|<context_files>|<skills>/);
           const prompt = rendered!.prompt;
-          if (base) {
+          const claude = name.startsWith("claude-");
+          if (base && !claude) {
             const moments = base.prompt.match(/^(?:A handoff is|Handoff moments:|At a handoff -)[^\n]+/m)?.[0];
             expect(moments).toBeDefined();
             expect(prompt).toContain(moments!.replace("one short block:", "one short update:").replace("then open with one block:", "then give one short update:"));
@@ -35,7 +58,9 @@ describe("local model presets", () => {
           expect(prompt).toContain("Briefly connect the outcome so far to the user's requested result");
           expect(prompt).toContain("execute any stated next action in the same response with tool calls");
           expect(prompt.includes("after each tool wave that changes what you know")).toBe(
-            name === "claude-opus-5-5" || (base?.prompt.includes("after each tool wave that changes what you know") ?? false),
+            claude
+              ? ["claude-fable-5-1", "claude-fable-5-2", "claude-opus-5-5"].includes(name)
+              : (base?.prompt.includes("after each tool wave that changes what you know") ?? false),
           );
           expect(prompt).not.toMatch(/Ask: \[|You need: \[|Now: \[|Next: \[|Now and Next are todo labels verbatim/);
           if (name === "gpt-6-astra") {
@@ -57,16 +82,73 @@ describe("local model presets", () => {
     }
   });
 
-  test("Claude material-question and pending-work routes follow independent host tool availability", () => {
-    for (const id of ["anthropic/claude-mythos-5-2", "anthropic/claude-opus-5.5"]) {
-      for (const surface of ["terminal", "app"] as const) {
-        for (const subagent of [false, true]) {
-          for (const activeTools of [[], ["ask"], ["wait"], ["ask", "wait"]]) {
-            const prompt = renderPreset({ id }, { surface, subagent, toolNames: activeTools })?.prompt ?? "";
-            const routedTools = [...new Set(Array.from(prompt.matchAll(/`(ask|wait)`/g), match => match[1]))];
-            expect(routedTools).toEqual(activeTools);
+  test("Claude assembles distinct profiles with independent question, wait, delegation and todo capabilities", () => {
+    const names = presetNames.filter(name => name.startsWith("claude-"));
+    const appCaveat = APP_UNRUN_CHECK_RULE.slice(UNRUN_CHECK_RULE.length).trim();
+    for (const surface of ["terminal", "app"] as const) {
+      for (const subagent of [false, true]) {
+        for (const activeTools of [[], ["read", "grep"], ["ask"], ["wait"], ["ask", "wait"], ["task"], ["todo"], toolNames]) {
+          const prompts = new Set<string>();
+          for (const name of names) {
+            const preset = renderPreset({ id: name }, { surface, subagent, toolNames: activeTools });
+            const assembled = buildPreset(name, { surface, subagent, selectedTools: activeTools });
+            expect(preset).toEqual(assembled);
+            expect(preset?.name).toBe(name);
+            if (!preset) throw new Error(`Expected Claude preset: ${name}`);
+            const { prompt } = preset;
+            prompts.add(prompt);
+            const routedTools = new Set(Array.from(prompt.matchAll(/`(ask|wait|task|todo)`/g), match => match[1]));
+            expect(routedTools).toEqual(new Set(activeTools.filter(tool =>
+              tool === "ask" || tool === "wait" || (!subagent && (tool === "task" || tool === "todo")),
+            )));
+            expect(prompt.includes("### Test Discipline")).toBe(!subagent);
+            expect(prompt.includes("\n### Opening\n")).toBe(!subagent && surface === "terminal");
+            expect(prompt.includes("\n## Replies\n")).toBe(!subagent);
+            expect(prompt.includes("\n## Specialist Reply\n")).toBe(subagent);
+            expect(prompt).toContain(surface === "app" ? APP_UNRUN_CHECK_RULE : UNRUN_CHECK_RULE);
+            expect(prompt.includes(appCaveat)).toBe(surface === "app");
           }
+          expect(prompts.size).toBe(names.length);
         }
+      }
+    }
+  });
+
+  test("Grok 4.6 routes opinions and bare symptoms to an answer, not implementation or an approval wait", () => {
+    const id = "grok-4.6";
+    for (const surface of ["terminal", "app"] as const) {
+      const prompts = [
+        buildPreset(id, { surface, selectedTools: toolNames })?.prompt,
+        renderPreset({ id }, { surface, toolNames })?.prompt,
+      ];
+      for (const prompt of prompts) {
+        const routes = prompt?.match(/^-[^\n]+/gm) ?? [];
+        for (const readOnly of ["I'm seeing error Y", "what do you think about X?"]) {
+          const route = routes.find(line => line.includes(readOnly));
+          expect(route).toMatch(/\b(?:end|final)\b.*\b(?:answer|findings)\b/);
+          expect(route).toMatch(/\bwithout (?:edits|editing)\b.*\bwaiting for approval\b/);
+        }
+        const route = routes.find(line => line.includes("could you fix Y?"));
+        expect(route).toMatch(/\bimplement\b.*\bauthorized change\b/);
+      }
+    }
+  });
+
+  test("Kimi K3.1 does not route a worker's questions to the user even when ask is exposed", () => {
+    const id = "kimi-k3-1";
+    const withoutAsk = ["eval", "read"];
+    const withAsk = [...withoutAsk, "ask"];
+    for (const surface of ["terminal", "app"] as const) {
+      const main = renderPreset({ id }, { surface, toolNames: withAsk });
+      const child = renderPreset({ id }, { surface, toolNames: withAsk, subagent: true });
+      const childWithoutAsk = renderPreset({ id }, { surface, toolNames: withoutAsk, subagent: true });
+      const catalogChild = buildPreset(id, { surface, selectedTools: withAsk, subagent: true });
+
+      expect(main?.prompt).toContain("`ask`");
+      expect(child?.name).toBe(id);
+      expect(child).toEqual(childWithoutAsk);
+      for (const prompt of [child?.prompt, catalogChild?.prompt]) {
+        expect(prompt).not.toMatch(/`ask`|\b(?:ask|wait|pause)\b[^.\n]*\b(?:requires the user|end the turn)\b/i);
       }
     }
   });
@@ -94,7 +176,7 @@ describe("local model presets", () => {
     for (const [id, name] of cases) expect(renderPreset({ id }, { surface: "terminal", toolNames })?.name).toBe(name);
     expect(renderPreset({ id: "opaque", name: "GPT 6.1 Luna" }, { surface: "app", toolNames })?.name).toBe("gpt-6-astra");
     expect(renderPreset({ id: "opaque", name: "GPT 6.2 Sol" }, { surface: "app", toolNames })?.name).toBe("gpt-6.2");
-    expect(renderPreset({ id: "opaque", name: "gpt-5.6" }, { surface: "app", toolNames })).toBeUndefined();
+    expect(renderPreset({ id: "opaque", name: "gpt-5.6" }, { surface: "app", toolNames })?.name).toBe("gpt-5.6");
   });
 
   test("GPT profiles leave eval transport to the host while retaining action and evidence contracts", () => {
@@ -132,7 +214,7 @@ describe("local model presets", () => {
     for (const id of ["gpt-5.6", "gpt-6.1-sol"]) {
       const prompt = renderPreset({ id }, { surface: "terminal", toolNames: activeTools })!.prompt;
       expect(prompt).toMatch(/(?:render|screenshot)[^\n.]+(?:look|see)/i);
-      expect(prompt).toMatch(/language server[^\n.]+(?:references|callers)/i);
+      expect(prompt.split(/[.!?\n]/).some(sentence => /language server/i.test(sentence) && /references|callers/i.test(sentence))).toBe(true);
       expect(prompt).toMatch(/(?:empty|narrow|thin)[^\n.]+(?:alternatives|source)/i);
       expect(prompt).toMatch(/(?:user|sibling) changes/i);
       expect(prompt).toMatch(/(?:validators?|checks|tests)[^\n.]+(?:run|clean|evidence)|run[^\n.]+validator/i);
