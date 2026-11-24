@@ -3,8 +3,6 @@ import { isGeminiModel, type PresetModel } from "./presets";
 export interface ToolInfo {
 	readonly name: string;
 	readonly parameters?: unknown;
-	/** Advertised in this request's Eval catalog, but not as a top-level tool. */
-	readonly bridgeOnly?: true;
 }
 
 function supportsLanguage(schema: unknown, language: "py" | "js"): boolean {
@@ -29,7 +27,6 @@ export function codeModeGuidance(model: Partial<PresetModel> | undefined, enable
 	const python = supportsLanguage(properties.language, "py");
 	const js = supportsLanguage(properties.language, "js");
 	if (!python && !js) return "";
-	const task = enabled.find(tool => tool.name === "task");
 	return [
 		"<omp-code-mode>",
 		python && js
@@ -38,9 +35,7 @@ export function codeModeGuidance(model: Partial<PresetModel> | undefined, enable
 		'Use eval for bridge-callable work: await tool["name"](args). Use the host’s advertised names and schemas. Return only the results you need.',
 		...(enabled.some(tool => tool.name === "bash")
 			? ['Read mounted command help with await tool.bash({"command": "<name> --help"}) inside eval.'] : []),
-		...(task ? [task.bridgeOnly
-			? "Spawn workers with await tool.task(args) inside eval. Blocking child usage is omitted from session totals on this route; if complete budget accounting is required, do not dispatch a blocking child here."
-			: "Spawn workers with await tool.task(args) inside eval, except when a blocking child's usage must count toward the session total or goal budget: call the top-level task tool then."] : []),
+		...(enabled.some(tool => tool.name === "task") ? ["Spawn workers with await tool.task(args) inside eval."] : []),
 		"Use the advertised top-level route whenever the host consumes the outer result: for plan or preview decisions (propose, resolve, reject), call the direct tool when offered, or use outer bash for a mounted command. Never dispatch a decision inside eval. The same top-level rule applies to human questions, native waits, session changes and attachments. Never route around a denied call.",
 		"</omp-code-mode>",
 	].join("\n");

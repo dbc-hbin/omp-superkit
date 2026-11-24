@@ -51,7 +51,7 @@ omp -e ./omp-superkit
 Gemini 不使用 Superkit 预设或代码模式指引。对于其他模型，只有在当前请求可以调用 Eval 时，才根据该请求可用的内核添加指引。自定义角色和恢复的子任务保留其原始指令，无工具的旁路请求不会收到 Eval 指引。哪些工具直接提供、哪些按需发现，由 OMP 决定；Superkit 不删除工具声明，也不另行复制参数定义。
 
 - 所有桥接调用（包括 `task`）默认使用 `language="js"`。只有在需要 Python 库、API、已有的 Python 内核状态，或 JS 内核不可用时，才使用 `language="py"`。
-- 使用 `await tool["name"](args)` 调用已注册的工具，通常用 `await tool.task(...)` 启动子任务。OMP 19.1.1 会通过 Eval 返回阻塞子任务的结果，但不会将其用量计入会话总量。若会话统计或目标预算必须包含这部分用量，请使用顶层 `task`；若未提供，则不要启动该阻塞子任务。挂载命令的参数可通过 `await tool.bash({"command": "<name> --help"})` 查询。
+- 两种内核都可以用 `await tool["name"](args)` 调用已注册的工具，用 `await tool.task(...)` 启动子任务。需要挂载命令的参数时，在同一单元中执行 `await tool.bash({"command": "<name> --help"})` 查询。
 - 当审批、会话控制或附件交付要求 OMP 读取顶层调用的结果时，使用原生路径。对于 `propose`、`resolve` 和 `reject`，有直接工具时直接调用；作为挂载命令提供时使用外层 `bash`。不要在 Eval 内执行这些决定。主机权限和工具声明保持不变。
 - 独立的读取、搜索和查询可并行执行；修改、审批、等待和有依赖的调用顺序执行。
 

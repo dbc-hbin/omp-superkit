@@ -85,6 +85,17 @@ Record URL/page/state, CSS viewport, screenshot pixel dimensions, DPR, theme, to
 
 For scoped Held, Failed, Switch and other state/flow cases, use [behaviour evidence](behaviour-evidence.md). Record the real control, observed request/effect and state before, during and after the action. Route changes and fixture responses must stay in an authorized test boundary; this reference does not authorize altering a borrowed session or its application state.
 
+For manual holds in a task-owned Chromium `tab.run`, check
+`request.isInterceptResolutionHandled()` immediately before each `continue`, `abort`
+or `respond`, including after waiting for the release signal, and skip it if
+the request is already handled. Use Puppeteer's
+cooperative priority argument when coexisting with `tab.route`: for pass-through,
+`request.continue({}, 5)` lets a matching OMP route win, as shown in the
+[OMP v19.1.1 network test](https://github.com/can1357/oh-my-pi/blob/v19.1.1/packages/coding-agent/test/tools/browser-network.test.ts#L82-L115).
+Do not use bare resolutions that bypass cooperative handling. Keep the request
+under manual hold distinct from declarative route matches; scope and clean up the
+hold within the run without removing unrelated routes.
+
 Collect scenario-scoped console/error entries and
 `await qa.requests({filter:relevantUrlPattern})` around the changed scenario. In OMP 19.1,
 `console()`/`errors()` return `{entries,nextSeq,dropped}`, not arrays; use `.entries` (Python:
@@ -108,7 +119,7 @@ named capability gap; a clean DOM snapshot cannot establish a clean console or s
 
 ## Native or unsupported browser
 
-Read `skill://computer-use` and the live `help://eval/computer` contract. Resolve an exact native window with `computer.window`, observe through `win.ax()` or `win.observe()`, act through returned elements or that window's screenshot coordinates, and verify the requested state. Follow the skill's covered/minimized rules: a covered Windows Chromium capture is not current evidence, and a minimized macOS window's AX refs are inspection-only. Record `win.bounds` and the actual screenshot dimensions. Use supported app/PTY sizing controls or report a required geometry capability gap rather than inventing a window-frame setter. Window bounds are not web viewport emulation. Native chrome belongs in app/terminal proof; web evidence must be page-only, through browser screenshots or a validated content crop. Do not claim touch/DPR/theme emulation from native window geometry.
+Read `skill://computer-use` and the live `help://eval/computer` contract. Resolve the exact host window, observe through `win.ax()` or `win.observe()`, act through returned elements or that window's screenshot coordinates, and verify the requested state with a fresh read. Follow the skill's covered/minimized rules: a covered Windows Chromium capture is not current evidence, and a minimized macOS window's AX refs are inspection-only. Record `win.bounds` and the actual screenshot dimensions. If an in-scope device or emulator is not available as a host window, use authorized project device UI tooling to drive and capture its actual screen; report the required gap if that route is unavailable. Use supported app/PTY sizing controls or report a required geometry capability gap rather than inventing a window-frame setter. Window bounds are not web viewport emulation. Native chrome belongs in app/terminal proof; web evidence must be page-only, through browser screenshots or a validated content crop. Do not claim touch/DPR/theme emulation from native window geometry.
 
 ## Delivery and cleanup
 

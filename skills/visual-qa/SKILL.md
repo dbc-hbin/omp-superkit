@@ -13,7 +13,7 @@ Use the [responsibility boundary](../super-loop/references/omp-contract.md) for 
 
 ## Purpose and when to use
 
-- Use after building or changing a rendered UI, before calling it done; for existing UI, also capture its baseline before edits when available. Covers web/page UIs, TUI/terminal UIs, and paginated documents.
+- Use after building or changing a rendered UI, before calling it done; for existing UI, also capture its baseline before edits when available. Covers web/page UIs, native screens, TUI/terminal UIs, and paginated documents.
 - Use with or without a reference: a mock, a baseline, or a source site when one exists; otherwise the checklist is the reference. Also when you suspect a regression, when CJK (Korean/Japanese/Chinese) text may clip, misalign, or wrap awkwardly, when a claimed design system might actually be a flat image, or when a terminal layout may overflow or its borders may break.
 - Skip when there is no rendered surface (pure backend or library logic with no visual or terminal output). For broad post-implementation review use review-work; this skill is the visual specialist.
 
@@ -22,11 +22,12 @@ In the commands below, set `SKILL_DIR` to the observed absolute directory contai
 ## Step 1 - Detect the surface
 
 - Web/page UI: renders in a browser (HTML/CSS/JS, components, canvas, SVG). Evidence is screenshots.
+- Native screen: renders in an app window or on a device. Capture the actual screen using the [native capture route](references/browser-setup.md#native-or-unsupported-browser).
 - TUI/terminal UI: renders as text in a terminal (box-drawing, panes, status lines, REPL/TUI apps). Evidence is terminal captures.
 - Paginated document: renders as ordered pages (PDF report, printed HTML, exported deck). Evidence is every page rendered to an image - `pdftoppm -png -r 150 <file>.pdf <prefix>` or the pipeline's own renderer. Extracted text is not evidence here: layout is exactly what extraction discards, so a stranded block, a split table, or a near-empty page survives a clean text check.
 - Reference-fidelity UI: any web/page UI built from a concrete reference packet. Evidence is the full reference packet plus same-size actual captures; pixel diffs are required only in this mode.
 
-If the change touches both, run both capture tracks and feed both into the passes.
+If the change touches more than one surface, run each applicable capture track and feed its evidence into both passes.
 
 ## Step 2 - Capture objective reference evidence
 
@@ -54,7 +55,7 @@ Bind captures and QA results to the rendered inputs they prove. An edit invalida
 
 ### Capture hygiene - validate before dispatching reviewers
 
-Before any reviewer sees an image, verify each capture yourself: the file signature matches its extension (a JPEG named `.png` is invalid), the frame is fully composited (no black or missing regions from the screenshot compositor), dimensions match the requested viewport, and the frame holds only the page - a capture showing the browser's tabs or address bar, or the capture tool's own UI, is a window grab, not evidence. Confirm the intended build, data, theme, state and control: a wrong or unpainted frame is an `[evidence]` defect, not proof of a product defect. Repair and replace it before dispatch.
+Before any reviewer sees an image, verify each capture yourself: the file signature matches its extension (a JPEG named `.png` is invalid), the frame is fully composited (no black or missing regions from the screenshot compositor), and dimensions match the applicable capture row. A web or document capture must show the rendered page, not the browser's tabs, address bar, or capture tool UI; native app and terminal captures can include their own chrome. Confirm the intended build, data, theme, state and control: a wrong or unpainted frame is an `[evidence]` defect, not proof of a product defect. Repair and replace it before dispatch.
 
 Open the actual saved PNG/JPEG path with OMP's native `read`; raster images render inline without a selector. Inspect the pixels, not just a path, stale capture preview, or diff statistics. Use the authorized, redacted copies for reviewer access. If image opening is unavailable to a reviewer, record `blocked_capability`, not PASS.
 
@@ -193,12 +194,12 @@ A13, B8, E7, F8 and F9 are adapted from the craft floor of [pbakaus/impeccable](
 - H9 Sign-in is deferred until needed and its benefit stated; the auth method is named ("Sign in with GitHub", not "Sign in"); no license text in onboarding; password fields are masked and never pre-filled.
 - H10 Search, when present: one search location, scope visible in the placeholder or a scope bar, recents or suggestions offered.
 - H11 Settings, when present: labels say what ON does; system-wide settings are not duplicated; (mac) the settings window title names the visible pane.
-- H12 A pending or failed read is not empty, zero, signed out or "none"; unknown is explicit and offers recovery.
+- H12 A pending read honestly shows loading; a pending, failed or expired read never claims empty, zero, signed out or "none". After a retryable failure or deadline, show what happened and offer an appropriate recovery action.
 - H13 At settlement the affected regions agree (header, row, badge, count, control, notice), and stale pending/error/notice/form UI clears as specified.
 - H14 A held operation reaches success, failure, or a deadline with a way out; it cannot spin forever.
 - H15 After switching targets, a late result from A cannot replace B's data, selection, dialog or error.
 - H16 Persisted or restored results, state and usable controls survive the supported re-entry paths; discarded state stays discarded.
-- H17 Repeat input while pending does not duplicate a side effect; retry after refusal sends a new attempt; leaving mid-flight does not silently lose work.
+- H17 Suppress duplicates while the original request is pending. Where retry applies, it sends one new attempt only after the original request definitively failed; reconcile an uncertain write outcome first. Leaving mid-flight does not silently lose work.
 - H18 Preserve the specified selection, input, focus, scroll and working-region geometry before, during and after a refetch or transition, except for deliberate changes.
 - H19 On a first-use walk of the changed flow, each step exposes a findable next action whose label predicts its outcome; it responds and makes the result clear.
 
@@ -215,7 +216,7 @@ A13, B8, E7, F8 and F9 are adapted from the craft floor of [pbakaus/impeccable](
 
 ## OMP reviewer output contract
 
-Read `skill://visual-qa/references/verdict-schema.json` as the parent's normalization contract. For rendered-surface, visual fidelity and behavior assessment, use a specialist only when its advertised role and tools cover that work; otherwise assign a compatible read-only worker with the required image/runtime capabilities. The bundled reviewer handles bugs introduced by code diffs, not general visual judging or runtime QA. Retain each raw response and normalize only supported assessment, confidence, checklist coverage, evidenceTrace, findings, good, blocking and artifacts into that schema. Preserve specialist native formats; never invent missing evidence or pass unexposed tool fields. Pass A owns G-J; Pass B owns A-F. Supply shared intent, the applicable capture matrix and reference packet, source paths/diff, script JSON and input identity; each charter includes allowed reads, no-edit scope, checklist ids and a stop condition. Track terminal results by actual child id. Native non-JSON output is not itself a failure; missing image access or incomplete required coverage cannot become PASS. Validate the parent's synthesized verdict against `skill://visual-qa/references/final-verdict-schema.json`, resolving its draft-07 schema references against the files in the same directory; the evidence CLI computes pixels and terminal widths, not verdicts.
+Read `skill://visual-qa/references/verdict-schema.json` as the parent's normalization contract. For rendered-surface, visual fidelity and behavior assessment, use a specialist only when its advertised role and tools cover that work; otherwise assign a compatible read-only worker with the required image/runtime capabilities. The bundled reviewer handles bugs introduced by code diffs, not general visual judging or runtime QA. Retain each raw response and normalize only supported assessment, confidence, checklist coverage, evidenceTrace, findings, good, blocking and artifacts into that schema. Preserve specialist native formats; never invent missing evidence or pass unexposed tool fields. Pass A owns G-J; Pass B owns A-F. Supply shared intent, the applicable capture matrix, source paths/diff, input identity, and any applicable reference packet and script evidence; each charter includes allowed reads, no-edit scope, checklist ids and a stop condition. Track terminal results by actual child id. Native non-JSON output is not itself a failure; missing image access or incomplete required coverage cannot become PASS. Validate the parent's synthesized verdict against `skill://visual-qa/references/final-verdict-schema.json`, resolving its draft-07 schema references against the files in the same directory; the evidence CLI computes pixels and terminal widths, not verdicts.
 
 ## Step 3 - Obtain both independent read-only assessments
 
@@ -223,7 +224,7 @@ For an actual rendered surface, independent review is REQUIRED before a "done" c
 
 Obtain both oracle charters under the selected model's delegation guidance and any explicit native mode. Each oracle is assigned read-only scope: it reviews and reports, it cannot modify files or delegate. Each returns an assessment with concrete, located findings; the parent derives PASS, REVISE, or FAIL only when the evidence supports that verdict. Pass A proves the surface is a real design-system implementation, not a mock-only or faked-image substitute, and judges behaviour: motion, states, keyboard, platform (checklist G-J). Pass B directly opens screenshots and judges what is seen: layout, hierarchy, text, targets, themes, consistency (checklist A-F), reference fidelity and CJK.
 
-Paste evidence directly into each prompt: source code, the plain-text TUI captures, the script JSON, and the rendered screenshot paths plus your described observations. Never fork parent history into a reviewer - the message carries everything it needs. Require each blocking finding to be tagged `[product]` (the rendered UI is wrong) or `[evidence]` (the capture artifact is defective - wrong signature, partial compositing, stale file); the loop treats the two differently. The two passes differ in depth by charter, not by any model or effort setting.
+Give each reviewer the relevant source, rendered screenshot paths and your observations. Include `image-diff` JSON for applicable paired reference comparisons and the plain-text captures and `tui-check` JSON for TUI rows. A native screen or paginated document without a reference needs real captures, not diff or terminal JSON. An inapplicable script is not an evidence gap; a missing required artifact is. Never fork parent history into a reviewer - the message carries everything it needs. Require each blocking finding to be tagged `[product]` (the rendered UI is wrong) or `[evidence]` (the capture artifact is defective - wrong signature, partial compositing, stale file); the loop treats the two differently. The two passes differ in depth by charter, not by any model or effort setting.
 
 For both passes, distinguish an actual defect from a taste preference, independently of the `[product]`/`[evidence]` classification. Tie defects to observable behavior, accessibility, content, platform requirements, or the user's design contract. Taste alone is advisory: it cannot make a checklist item FAIL, block completion, or trigger a repair loop. A mismatch with an explicit visual reference remains a defect, not a taste preference.
 
@@ -260,18 +261,18 @@ APPLICABLE CAPTURE MATRIX:
 STATE AND FLOW EVIDENCE:
 {Scoped state table, case-to-item map, expected outcomes and preserve/clear assertions. Per case: real user steps; current build/data; capture, request/side-effect log and readback as applicable; whether the observed result came from the real path or a test boundary; separate EXECUTED and TRACED evidence; any UNVERIFIED condition with reason, verifier and resolution. If the change has no such cases, give the scope reason.}
 
-SHARED SCRIPT EVIDENCE (reference, not verdict):
-{Paste the image-diff or tui-check JSON. Use alphaChannelIntact for the transparency check.}
+SHARED SCRIPT EVIDENCE (when applicable; reference, not verdict):
+{Paste the applicable image-diff and/or tui-check JSON, or say neither applies. Use alphaChannelIntact when image-diff evidence applies.}
 
 CHECKLIST (sections G-J, pasted verbatim):
 {Paste checklist sections G, H, I, J from the skill.}
 
 CHECK EACH:
 1. Real design system vs ad-hoc/mock-only: are styles driven by coherent design tokens and reused primitives, or one-off hardcoded values scattered per element? When a reference packet exists, the implementation must encode the reference's colors, type, spacing, radii, shadows, component anatomy, and states as reusable tokens/primitives that can extend to new pages. Treat mock-only screens, static compositions, or one-page hardcoded styling with no reusable system as BLOCKING unless the user explicitly requested a throwaway mock.
-2. Faked-with-an-image anti-pattern: is the UI a real DOM/component tree, or a pasted raster/screenshot or background-image standing in for live elements? For TUI: a real layout that reflows, or hardcoded pre-rendered text at fixed widths?
-3. Alpha and transparency: handled correctly, with no unexpected opaque or black fills and correct PNG/CSS alpha? Cross-check alphaChannelIntact.
+2. Faked-with-an-image anti-pattern: does the interactive surface use real controls and components, or a pasted raster/screenshot or background-image standing in for live elements? For TUI: a real layout that reflows, or hardcoded pre-rendered text at fixed widths?
+3. Alpha and transparency: where applicable, are they handled correctly, with no unexpected opaque or black fills and correct alpha? Inspect the captures and cross-check alphaChannelIntact when image-diff evidence applies.
 4. Do the user-intended FEATURES actually work through the real entry points? Judge behavior from executed evidence. Trace source separately to explain causes, not to turn an unobserved result or a stubbed success into a pass.
-5. Reference packet coverage: every reference page, state, viewport, and annotated requirement is implemented or explicitly marked out of scope by the user. Missing copy, missing overview content, swapped hierarchy, or unimplemented reference states are BLOCKING.
+5. Where a reference packet applies, every reference page, state, viewport, and annotated requirement is implemented or explicitly marked out of scope by the user. Missing copy, missing overview content, swapped hierarchy, or unimplemented reference states are BLOCKING.
 6. Checklist sections G-J, item by item: PASS, FAIL, UNVERIFIED or N/A. Account for every applicable H12-H19 case, not just one example per item. Name what you inspected, what it proves, and what is still missing. Every FAIL is blocking; so is any applicable UNVERIFIED case, even if source suggests it works.
 
 OUTPUT:
@@ -289,7 +290,7 @@ BLOCKING: defects and required evidence gaps; empty if PASS
 
 ```text
 REVIEW TYPE: VISUAL FIDELITY AND CJK PRECISION (read-only)
-ASSESSMENT CHARTER: Use OMP's native read on each actual/reference PNG or JPEG path to directly inspect its pixels before judging visual fidelity and CJK precision. If the assigned tools cannot open the image, report that capability gap instead of judging a description. Anchor claims to script evidence, source and captures.
+ASSESSMENT CHARTER: Use OMP's native read on each actual and applicable reference PNG or JPEG path to directly inspect its pixels before judging visual fidelity and CJK precision. If the assigned tools cannot open the image, report that capability gap instead of judging a description. Anchor claims to captures, source and applicable script evidence.
 
 INTENT:
 {What the user requested and the mock or baseline to match.}
@@ -311,14 +312,14 @@ APPLICABLE CAPTURE MATRIX:
 SOURCE CODE:
 {For web: include the rendered text/content, components, typography, layout, and style code. For TUI: include render code that controls wrapping, width, and wide-character handling.}
 
-SCRIPT EVIDENCE (required, consume every field):
-{Paste the image-diff or tui-check JSON.}
+SCRIPT EVIDENCE (required only for applicable rows):
+{Paste the applicable image-diff and/or tui-check JSON, or say neither applies.}
 
 CHECKLIST (sections A-F, pasted verbatim):
 {Paste checklist sections A, B, C, D, E, F from the skill.}
 
 USE THE EVIDENCE:
-- Web (image-diff): start from diffRatio and similarityScore, then directly open every screenshot path and inspect every hotspots[] entry (gridX, gridY, x, y, width, height, diffRatio). Explain the visual cause of each flagged region from the pixels and source/content together.
+- Open every rendered capture even when neither script applies. For paired reference comparisons (image-diff), use diffRatio and similarityScore and inspect every hotspots[] entry (gridX, gridY, x, y, width, height, diffRatio). Explain the visual cause of each flagged region from the pixels and source/content together.
 - TUI (tui-check): inspect maxWidth vs expectedColumns, every overflowLines[] entry, borderMisaligned, and wideCharColumns[].
 
 CHECK:
@@ -338,24 +339,28 @@ VERDICT: PASS | REVISE | FAIL
 CONFIDENCE: HIGH | MEDIUM | LOW
 SUMMARY: 1-3 sentences
 CHECKLIST: one row per item in A-F - id, PASS/FAIL/UNVERIFIED/N/A, proving capture or reason
-EVIDENCE TRACE: each hotspot or overflow line mapped to its visual cause
+EVIDENCE TRACE: each applicable hotspot or overflow line mapped to its visual cause
 FINDINGS: for each, [product|evidence] [severity] what is wrong, where (hotspot grid or capture line:col), and the concrete fix
 BLOCKING: defects and required evidence gaps; empty if PASS
 ```
 
 ## Step 4 - Synthesize one verdict
 
-Merge the independent assessments into one row per checklist item, then report the non-checklist dimensions. For H12-H19 retain the separate cases under each applicable item. If any case fails, the item is FAIL; otherwise, if any is UNVERIFIED, the item is UNVERIFIED; otherwise all applicable cases must pass. List unverified cases even when the item also has a failure. For each FAIL, state what is wrong, where, and how to fix it. Call out what is genuinely good.
+When normalizing a review, retain each blocker in `reviews[].blocking` with its `reason`, `verifier` and `resolution`, even if it isn't a checklist item. A confirmed defect needs `NEEDS WORK`; a missing check that only the device owner can run needs `NEEDS HUMAN REVIEW`. `REVISE` alone does not distinguish them. The final verdict considers these blockers even when the merge omitted one from `mustFix`.
+
+Consider all applicable independent assessments, including the source review in Step 5 when required. Keep source findings distinct from rendered observations. Merge the evidence into one row per checklist item and report the verdict for each required page/state and each non-checklist dimension. For H12-H19 retain the separate cases under each applicable item. If any case fails, the item is FAIL; otherwise, if any is UNVERIFIED, the item is UNVERIFIED; otherwise all applicable cases must pass. Record outstanding checks on the affected checklist item, page/state or dimension, with the reason, who can verify, and whether the evidence can be obtained here; do not leave them only in the completion-gate summary. A known defect remains FAIL even when proof for another required check or capture is still missing; retain both. For each FAIL, state what is wrong, where, and how to fix it. Call out what is genuinely good.
+
+Use `prerequisites` for outstanding external requirements not already represented as verification gaps, such as approval from the owner of a required device. Do not list prerequisites that are already satisfied. The completion-gate gaps summarize the outstanding requirements; they do not replace the recorded gaps or prerequisites.
 
 - **NEEDS WORK**: an open defect or required evidence that can still be obtained in this authorized environment. Run the missing cases or report them at the existing repair bound; a skipped case or exhausted round does not become a human-only prerequisite.
 - **NEEDS HUMAN REVIEW**: only required gaps that this environment cannot resolve (for example, an unavailable account, device, required approval or product decision). State the condition, why it is blocked and the person or role that can verify it. If both kinds remain, the aggregate verdict is NEEDS WORK and still names the human-only gaps.
-- **GOOD**: the completion gate below is satisfied. User acceptance of a limitation does not replace execution or turn UNVERIFIED into PASS.
+- **GOOD**: the only verdict when the completion gate below is satisfied and no required gap, defect or prerequisite remains. User acceptance of a limitation does not replace execution or turn UNVERIFIED into PASS.
 
 ### Completion gate - bounded loop on fresh evidence
 
 This is a hard stop rule, not a guideline. The UI is NOT done until ALL applicable conditions hold on the SAME current build:
 
-- Both applicable independent reviewer assessments support the parent's normalized PASS with no blocking findings and complete coverage (both are required when the surface is rendered and the capability exists).
+- Both applicable independent reviewer assessments support the parent's normalized PASS with no blocking findings and complete coverage (both are required when the surface is rendered and the capability exists). Any required Step 5 assessments also support completion.
 - Both reviewers judged the complete FRESH applicable capture set from Step 2 - no stale artifacts, no skipped pages.
 - Every applicable state/flow case has executed evidence supporting PASS; tracing, a stubbed success or a missing required capture cannot satisfy the gate.
 - Every CJK and layout defect is resolved in the rendered output, not merely noted; taste-only suggestions do not trigger this gate.
@@ -367,6 +372,8 @@ Allow at most 3 repair/review rounds across this entire visual gate, including S
 
 Captured: {actual applicable matrix and coverage}, bound to {build/input identity}. Pages/states: {ids}. Required blocked rows: {rows or none}.
 Ran on: {real client build, test or real backend/data and any injected conditions}. State cases: {executed/unverified case IDs, or why not applicable}.
+Reviews: {applicable independent assessments, including any required source review; findings and evidence or gaps}.
+Page/state verdicts: {each required page/state, verdict, capture paths and outstanding checks}.
 
 | Item | Verdict | Capture | Finding |
 |---|---|---|---|
@@ -384,7 +391,7 @@ Ran on: {real client build, test or real backend/data and any injected condition
 [Blocking items, each with location and fix, in priority order]
 
 ## Not verified
-[Each checklist item/case still missing proof, why, who can verify it, and NEEDS WORK or NEEDS HUMAN REVIEW. Keep traces separate.]
+[Each checklist item/case, page/state or dimension still missing proof, even when it also has a confirmed failure. State why, who can verify it, and NEEDS WORK or NEEDS HUMAN REVIEW. Keep source traces separate.]
 
 ## Good, keep it
 [Correct aspects that must not regress]

@@ -288,8 +288,7 @@ export function requestToolView(payload: unknown, api: string, enabled: readonly
 		? /^Session tool names: ([^\r\n]+)\.$/m.exec(cell.description)?.[1]?.split(", ") : undefined;
 	return enabled.flatMap(tool => {
 		if (tool.name === "eval") return parameters ? [{ ...tool, parameters }] : [];
-		if (direct.has(tool.name)) return [tool];
-		if (parameters && catalog?.includes(tool.name)) return [{ ...tool, bridgeOnly: true }];
+		if (direct.has(tool.name) || (parameters && catalog?.includes(tool.name))) return [tool];
 		return [];
 	});
 }

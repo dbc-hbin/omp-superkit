@@ -190,9 +190,7 @@
             },
             "else": {
               "not": { "required": ["behaviour"] },
-              "if": { "properties": { "verdict": { "const": "UNVERIFIED" } } },
-              "then": { "required": ["gap"] },
-              "else": { "not": { "required": ["gap"] } }
+              "allOf": [{ "$ref": "#/definitions/captureGapByVerdict" }]
             }
           },
           {
@@ -265,9 +263,8 @@
     },
     "blocking": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "description": "Unresolved review blockers, including findings outside the checklist. Confirmed defects require work.",
+      "items": { "$ref": "#/definitions/verificationGap" }
     },
     "artifacts": {
       "type": "array",
@@ -299,6 +296,13 @@
     }
   },
   "definitions": {
+    "captureGapByVerdict": {
+      "oneOf": [
+        { "properties": { "verdict": { "const": "FAIL" } } },
+        { "properties": { "verdict": { "const": "UNVERIFIED" } }, "required": ["gap"] },
+        { "properties": { "verdict": { "enum": ["PASS", "N/A"] } }, "not": { "required": ["gap"] } }
+      ]
+    },
     "passingChecklist": {
       "items": { "properties": { "verdict": { "enum": ["PASS", "N/A"] } } }
     },

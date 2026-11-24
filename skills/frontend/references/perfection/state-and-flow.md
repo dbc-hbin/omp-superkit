@@ -30,7 +30,7 @@ These rows illustrate a read/save path; pick the states that actually apply. Che
 ## Route responses and effects to the right owner
 
 - Apply a response only to its target and request generation; key caches by the target. An earlier response must not overwrite newer data or open a dialog or report an error for the target the user left.
-- Guard the action in the handler, not just visually, so repeated activation while pending does not duplicate the effect. A retry after refusal sends a new request.
+- Guard the action in the handler, not just visually, so repeated activation while pending does not duplicate the effect. An applicable retry sends a new request only after the original request definitively failed.
 - Cancellation is not undo. If an abort, timeout or lost response leaves the write outcome uncertain, reconcile through the owning read or equivalent source of truth before claiming either outcome. An optimistic rollback restores only the value that write replaced, not a later edit or confirmed value.
 - Define what happens if the user leaves mid-write. On return, show the completed result or clearly report that it did not complete or is still unresolved; do not silently lose work.
 

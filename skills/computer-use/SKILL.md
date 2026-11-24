@@ -107,9 +107,14 @@ effect and AX cannot perform the action, report that the window needs to be in f
 
 When the live contract instead offers `{ takeover: true }`, use it only after
 a screenshot confirms the background call had no effect and AX cannot do it.
-A call OMP says it reran in the foreground was already delivered: inspect the
-result, don't send it twice. A refusal is final. Do not change settings, raise
-a window, launch an app in front, or use desktop-root input to work around it.
+When OMP reports it reran a call in the foreground, don't send it again
+blindly. On Windows, takeover typing reported as **sent** means the input was
+posted but was not seen read by the target. Even **delivered** is not proof
+of the requested UI effect. Verify the expected state with fresh AX or pixels
+under the covered-window rules above; if no current view is available, report
+what could not be confirmed rather than retrying. A refusal is final. Do not
+change settings, raise a window, launch an app in front, or use desktop-root
+input to work around it.
 
 Acquire task-scoped foreground control through `computer.control.acquire`
 only when the step requires it and the host permits it. Only a live human

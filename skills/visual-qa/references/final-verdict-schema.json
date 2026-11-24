@@ -24,10 +24,12 @@
             "type": "array",
             "items": { "type": "string" }
           },
-          "reason": { "type": "string" }
+          "reason": { "type": "string" },
+          "gap": { "$ref": "verdict-schema.json#/definitions/verificationGap" }
         },
         "required": ["name", "verdict", "evidence", "reason"],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [{ "$ref": "verdict-schema.json#/definitions/captureGapByVerdict" }]
       }
     },
     "reviews": {
@@ -51,7 +53,8 @@
     },
     "prerequisites": {
       "type": "array",
-      "items": { "type": "string" }
+      "description": "Outstanding external prerequisites, such as access to a required device or reviewer.",
+      "items": { "type": "string", "minLength": 1 }
     },
     "pageVerdicts": {
       "type": "array",
@@ -66,11 +69,21 @@
           },
           "gaps": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": { "$ref": "verdict-schema.json#/definitions/verificationGap" }
           }
         },
         "required": ["pageId", "verdict", "captures", "gaps"],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": { "properties": { "verdict": { "const": "PASS" } } },
+            "then": { "properties": { "gaps": { "maxItems": 0 } } }
+          },
+          {
+            "if": { "properties": { "verdict": { "const": "UNVERIFIED" } } },
+            "then": { "properties": { "gaps": { "minItems": 1 } } }
+          }
+        ]
       }
     }
   },
@@ -98,6 +111,7 @@
           "dimensions": { "items": { "properties": { "verdict": { "enum": ["PASS", "N/A"] } } } },
           "reviews": { "items": { "properties": { "verdict": { "const": "PASS" } } } },
           "mustFix": { "maxItems": 0 },
+          "prerequisites": { "maxItems": 0 },
           "completionGate": {
             "properties": { "satisfied": { "const": true }, "gaps": { "maxItems": 0 } }
           },
@@ -109,37 +123,78 @@
     {
       "if": { "properties": { "verdict": { "const": "NEEDS HUMAN REVIEW" } } },
       "then": {
-        "not": { "$ref": "#/definitions/hasOpenWork" },
+        "anyOf": [
+          { "properties": { "prerequisites": { "minItems": 1 } } },
+          { "properties": { "checklist": { "$ref": "#/definitions/hasUnverified" } } },
+          { "properties": { "dimensions": { "$ref": "#/definitions/hasUnverified" } } },
+          { "properties": { "pageVerdicts": { "$ref": "#/definitions/hasUnverified" } } },
+          {
+            "properties": { "reviews": { "contains": { "anyOf": [
+              { "properties": { "checklist": { "$ref": "#/definitions/hasUnverified" } } },
+              { "properties": { "blocking": { "minItems": 1 } } }
+            ] } } }
+          }
+        ],
         "properties": { "completionGate": { "properties": { "gaps": { "minItems": 1 } } } }
       }
+    },
+    {
+      "if": { "$ref": "#/definitions/hasOpenWork" },
+      "then": { "properties": { "verdict": { "const": "NEEDS WORK" } } },
+      "else": { "properties": { "verdict": { "enum": ["GOOD", "NEEDS HUMAN REVIEW"] } } }
     }
   ],
   "definitions": {
-    "requiresWork": {
-      "required": ["gap"],
-      "properties": { "gap": { "properties": { "resolution": { "const": "NEEDS WORK" } } } }
+    "hasUnverified": {
+      "contains": { "properties": { "verdict": { "const": "UNVERIFIED" } } }
+    },
+    "actionableGap": {
+      "properties": { "resolution": { "const": "NEEDS WORK" } },
+      "required": ["resolution"]
+    },
+    "failedOrActionable": {
+      "anyOf": [
+        { "properties": { "verdict": { "const": "FAIL" } }, "required": ["verdict"] },
+        { "properties": { "gap": { "$ref": "#/definitions/actionableGap" } }, "required": ["gap"] }
+      ]
+    },
+    "checklistWithOpenWork": {
+      "contains": {
+        "anyOf": [
+          { "$ref": "#/definitions/failedOrActionable" },
+          {
+            "required": ["behaviour"],
+            "properties": { "behaviour": { "contains": { "$ref": "#/definitions/failedOrActionable" } } }
+          }
+        ]
+      }
     },
     "hasOpenWork": {
       "anyOf": [
         { "properties": { "mustFix": { "minItems": 1 } } },
+        { "properties": { "checklist": { "$ref": "#/definitions/checklistWithOpenWork" } } },
         {
           "properties": {
-            "checklist": {
+            "reviews": {
               "contains": {
                 "anyOf": [
-                  { "properties": { "verdict": { "const": "FAIL" } } },
-                  { "$ref": "#/definitions/requiresWork" },
-                  {
-                    "required": ["behaviour"],
-                    "properties": { "behaviour": { "contains": { "$ref": "#/definitions/requiresWork" } } }
-                  }
+                  { "$ref": "#/definitions/failedOrActionable" },
+                  { "properties": { "blocking": { "contains": { "$ref": "#/definitions/actionableGap" } } } },
+                  { "properties": { "checklist": { "$ref": "#/definitions/checklistWithOpenWork" } } }
                 ]
               }
             }
           }
         },
-        { "properties": { "dimensions": { "contains": { "properties": { "verdict": { "const": "FAIL" } } } } } },
-        { "properties": { "pageVerdicts": { "contains": { "properties": { "verdict": { "const": "FAIL" } } } } } }
+        { "properties": { "dimensions": { "contains": { "$ref": "#/definitions/failedOrActionable" } } } },
+        {
+          "properties": {
+            "pageVerdicts": { "contains": { "anyOf": [
+              { "properties": { "verdict": { "const": "FAIL" } } },
+              { "properties": { "gaps": { "contains": { "$ref": "#/definitions/actionableGap" } } } }
+            ] } }
+          }
+        }
       ]
     }
   }
