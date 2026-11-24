@@ -99,10 +99,17 @@ which document appeared. Resolve the original ID with
 
 ## Background and foreground control
 
-Window input normally stays in the background. Do not use `raise`, activating
-launches or desktop-root input merely to make an action work. Native fallback
-and the user's takeover setting remain authoritative; inspect any result that
-reports foreground delivery or restored focus.
+Use the input contract shown in this session's Eval description or
+`help://eval/computer`. In `computer.takeover` modes `foreground` and `always`,
+OMP decides when input takes over. Omit the `takeover` option entirely: passing
+it rejects the call without sending input. If background delivery has no
+effect and AX cannot perform the action, report that the window needs to be in front.
+
+When the live contract instead offers `{ takeover: true }`, use it only after
+a screenshot confirms the background call had no effect and AX cannot do it.
+A call OMP says it reran in the foreground was already delivered: inspect the
+result, don't send it twice. A refusal is final. Do not change settings, raise
+a window, launch an app in front, or use desktop-root input to work around it.
 
 Acquire task-scoped foreground control through `computer.control.acquire`
 only when the step requires it and the host permits it. Only a live human

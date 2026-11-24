@@ -4,7 +4,7 @@ This OMP extension redistributes the reference assets below under their original
 licenses. Each upstream's license and required notices are reproduced below.
 Modifications to the original files are noted where applicable.
 
-These third-party references are NOT committed to this repository. Each upstream is
+The materialized third-party references are NOT committed to this repository. Each upstream is
 tracked as a pinned git submodule under `upstream/skills/<name>`. Run
 `bun upstream/materialize-frontend-refs.mjs` after initializing the recorded submodules.
 The generator writes the existing runtime paths in this skill's `references/` tree.
@@ -303,6 +303,17 @@ the layout verification matrix and `tests/pattern-runtime.spec.mjs` of StyleGall
 - Adapted from upstream commit: 0bf928f6269b1cb6cf24f04e0bf28a8ce2bbc0ff
 - Code licensed under the MIT License (Copyright (c) 2026 IYEN); documentation under
   CC BY 4.0.
+
+## OMP port modifications (2026-11-24)
+
+The scoped state table and its visual QA handoff adapt [OMO v5.1.83 frontend](https://github.com/code-yeongyu/oh-my-openagent/blob/69a1863a457da06fb64ae788e335bf272f1df406/packages/shared-skills/skills/frontend/SKILL.md)
+and the [pinned state-and-flow reference](https://github.com/code-yeongyu/oh-my-openagent/blob/69a1863a457da06fb64ae788e335bf272f1df406/packages/shared-skills/skills/frontend/references/perfection/state-and-flow.md).
+The modified OMP reference is tracked at `references/perfection/state-and-flow.md`; it is not a generated reference.
+It limits the table to affected paths, leaves copy and styling changes under the existing rendered
+QA scope, and routes runtime evidence through the actual web or native surface.
+The repository-original upstream prose is under [OMO's pinned Sustainable Use License 1.0](https://github.com/code-yeongyu/oh-my-openagent/blob/69a1863a457da06fb64ae788e335bf272f1df406/LICENSE.md);
+the complete matching [terms are included in the skills package](../browser/LICENSE.md).
+Keep those terms with this adaptation if distributing the skill separately.
 
 ## OMP port modifications (2026-11-11)
 

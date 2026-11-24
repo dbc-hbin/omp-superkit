@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-24 OMP 도구 계약과 UI 상태 전이 검증
+
+- [OMP 19.1.1의 세션 집계 방식](https://github.com/can1357/oh-my-pi/blob/v19.1.1/packages/coding-agent/src/session/session-stats.ts)에 맞춰 blocking 자식의 사용량을 포함해야 할 때는 직접 노출된 `task`를 사용합니다. 특정 작업 경로가 필요한 bash 호출에는 각각 `cwd`를 지정하고, 데스크톱 입력의 전경 전환은 현재 세션의 계약을 따릅니다.
+- [OMO v5.1.83의 상태 전이 검증](https://github.com/code-yeongyu/oh-my-openagent/blob/v5.1.83/packages/shared-skills/skills/visual-qa/references/behaviour-evidence.md)을 반영합니다. 실제 UI 변경은 programming에서 frontend와 visual-qa로 연결합니다. 요청·저장·다단계 흐름이 바뀌면 상태표를 H12–H19 검증에 전달하고 관찰하지 못한 동작은 통과시키지 않습니다. 스타일만 바꾸는 경우에는 실제 렌더만 확인하고 상태 전이표까지 요구하지 않습니다.
+
 ### 2026-11-24 SUPER 스킬 경로
 
 - 배포 스킬 ID와 구현 디렉터리를 여섯 SUPER 명령과 일치시켰습니다. 기존 프롬프트 이름, 스킬 ID, 참조 경로와 문서에 안내된 Node 스크립트 경로도 같은 구현을 계속 사용합니다.

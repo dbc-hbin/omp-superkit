@@ -28,7 +28,8 @@ Resolve relative reference and script paths from this skill's directory, not the
    | `.go`, `go.mod`, `go.sum`, `.golangci.yml`, `*.proto` next to a Go module, "Go" / "Golang" | `references/go/README.md` + every file under `references/go/` that the README tells you to load on demand |
    | any test file (`*.test.*`, `*.spec.*`, `*_test.go`, `test_*.py`, `*_test.py`, under `test/`, `tests/` or `__tests__/`), or a change that adds, reshapes, or deletes a test | the language row above PLUS `references/testing/README.md` (the authoring gate) and `references/testing/junk-classes.md` (the table the gate reviewer applies) |
 
-3. Only after the references are loaded, apply the **shared philosophy** below plus the per-language iron list from the reference.
+3. **If the work changes an actual rendered web or native UI** (including visible copy, layout, accessibility or user-facing behavior), also load `skill://frontend` before the UI edit. Keep the matching language and test gates; `frontend` selects the real platform workflow and hands off to `skill://visual-qa`. A `.tsx` or `.ts` suffix, code sharing a UI folder, or a refactor that preserves the rendered behavior is not a design brief. Static UI changes still need real rendered QA but no async state table. Terminal UIs use their terminal workflow and `skill://visual-qa`, not web design rules.
+4. Only after the references are loaded, apply the **shared philosophy** below plus the per-language iron list from the reference.
 
 **No exceptions for "small" or "one-off" code.** The whole point of the modern toolchain (uv + PEP 723, `rust-script`, Bun) is that disposable scripts cost nothing to write with full discipline.
 
@@ -337,3 +338,5 @@ These two skills are not optional cosmetics. They are the recovery path for the 
 This skill activates whenever you are writing or modifying any `.py`, `.pyi`, `.rs`, `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.go` file, any test or spec file in those languages, or any project manifest (`pyproject.toml`, `Cargo.toml`, `package.json`, `tsconfig.json`, `.oxlintrc.json`, `.oxfmtrc.json`, `go.mod`, `go.sum`, `.golangci.yml`, `Taskfile.yml`, `buf.yaml`, `sqlc.yaml`). **Even one-off scripts get the full treatment** - that is the whole point of `uv run` + PEP 723, `rust-script`, `bun run`, and `go run` + `//go:build ignore`: production hygiene with throwaway ergonomics.
 
 The references contain the recipes. **Read them before writing code. Re-read them when the model drifts.** The post-write review loop is non-negotiable.
+
+Modified for OMP: the rendered-UI routing in Phase 0 adapts [OMO v5.1.83 programming](https://github.com/code-yeongyu/oh-my-openagent/blob/69a1863a457da06fb64ae788e335bf272f1df406/packages/shared-skills/skills/programming/SKILL.md). The upstream [Sustainable Use License 1.0 terms](../browser/LICENSE.md) are included in this distribution.

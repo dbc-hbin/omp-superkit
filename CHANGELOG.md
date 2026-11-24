@@ -2,6 +2,11 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-24 OMP tool contracts and UI state verification
+
+- Follow [OMP 19.1.1 session accounting](https://github.com/can1357/oh-my-pi/blob/v19.1.1/packages/coding-agent/src/session/session-stats.ts): when a blocking child's usage must count, use the direct `task` if offered. Set `cwd` on each bash call that needs a particular directory; follow the current computer input contract rather than assuming the caller decides takeover.
+- Adapt [OMO v5.1.83 state and flow verification](https://github.com/code-yeongyu/oh-my-openagent/blob/v5.1.83/packages/shared-skills/skills/visual-qa/references/behaviour-evidence.md). Programming routes rendered UI changes to frontend and visual QA; changes to requests, persistence or multi-step flows carry a state table into H12–H19. Unobserved behavior is not a pass. Styling-only work still needs rendering, not a state-transition matrix.
+
 ### 2026-11-24 Canonical SUPER skills
 
 - The shipped skill IDs and implementation directories now match the six SUPER commands. Existing prompt names, skill IDs, reference paths and documented Node script paths still resolve to the canonical implementations.

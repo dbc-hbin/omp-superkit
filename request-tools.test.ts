@@ -98,9 +98,10 @@ describe("requestToolView", () => {
 			tools: [evalTool, devinTool("task", taskDescription)],
 		};
 		const native = { ...evalInfo, parameters: wireSchema };
+		const bridgeRead = { ...read, bridgeOnly: true } as const;
 		for (const [choice, expected] of [
-			[devinChoice({ case: "optionName", value: "auto" }), [native, task, read]],
-			[undefined, [native, task, read]],
+			[devinChoice({ case: "optionName", value: "auto" }), [native, task, bridgeRead]],
+			[undefined, [native, task, bridgeRead]],
 			[devinChoice({ case: "toolName", value: "task" }), [task]],
 			[devinChoice({ case: "toolName", value: "eval" }), [native]],
 			[devinChoice({ case: "toolName", value: "notDeclared" }), []],
@@ -128,7 +129,9 @@ describe("requestToolView", () => {
 		const tools = [chat({ ...cell, description }), chat(todo)];
 		const payload = { tools };
 		const nativeCell = { name: "eval", parameters: wireSchema };
-		expect(requestToolView(payload, "openai-completions", enabled)).toEqual([nativeCell, task, bash, read, todo]);
+		expect(requestToolView(payload, "openai-completions", enabled)).toEqual([
+			nativeCell, { ...task, bridgeOnly: true }, { ...bash, bridgeOnly: true }, { ...read, bridgeOnly: true }, todo,
+		]);
 		expect(requestToolView(payload, "openai-completions", [task, bash, read, todo])).toEqual([todo]);
 		const forcedEval = { ...payload, tool_choice: { type: "function", function: { name: "eval" } } };
 		expect(requestToolView(forcedEval, "openai-completions", enabled)).toEqual([nativeCell]);

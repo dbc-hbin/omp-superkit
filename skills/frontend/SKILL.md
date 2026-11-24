@@ -1,6 +1,6 @@
 ---
 name: frontend
-description: "Builds, styles, and polishes web UI and UX, HTML/CSS/SVG reports, figures and diagrams, slides, and print artifacts. Use for frontend, page, component, styling, layout, animation, or visual-quality work, or when asked to make a visual artifact look or feel a certain way; not for plain-prose reports."
+description: "Builds, styles, and polishes web and native UI, HTML/CSS/SVG reports, figures and diagrams, slides, and print artifacts. Use for rendered UI, styling, layout, animation, UI state or flows, and visual-quality work; not for pure logic or plain-prose reports."
 ---
 
 # Frontend
@@ -25,6 +25,8 @@ Consult [the OMP contract](skill://super-loop/references/omp-contract.md) only f
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
+The state-and-flow brief and visual QA handoff below apply to changed behavior on the real surface, including native UI. They do not bring web-only design, build or audit requirements into a native project.
+
 Read `references/runtime.md` before browser, image generation or audit setup, including delegation of those operations. Interactive web work loads `skill://browser` for the native Eval prelude under active host routing; static URLs use `read`, native surfaces use `skill://computer-use`. Generated concepts use the actual `generate_image` schema, never provider-specific flags. Load `references/design/component-catalogs.md` when interaction/ambience anchors have no fit or a project registry/tone calls for it. All embedded third-party files are reference material, not callable skills or agent types.
 
 ## Phase 0 — Route (before any UI work)
@@ -40,6 +42,7 @@ Read `references/runtime.md` before browser, image generation or audit setup, in
 | An explicit performance/audit request, OR writing code where the project already has an audit gate | ALSO `references/perfection/README.md`. Lighthouse guidance is conditional on that audit scope and uses real Playwright Chromium (never the `lighthouse` CLI); ordinary implementation still retains accessibility and behavior checks. |
 | Writing or modifying web frontend code (HTML/CSS/JSX/Vue/Svelte/Astro) | ALSO `references/perfection/craft-floor.md` (computed-value floors for browser surfaces, type and spacing) and `references/perfection/detect.md` (the rendered-page lint run before `/visual-qa`). Native surfaces skip both. |
 | A new screen or flow, a redesign ("this looks bad", "make it better"), or design-system creation or rework | ALSO `references/design/grounding.md` FIRST: guideline source read in full, ideal state, gap ledger (see "Ground, build floors, detect and WCAG" below). |
+| A change to a user-visible read, write, precondition, saved or restored state, or multi-step flow | ALSO `references/perfection/state-and-flow.md` before implementing the changed path. Write the scoped state table below. Copy, color or spacing alone still needs rendered QA, not a state table. |
 | Looking up a concrete style, palette, font pairing, chart type, landing structure, or UX guideline — or generating a design system from keywords | `references/ui-ux-db/README.md`. A searchable CSV database with a CLI: a lookup tool, not a posture. `design` stays the source of truth for taste and the `DESIGN.md` contract. |
 | ANY implementation or redesign that creates or updates `DESIGN.md` — plus explicit operating-layer asks (personas, critique, debt, handoff, synthetic user testing) | `references/designpowers/README.md` + `references/designpowers/lane-c-review.md`. lane-c is the Phase Final flatness/critique reviewer and fills the accessibility-constraint and accepted-debt sections `DESIGN.md` requires. Load other lanes only when their phase applies. |
 
@@ -48,6 +51,12 @@ Read `references/runtime.md` before browser, image generation or audit setup, in
 **Draft guard:** before adding a decorative or state accent stripe to a rounded surface, prefer a tonal surface, accent-ink heading/eyebrow, glyph, or spacing; selection can use ink-alpha washes. This includes one-sided borders, pseudo-element bars, inset-shadow stripes, gradient `border-image`, and thin hard-stop gradient bands. The user's explicit reference and established project design language take precedence over this default; preserve visible keyboard focus, validation cues, neutral hairlines, and table rules.
 
 Before adding decorative badges, stat tiles that do not help a decision, or subtitles that repeat a heading, check whether they serve the user's task; omit unnecessary additions rather than filling space. Never invent testimonials or customer counts. Subtraction must preserve required inputs, data, and copy. This is a guard on the draft, not permission to remove existing content or override an explicit reference or established design language.
+
+## State-and-flow brief
+
+Before changing a stateful path, describe the expected behavior with one row per reachable state or transition outcome on that path. Include the deciding fact, what the user sees, the next action, requests or effects, what must not show or run, and what ends the state. For each affected transition, name what stays (such as input, selection, focus or scroll) and what clears. Follow `references/perfection/state-and-flow.md` for the table and the applicable cases, including pending and failed reads separately from a confirmed empty result. Keep it beside the screen in `DESIGN.md` section 5 if it is already the implementation contract, or in the change description or existing implementation brief otherwise. Do not create `DESIGN.md` or broaden the design scope just to record the table.
+
+For changed existing UI, load `skill://visual-qa` before editing and capture the scoped baseline when available. Record the missing baseline if unavailable; do not reconstruct it later and call it a before capture. Apply the same visual QA entrypoint to static UI changes without requiring unrelated state or flow cases.
 
 ## Ground, build floors, detect and WCAG
 
@@ -68,8 +77,8 @@ Set `SKILL_DIR` to the observed absolute directory containing this `SKILL.md` (r
 
 ## Design System and Component Workflow
 
-Except for the simple-artifact route above, every implementation must choose one of these
-branches before UI code changes:
+Except for the simple-artifact and native routes above, every implementation must
+choose one of these branches before UI code changes.
 
 1. **Concrete visual reference:** the user supplied a reference — treat it as the visual contract, then handle it by kind:
    - **Static visual reference** (screenshot, generated mockup, Stitch/Imagen output, Figma export, overview, or annotated packet): load `references/design/image-to-code-skill.md` plus the relevant design/perfection files, extract the reference's exact tokens, layout geometry, copy, spacing, states, and responsive intent into `DESIGN.md`, then implement reusable primitives against that contract.
@@ -84,7 +93,13 @@ branches before UI code changes:
 3. **Existing project with `DESIGN.md` or a component system:** read it, follow it, and update it before implementation only when the requested work needs a new token, primitive, state, motion rule, accessibility constraint, accepted debt, or reference-fidelity requirement. Existing rendered UI evidence is sufficient to establish taste direction for ordinary work.
 4. **Existing project with UI but no `DESIGN.md` and no reusable component layer:** preserve the current look with copy-nearby styling for ordinary work. Ask about extracting a real `DESIGN.md` plus reusable components only when the user explicitly requests a design system, greenfield/high-craft refactor, or the change genuinely requires new shared primitives.
 
-When the scoped design-system gate applies, the resulting `DESIGN.md` is the implementation contract: tokens, typography, spacing, primitives, motion, responsive behavior, accessibility constraints, and accepted debt must be named there before code uses them. For ordinary work, the existing UI/component patterns are the contract. In all cases, verify rendered screens with real visual QA evidence and retain accessibility/behavior checks.
+When the scoped design-system gate applies, the resulting `DESIGN.md` is the implementation contract: tokens, typography, spacing, primitives, motion, responsive behavior, accessibility constraints, and accepted debt must be named there before code uses them. For ordinary work, the existing UI/component patterns are the contract.
+
+## Visual QA handoff
+
+Hand `skill://visual-qa` the actual render target, the scoped surface list (including consumers of changed shared UI), the intended change and applicable design or fidelity reference, and any matched before captures. For stateful changes, include the state table, the expected transitions and preserve/clear assertions, and the available authorized data and ways to reach the cases. The [behavior evidence guide](skill://visual-qa/references/behaviour-evidence.md) owns executed checks H12–H19. Source tracing can explain a cause but cannot prove what the user sees. Report an applicable case that could not be run or observed as UNVERIFIED with the reason; use N/A only for an inapplicable case. For static-only changes, note that no state or flow changed and still verify the real render.
+
+Retain visual QA's applicable capture matrix, accessibility and behavior checks, approval boundaries, and independent assessment. Pass consequential design decisions, evidence and unresolved debt to `skill://review-work` for significant work; it does not replace visual QA.
 
 ## Ruleset 1 — design (`references/design/`)
 
@@ -129,6 +144,7 @@ When the user names a brand or site — "Linear-style", "like Stripe's landing",
 |---|---|
 | `README.md` | Explicit high-craft implementation, performance/audit work, or implementation subject to an existing project audit gate. Loading it for design guidance does not itself require Lighthouse. Carries real-browser audit guidance, explicit-audit score targets, architectural fixes, UX preservation, and audit reporting. |
 | `react-perf-tooling.md` | Before ANY React audit. The Playwright + `playwright-lighthouse` + `react-scan/lite` injection recipe, per-route render budgets, and the React-specific root-cause checklist. Lighthouse 100 with 30+ unnecessary renders is NOT done. |
+| `state-and-flow.md` | Before changing a path's user-visible reads, writes, preconditions, persisted/restored state or multi-step flow. The table and implementation rules apply on the actual platform; this does not trigger an audit. |
 | `craft-floor.md` | Writing or modifying web frontend code: computed-value floors for browser surfaces, type scale, heading spacing, group separation, measure and tracking, plus the first-draft patterns kept out. |
 | `detect.md` | After a web draft renders and before `/visual-qa`: the bundled detect SDK and CLI, its config, waivers, and how to read errors, warnings and advisories. |
 
@@ -181,7 +197,7 @@ Apply Phase 0 scope to these shortcuts: `perfection/README.md` loads for explici
 - **Avoid default accent stripes on rounded surfaces**, decorative or state-bearing, including one-sided borders, pseudo-element bars, inset-shadow stripes, gradient `border-image`, and thin hard-stop gradient bands. Prefer tonal surfaces, ink-alpha state washes, glyphs, accent-ink headings, or spacing. Explicit user references and established project design language take precedence; do not sweep out existing styling merely for this preference. Preserve keyboard `focus-visible` indicators, validation cues, neutral hairlines, and table rules; a card nested inside a table is not itself a table rule.
 - **GPU-composited animation only** — `transform`, `opacity`, `filter`; never animate layout properties.
 - **Slop animation is forbidden — motion serves meaning.** Every animation or hover must map to a real interaction, state change, or affordance. A hover that changes nothing, motion on a non-interactive element, or a decorative micro-animation with no informational purpose is slop — do not add it.
-- **Done is the `/visual-qa` gate, not your own glance.** A frontend design task is verified through `/visual-qa` - its HIG-based checklist, its capture matrix (every page and every sibling surface, phone and desktop, light and dark, scrolled-end, motion driven and inspected) and its dual-oracle completion gate on fresh evidence. This skill does not keep its own list of visual checks; the verifier owns it.
+- **Done is the `visual-qa` gate, not your own glance.** The verifier owns its HIG-based checklist, the applicable capture matrix across all affected surfaces, and the dual-oracle completion gate on fresh evidence. The state table supplies expected behavior, not a second checklist or a larger visual matrix.
 
 ## When to load something else instead
 

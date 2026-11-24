@@ -83,6 +83,8 @@ Record URL/page/state, CSS viewport, screenshot pixel dimensions, DPR, theme, to
 
 ## Console, network and action evidence
 
+For scoped Held, Failed, Switch and other state/flow cases, use [behaviour evidence](behaviour-evidence.md). Record the real control, observed request/effect and state before, during and after the action. Route changes and fixture responses must stay in an authorized test boundary; this reference does not authorize altering a borrowed session or its application state.
+
 Collect scenario-scoped console/error entries and
 `await qa.requests({filter:relevantUrlPattern})` around the changed scenario. In OMP 19.1,
 `console()`/`errors()` return `{entries,nextSeq,dropped}`, not arrays; use `.entries` (Python:

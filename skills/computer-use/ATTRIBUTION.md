@@ -18,6 +18,8 @@ The live reference body comes from OMP, rather than a second copied API manual:
   `help://eval/computer` topic, covered Windows reads and current verification rules.
 - [OMP 19.1.0 computer-use documentation](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/docs/computer-use.md):
   exact minimized macOS window reads, inspection-only refs, menu unavailability and restoration.
+- [OMP 19.1.1 input delivery contract](https://github.com/can1357/oh-my-pi/blob/v19.1.1/packages/coding-agent/src/prompts/tools/computer.md):
+  distinguish OMP-selected takeover from helpers that expose an explicit input option.
 
 The secure-input, macOS/X11 intervention and window-state guidance are adapted under
 [OMP's MIT license](https://github.com/can1357/oh-my-pi/blob/v18.20.0/LICENSE),

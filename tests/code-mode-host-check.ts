@@ -365,7 +365,8 @@ try {
       assert.equal(languageSchema.includes('"js"'), onlyKernel !== "py", "native JS availability");
       assert.equal(languageSchema.includes('"py"'), onlyKernel !== "js", "native Python availability");
       assert.deepEqual([...instructions.matchAll(/language="(py|js)"/g)].map(match => match[1]), onlyKernel ? [onlyKernel] : ["js", "py"]);
-      assert.match(instructions, /\bawait\s+tool\.task\s*\(/, `${current.name}: task orchestration must stay inside eval`);
+      assert.match(instructions, /\bawait\s+tool\.task\s*\(/, `${current.name}: ordinary worker dispatch uses the Eval bridge`);
+      assert.match(instructions, /blocking child.*goal budget: call the top-level task/, `${current.name}: directly advertised task preserves blocking child accounting`);
       assert.match(instructions, /<name> --help/, `${current.name}: guidance must point to native command help`);
       assert.match(instructions, /propose, resolve, reject\).*direct tool when offered.*outer bash.*mounted command/, `${current.name}: both decision routes must reach OMP's outer result handler`);
       assert.match(instructions, /tool\["name"\]\(args\)/, `${current.name}: guidance must show bracket lookup`);

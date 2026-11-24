@@ -52,6 +52,18 @@ test("a tool-free side turn drops eval guidance without changing the next ordina
   expect(JSON.stringify(s.request(input))).toContain(codeMarker);
 });
 
+test("removing direct task on a retry drops its accounting route but keeps bridge dispatch", () => {
+  const s = session(native);
+  const catalog = { name: "_eval", input_schema: schema, description: "One cell per call;\nSession tool names: task." };
+  const request = { system: s.blocks[0], messages: [], tools: [catalog, ...tools.filter(tool => tool.name !== catalog.name)] };
+  const first = s.request(request);
+  expect(first).toHaveProperty("system", expect.stringContaining("top-level task"));
+  const retry = s.request({ ...request, tools: [catalog] });
+  expect(retry).toHaveProperty("system", expect.not.stringContaining("top-level task"));
+  expect(retry).toHaveProperty("system", expect.stringContaining("await tool.task("));
+  expect(retry).toHaveProperty("tools", [catalog]);
+});
+
 test.each([["custom", "custom role, keep verbatim"], ["revived", native]])("an unmarked %s role gets a separate request-local guidance block", (_kind, base) => {
   const s = session(base, true);
   // On revive OMP replays the start hook but sends the original base, not its return.

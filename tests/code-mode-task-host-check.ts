@@ -160,7 +160,7 @@ const direct = await run("direct");
 const python = await run("py");
 const javascript = await run("js");
 assert.equal(direct.tokens.total, usage.total_tokens * 3);
-// OMP 18.20.2 returns the blocking child's result but does not add nested
+// OMP 19.1.1 returns the blocking child's result but does not add nested
 // task usage to session stats. Keep this gap visible until the host fixes it.
 for (const bridged of [python, javascript]) {
   assert.equal(bridged.tokens.total, usage.total_tokens * 2);
@@ -168,7 +168,7 @@ for (const bridged of [python, javascript]) {
 }
 console.log(JSON.stringify({
   status: "PASS", assertions: ["native blocking child result returns through direct, Python eval and JavaScript eval paths"],
-  knownLimitation: "OMP 18.20.2 omits bridged blocking task usage from native session totals",
+  knownLimitation: "Bridged blocking task usage is missing from this host's session totals",
   direct: { tokens: direct.tokens.total, cost: direct.cost },
   python: { tokens: python.tokens.total, cost: python.cost },
   javascript: { tokens: javascript.tokens.total, cost: javascript.cost },

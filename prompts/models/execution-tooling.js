@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 export const EXECUTION_ORDER = "Run independent reads, searches, and lookups in parallel. Inspect every tool result. Keep edits, side effects, deploys, approvals, native waits, state-dependent shell calls, and result-dependent calls sequential; inspect each before the next. Preserve live schemas, specialized-tool routing, permissions, and job lifecycles. Keep call identities, failures, tool-reported errors, and missing or truncated results visible in the evidence.";
-export const SHELL_STATE = "## OMP shell execution\n\nSequence bash calls that depend on shell state; overlapping calls do not provide state handoffs. When the host reports a call running in a copy of the busy session shell, it sees variables, functions, options and working directory from the last completed command boundary; changes in that copy do not persist in the original shell.";
+export const SHELL_STATE = "## OMP shell execution\n\nPass `cwd` on each bash call that needs a particular directory; do not rely on a previous `cd`. Sequence bash calls that depend on shell state; overlapping calls do not provide state handoffs. A copy of a busy session shell sees variables, functions and options from the last completed command boundary; changes in the copy do not persist in the original shell.";
 
 export function buildAsyncRules(hasBash, hasTask) {
   return "Use async by default for finite calls that expose it, and keep working on everything that does not need their pending results."
