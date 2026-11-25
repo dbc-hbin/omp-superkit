@@ -145,10 +145,10 @@ export default function ompSuper(pi: ExtensionApi): void {
     const chain = codexChain.request(payload, ctx.model, ctx.sessionManager);
     const available = requestToolView(chain?.toolView ?? payload, api, enabled);
     // Routers such as Devin may select a backend after OMP sets ctx.model.
-    // An explicitly excluded backend stays excluded even under an opaque alias.
+    // Gemini keeps the native role even when the router name is opaque.
     const id = requestModelId(payload, ctx.model.api);
     const model = id && isGeminiModel({ id }) ? { ...ctx.model, id } : ctx.model;
-    const guidance = codeModeGuidance(model, available);
+    const guidance = codeModeGuidance(available);
     chain?.observe(guidance);
     const syncGuidance = () => syncCodeModeBlock(payload, api, guidance, chain?.previousGuidance);
     if (originalBehavior === undefined || originalHost === undefined) return syncGuidance();

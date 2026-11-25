@@ -13,17 +13,15 @@ test("guidance follows the enabled eval kernel, not the provider transport", () 
 		[{ oneOf: [{ const: "js" }] }, ["js"]],
 	] as const) {
 		const tools = [evalTool(language)];
-		const guidance = codeModeGuidance(model, tools);
+		const guidance = codeModeGuidance(tools);
 		expect([...guidance.matchAll(/language="(py|js)"/g)].map(match => match[1])).toEqual([...expected]);
-		expect(codeModeGuidance({ id: "unknown-deployment" }, tools)).toBe(guidance);
-		expect(codeModeGuidance({ id: "gemini-preview" }, tools)).toBe("");
 	}
-	expect(codeModeGuidance(model, [{ name: "read" }])).toBe("");
-	expect(codeModeGuidance(model, [evalTool({ enum: ["unsupported"] })])).toBe("");
+	expect(codeModeGuidance([{ name: "read" }])).toBe("");
+	expect(codeModeGuidance([evalTool({ enum: ["unsupported"] })])).toBe("");
 });
 
 test("an unmounted approval tool stays a top-level call without bash", () => {
-	const guidance = codeModeGuidance(model, [evalTool({ enum: ["js"] }), { name: "propose" }]);
+	const guidance = codeModeGuidance([evalTool({ enum: ["js"] }), { name: "propose" }]);
 	expect(guidance).toMatch(/propose, resolve, reject\).*direct tool when offered/);
 	expect(guidance).toContain("Never dispatch a decision inside eval");
 	expect(guidance).not.toContain("tool.bash(");

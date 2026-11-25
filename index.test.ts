@@ -60,7 +60,7 @@ test("unsupported models preserve native policy and tools at turn start and afte
       if (typeof message !== "object" || message === null || !("content" in message) || typeof message.content !== "string") throw new Error("Expected system content");
       expect(message.content.split(embed.trimStart())).toHaveLength(2);
       expect(message.content.match(/<\/?omp-model-preset>/g)).toEqual(["<omp-model-preset>", "</omp-model-preset>"]);
-      expect(message.content.includes("<omp-code-mode>")).toBe(!id.startsWith("gemini-"));
+      expect(message.content).toContain("<omp-code-mode>");
       if (id === "unknown-model" || id.startsWith("gemini-")) {
         expect(message.content.slice(message.content.indexOf("\n§ Tool Policy\n"))).toBe(nativeRegion);
         expect(result.tools).toEqual(nativeTools);

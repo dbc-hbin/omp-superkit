@@ -94,17 +94,6 @@ const server = Bun.serve({
       assert.equal(body.model, turn.model);
       assert(Array.isArray(body.messages) && Array.isArray(body.tools));
       turn.calls.push(body);
-      if (turn.model === geminiModel) {
-        if (turn.calls.length === 1) {
-          assert(body.tools.some(tool => tool.function.name === "read"), "Gemini must be offered native read directly");
-          return stream({ name: "read", id: turn.evalCall, args: { path: present } });
-        }
-        assert.equal(turn.calls.length, 2, "Gemini must finish after one native tool round trip");
-        const result = body.messages.find(message => message.role === "tool" && message.tool_call_id === turn.evalCall);
-        assert(JSON.stringify(result?.content)?.includes(sentinel), "Gemini must receive the direct native read result");
-        turn.finalSent = true;
-        return stream(`CODE_MODE_COMPLETE:${turn.name}`);
-      }
       assert(turn.calls.length <= 2 + directProbeNames.length, "unexpected retry, continuation or auxiliary request");
       if (turn.calls.length === 1) {
         assert(body.tools.some(tool => tool.function.name === "eval"), "native eval must be directly callable");
@@ -302,12 +291,8 @@ try {
     ended = Promise.withResolvers<void>();
     send({ type: "prompt", id: `prompt-${index}`, message: `Code-mode deterministic host contract: ${scenario.name}.` });
     await Promise.race([ended.promise, failed.promise]);
-    if (turn.model === geminiModel) {
-      assert.equal(turn.calls.length, 2, "Gemini must complete the native read round trip");
-    } else {
-      assert.equal(readFileSync(join(cwd, `${turn.evalCall}.txt`), "utf8"), `NATIVE_PATCH:${turn.evalCall}\n`, "native patch must reach the scratch filesystem");
-      assert.equal(turn.calls.length, 2 + directProbeNames.length, `${scenario.name}: every code-mode model must complete eval and direct tool round trips`);
-    }
+    assert.equal(readFileSync(join(cwd, `${turn.evalCall}.txt`), "utf8"), `NATIVE_PATCH:${turn.evalCall}\n`, "native patch must reach the scratch filesystem");
+    assert.equal(turn.calls.length, 2 + directProbeNames.length, `${scenario.name}: every code-mode model must complete eval and direct tool round trips`);
   }
   let presetRegions = 0;
   const baseline = turns[0]!.observations.find(item => item.stage === "provider" && item.phase === "before")!;
@@ -344,20 +329,23 @@ try {
       assert.equal(regions.length, 1, `${current.name}: actual request must contain exactly one marked role`);
       const role = regions[0]![1]!;
       const guidance = [...system.matchAll(/<omp-code-mode>\n([\s\S]*?)\n<\/omp-code-mode>/g)];
-      if (current.model === geminiModel) {
-        assert.deepEqual(body.tools, original, "Gemini must retain every native tool schema and description");
-        const nativeRole = nativePrompt.split(/\n[§⁂] Runtime\n/, 1)[0]?.split(/\n[§⁂] Role\n/).at(-1);
-        assert.equal(role, nativeRole, "Gemini must receive the native role rather than a model preset");
-        assert.equal(guidance.length, 0, "Gemini must not receive Superkit code-mode guidance");
-        return;
-      }
-      presetRegions++;
       assert.equal(guidance.length, 1, `${current.name}: code-mode guidance must appear once per request`);
       const [region, instructions] = guidance[0] ?? [];
       assert(region && instructions && role.includes(region), `${current.name}: code-mode guidance belongs inside the marked role`);
-      const profile = renderPreset({ id: current.model, provider }, { surface: "app", toolNames: native.activeTools });
-      assert(profile, `${current.name}: the switched model must have a shipped profile`);
-      assert.equal(role.replace(region, "").trimEnd(), profile.prompt.trimEnd(), `${current.name}: guidance must preserve the model-specific role`);
+      const baseRole = role.replace(region, "").trimEnd();
+      if (current.model === geminiModel) {
+        assert.deepEqual(body.tools, original, "Gemini must retain every native tool schema and description");
+        const nativeRole = nativePrompt.split(/\n[§⁂] Runtime\n/, 1)[0]?.split(/\n[§⁂] Role\n/).at(-1);
+        assert.equal(baseRole, nativeRole?.trimEnd(), "Gemini must receive the native role rather than a model preset");
+      } else {
+        presetRegions++;
+        const profile = renderPreset({ id: current.model, provider }, { surface: "app", toolNames: native.activeTools });
+        assert(profile, `${current.name}: the switched model must have a shipped profile`);
+        assert.equal(baseRole, profile.prompt.trimEnd(), `${current.name}: guidance must preserve the model-specific role`);
+        // The separate model-preset guidance pass may still adapt native descriptions.
+        assert.deepEqual({ tools: body.tools }, rewriteToolGuidancePayload({ tools: original }, "openai-completions", role),
+          `${current.name}: code mode must not add a catalog or otherwise rewrite native tool descriptions`);
+      }
       const evalSchema = original.find(tool => tool.function.name === "eval")?.function.parameters;
       const properties = evalSchema?.properties;
       assert(properties && typeof properties === "object" && "language" in properties, "host must supply the native eval language schema");
@@ -365,7 +353,7 @@ try {
       assert.equal(languageSchema.includes('"js"'), onlyKernel !== "py", "native JS availability");
       assert.equal(languageSchema.includes('"py"'), onlyKernel !== "js", "native Python availability");
       assert.deepEqual([...instructions.matchAll(/language="(py|js)"/g)].map(match => match[1]), onlyKernel ? [onlyKernel] : ["js", "py"]);
-      assert.match(instructions, /\bawait\s+tool\.task\s*\(/, `${current.name}: task orchestration must stay inside eval`);
+      assert.match(instructions, /\bawait\s+tool\.task\s*\(/, `${current.name}: the async task route must be available inside eval`);
       assert.match(instructions, /<name> --help/, `${current.name}: guidance must point to native command help`);
       assert.match(instructions, /propose, resolve, reject\).*direct tool when offered.*outer bash.*mounted command/, `${current.name}: both decision routes must reach OMP's outer result handler`);
       assert.match(instructions, /tool\["name"\]\(args\)/, `${current.name}: guidance must show bracket lookup`);
@@ -374,9 +362,6 @@ try {
       for (const name of [bridgeProbe.name, mountedProbe.name]) {
         assert(!instructions.includes(name), `${current.name}: generic guidance must not enumerate ${name}`);
       }
-      // The separate model-preset guidance pass may still adapt native descriptions.
-      assert.deepEqual({ tools: body.tools }, rewriteToolGuidancePayload({ tools: original }, "openai-completions", role),
-        `${current.name}: code mode must not add a catalog or otherwise rewrite native tool descriptions`);
     });
   }
   if (failure) throw failure;
@@ -385,11 +370,11 @@ try {
     status: "PASS", requests,
     scenarios: turns.map(item => ({
       name: item.name, model: item.model,
-      mode: item.model === geminiModel ? "direct" : item.language === "js" ? "guided JS" : (onlyKernel ? "Python fallback" : "Python library"),
+      mode: item.language === "js" ? "guided JS" : (onlyKernel ? "Python fallback" : "Python library"),
       requests: item.calls.length,
     })),
     assertions: ["full index installation", "unchanged native activation before/after hooks for every model",
-      "Gemini receives the native role and original tools and runs native read directly",
+      "Gemini retains its native role and original tools and runs native read through Eval",
       "unchanged native wire roster and schemas for every request", "no code-mode catalog in role guidance or eval description",
       "kernel-aware guidance for tool calls including task; JS calls use a Bun-specific API",
       "real eval tool.read sentinel and missing-file diagnostic per code-mode model",

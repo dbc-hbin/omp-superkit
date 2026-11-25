@@ -48,11 +48,10 @@ See [skills/](skills/) for individual instructions. Cross-product session discov
 
 Superkit ships its own model profiles and applies them independently to main and supported child sessions. Specialist roles, project instructions, permissions and completion protocols remain intact. Custom templates and unsupported models retain native behavior. Explicit investigation and planning-only requests temporarily suppress prewalk; implementation requests restore only overrides owned by this extension.
 
-Gemini receives neither Superkit presets nor code-mode guidance. For other models, guidance is added only to requests that can call Eval, using the kernels that request supports. Custom roles and resumed workers keep their own instructions; tool-free side requests get no Eval guidance. OMP decides which tools are direct or discoverable; Superkit neither removes declarations nor copies schemas into a second catalog.
+Gemini keeps its native role. When a request offers Eval, Superkit recommends it for ordinary bridge calls, even for one call and even when the same tool is listed directly. Requests without Eval keep their native routes. Custom roles and resumed workers keep their own instructions. Superkit does not hide tool declarations or copy their schemas into another catalog.
 
-- Use `language="js"` by default for all bridge calls, including `task`. Use `language="py"` only for a Python library, API, or existing Python kernel state, or when JS is unavailable.
-- Call registered tools with `await tool["name"](args)` and spawn workers with `await tool.task(...)` in either kernel. For a mounted command's arguments, run `await tool.bash({"command": "<name> --help"})` in the same cell.
-- When OMP consumes the outer call's result for an approval, session control or attachment, use its direct route. For `propose`, `resolve` and `reject`, call the direct tool when offered; when mounted, use outer `bash`. Never run these decisions inside Eval. Host permissions and direct declarations are unchanged.
+- Use JavaScript by default. Use Python for Python libraries, APIs or existing kernel state, or when JS is unavailable. Call tools with `await tool["name"](args)` and use `tool.bash` to look up mounted command help.
+- Launch asynchronous workers through `tool.task`. Use direct `task` for blocking workers to preserve usage accounting. Keep Prewalk's handoff, approvals, waits, session control and attachments on their native routes. Run mounted `propose`, `resolve` and `reject` through outer `bash`, never Eval.
 - Independent reads, searches and lookups can run in parallel; mutations, approvals, waits and dependent calls remain sequential.
 
 **Code mode is model-facing guidance, not a sandbox or an execution security boundary.**

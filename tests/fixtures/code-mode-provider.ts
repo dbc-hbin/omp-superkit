@@ -2,7 +2,7 @@ import installPreset from "../../index";
 
 export const provider = "omp-code-mode-probe";
 export const geminiModel = "localGeMiNiPreview";
-// Representative model families and an unsupported Gemini model on one transport.
+// Representative model families, including Gemini with its native role, on one transport.
 export const models = ["gpt-6.1-sol", "claude-haiku-5.5", "kimi-k3", geminiModel, "grok-4.5"];
 export const directProbeNames = ["defined", "undefine", "result_attach"] as const;
 export const bridgeProbe = {

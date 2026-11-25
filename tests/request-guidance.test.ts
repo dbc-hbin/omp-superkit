@@ -77,7 +77,7 @@ test.each([["custom", "custom role, keep verbatim"], ["revived", native]])("an u
   expect(s.request(result)).toEqual(result);
 });
 
-test("a same-turn retry on a wrapped Gemini transport restores native role and removes Claude guidance", () => {
+test("a wrapped Gemini fallback preserves the native role and only guides Eval when offered", () => {
   const s = session(native);
   const first = s.request({ system: s.blocks[0], messages: [], tools }) as { system: string };
   expect(first.system).toContain(codeMarker);
@@ -87,6 +87,10 @@ test("a same-turn retry on a wrapped Gemini transport restores native role and r
   expect(retry).toHaveProperty("contents", [user]);
   expect(retry).toHaveProperty("systemInstruction.parts.0.text", expect.stringContaining("You are omp's trusted coding assistant."));
   expect(retry).toHaveProperty("systemInstruction.parts.0.text", expect.not.stringContaining(codeMarker));
+  const toolGroups = [{ functionDeclarations: defs.map(({ name, parameters }) => ({ name, parameters })) }];
+  const withEval = s.request({ ...body, tools: toolGroups }, gemini);
+  expect(withEval).toHaveProperty("tools", toolGroups);
+  expect(withEval).toHaveProperty("systemInstruction.parts.0.text", expect.stringContaining(codeMarker));
   expect(JSON.stringify(s.request({ system: s.blocks[0], messages: [], tools }))).toContain(codeMarker);
 });
 
@@ -106,7 +110,7 @@ test("a provider prefix survives the role refresh in coalesced Responses instruc
   expect(s.request(prefixed, model)).toEqual(prefixed);
 });
 
-test("Devin's assigned backend controls Gemini exclusion, not the adaptive router name", () => {
+test("Devin's Gemini backend gets code-mode guidance without replacing its native role or tool declarations", () => {
   const s = session(native);
   const router = { id: "adaptive", api: "devin-agent" };
   const input = {
@@ -115,7 +119,7 @@ test("Devin's assigned backend controls Gemini exclusion, not the adaptive route
     tools: defs.map(tool => ({ name: tool.name, jsonSchemaString: JSON.stringify(tool.parameters) })),
   };
   const retry = s.request(input, router) as typeof input;
-  expect(retry.prompt).not.toContain(codeMarker);
+  expect(retry.prompt).toContain(codeMarker);
   expect(retry.prompt).toContain("You are omp's trusted coding assistant.");
   expect(retry.tools).toBe(input.tools);
   expect(retry.chatMessagePrompts).toBe(input.chatMessagePrompts);
