@@ -7,6 +7,50 @@ import { superDirective } from "./super";
 
 type Handler = (event: never, ctx: never) => unknown;
 
+test("built-in Kiro only guides callable Eval and leaves the transcript and tool declarations intact", () => {
+  const handlers = new Map<string, Handler>();
+  const parameters = { type: "object", properties: { language: { const: "js" } } };
+  const evalTool = { name: "eval", parameters };
+  const readTool = { name: "read" };
+  let active = ["eval", "read"];
+  ompSuper({
+    setLabel: () => {}, getCommands: () => [], getActiveTools: () => active, getAllTools: () => [evalTool, readTool],
+    registerCommand: () => {}, sendUserMessage: () => {}, registerFlag: () => {},
+    getFlag: () => false, appendEntry: () => {},
+    on: (event: string, handler: Handler) => { handlers.set(event, handler); },
+  });
+  const ctx = {
+    model: { id: "claude-haiku-4.5", provider: "kiro", api: "kiro-api" },
+    agent: { kind: "main" }, sessionManager: { getSessionId: () => "local-kiro" },
+  };
+  const hook = handlers.get("before_provider_request");
+  if (!hook) throw new Error("Expected the provider hook");
+  const read = { toolSpecification: { name: "read", inputSchema: { json: { type: "object" } } } };
+  const cell = { toolSpecification: { name: "eval", inputSchema: { json: parameters } } };
+  const historicalCell = { toolSpecification: { name: "eval", inputSchema: { json: { type: "object", properties: {} } } } };
+  const history = [{ userInputMessage: { content: "Original system prompt and first user turn" } }];
+  const content = "Do not change this quoted example:\n\n<omp-code-mode>quoted user text</omp-code-mode>";
+  const request = (tools: readonly (typeof cell | typeof read)[]) => ({
+    conversationState: { history, currentMessage: { userInputMessage: { content, userInputMessageContext: { tools } } } },
+  });
+  const project = (payload: unknown) => hook({ payload } as never, ctx as never);
+  const original = request([read, cell]);
+  const projected = project(original) as typeof original;
+  const text = projected.conversationState.currentMessage.userInputMessage.content;
+  expect(text.slice(0, content.length)).toBe(content);
+  expect(text.slice(content.length)).toMatch(/^\n\n<omp-code-mode>[\s\S]+<\/omp-code-mode>$/);
+  expect({ ...projected.conversationState.currentMessage.userInputMessage, content }).toEqual(original.conversationState.currentMessage.userInputMessage);
+  expect(projected.conversationState.history).toBe(history);
+  expect(project(projected)).toBe(projected);
+
+  const missing = request([read]);
+  const placeholder = request([read, historicalCell]);
+  expect(project(missing)).toBe(missing);
+  expect(project(placeholder)).toBe(placeholder);
+  active = ["read"];
+  expect(project(original)).toBe(original);
+});
+
 test("unsupported models preserve native policy and tools at turn start and after supported-model fallback", () => {
   const embed = '  - Picture that exists (file, URL) or a web page to show? `<img src="…" alt="…">` / `<iframe src="…" title="…"></iframe>`, alone on its line; renders inline, a page live or as one screenshot, plus a link.\n    - `src`: an http(s) URL, a data: URI, or a file path relative to the working directory; `<iframe>` takes a URL or a local HTML file.';
   const base = readFileSync(new URL("./tests/fixtures/omp-system-prompt.md", import.meta.url), "utf8").replace("\n§ Runtime", `\n${embed}\n\n§ Runtime`);

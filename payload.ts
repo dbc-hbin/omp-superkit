@@ -1,5 +1,5 @@
 import { PRESET_REGION } from "./host";
-import { payloadObject, requestLayout, rewriteArray, rewriteField } from "./request-tools";
+import { payloadObject, requestLayout, rewriteArray, rewriteField, rewriteKiroCurrentInput } from "./request-tools";
 
 export { requestToolView, rewriteToolGuidancePayload } from "./request-tools";
 
@@ -168,6 +168,7 @@ export function rewritePresetPayload(payload: unknown, api: string, replacement:
 		case "bedrock":
 			next = rewriteField(body, "system", system => rewriteBlocks(system, replacement, kind === "anthropic", region));
 			break;
+		case "kiro": return payload; // Kiro joins the system prompt and user text in the same field.
 	}
 	return path ? rewriteField(root, path, () => next) : next;
 }
@@ -282,7 +283,7 @@ function syncResponsesInput(value: unknown, guidance: string): unknown {
 	return [...items.slice(0, end), responsesCodeModeItem(guidance), ...items.slice(end)];
 }
 
-/** Synchronize the one standalone fallback block without touching the model role or transcript. */
+/** Synchronize the standalone fallback block without rewriting the model role or unrelated text. */
 export function syncCodeModeBlock(payload: unknown, api: string, guidance = "", previousGuidance?: string): unknown {
 	const root = payloadObject(payload);
 	const layout = root && requestLayout(root, api);
@@ -312,6 +313,16 @@ export function syncCodeModeBlock(payload: unknown, api: string, guidance = "", 
 		case "devin":
 			// Keep the protobuf string field, even when it contained only guidance.
 			next = rewriteField(body, "prompt", prompt => syncText(prompt, guidance) ?? "");
+			break;
+		case "kiro":
+			if (!guidance) return payload;
+			// Kiro serializes the transcript afresh for each request. Only append to the live
+			// turn; a tag in the existing text might be the user's, not ours to replace.
+			next = rewriteKiroCurrentInput(body, input => rewriteField(input, "content", content => {
+				const suffix = `\n\n${guidance}`;
+				if (typeof content !== "string" || content === guidance || content.endsWith(suffix)) return content;
+				return content ? content + suffix : guidance;
+			}));
 			break;
 		case "responses":
 			if (typeof body.previous_response_id === "string" && body.previous_response_id.length > 0) {

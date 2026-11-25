@@ -3,7 +3,7 @@ import { adaptResearchRouting } from "./host";
 import { adaptToolGuidance } from "./host-guidance";
 
 type PayloadObject = Record<string, unknown>;
-type Layout = "responses" | "chat" | "anthropic" | "google" | "bedrock" | "gitlab" | "cursor" | "devin";
+type Layout = "responses" | "chat" | "anthropic" | "google" | "bedrock" | "gitlab" | "cursor" | "devin" | "kiro";
 type RequestLayout = { readonly kind: Layout; readonly body: PayloadObject; readonly path?: string };
 
 export function payloadObject(value: unknown): PayloadObject | undefined {
@@ -20,6 +20,13 @@ export function rewriteArray(value: unknown, rewrite: (item: unknown) => unknown
 	if (!Array.isArray(value)) return value;
 	const mapped = value.map(rewrite);
 	return mapped.some((item, index) => item !== value[index]) ? mapped : value;
+}
+
+export function rewriteKiroCurrentInput(state: PayloadObject, rewrite: (input: PayloadObject) => PayloadObject): PayloadObject {
+	const current = payloadObject(state.currentMessage);
+	const input = payloadObject(current?.userInputMessage);
+	if (!current || !input) return state;
+	return rewriteField(state, "currentMessage", () => rewriteField(current, "userInputMessage", () => rewrite(input)));
 }
 
 const layouts = new Map<string, Layout>([
@@ -44,6 +51,10 @@ function googleContents(body: PayloadObject): boolean {
 
 /** Providers may forward a different native envelope to the hook. Prefer its structural evidence. */
 export function requestLayout(root: PayloadObject, api: string): RequestLayout | undefined {
+	const kiro = api === "kiro-api" ? payloadObject(root.conversationState) : undefined;
+	if (kiro && payloadObject(payloadObject(kiro.currentMessage)?.userInputMessage)) {
+		return { kind: "kiro", body: kiro, path: "conversationState" };
+	}
 	const hint = layouts.get(api);
 	if ((api === "devin-agent" || root.$typeName === "exa.api_server_pb.GetChatMessageRequest") &&
 		typeof root.prompt === "string" && Array.isArray(root.chatMessagePrompts)) {
@@ -123,10 +134,15 @@ function visitTools(layout: RequestLayout, visit: ToolVisitor): PayloadObject {
 			case "anthropic": return "input_schema" in entry ? definition(entry) : tool;
 			case "google": return rewriteField(entry, "functionDeclarations", items => rewriteArray(items, item => definition(item)));
 			case "bedrock": return rewriteField(entry, "toolSpec", definition);
+			case "kiro": return rewriteField(entry, "toolSpecification", definition);
 			case "devin": return typeof entry.jsonSchemaString === "string" && entry.isCustomTool !== true ? definition(entry) : tool;
 			case "gitlab":
 			case "cursor": return tool;
 		}
+	});
+	if (kind === "kiro") return rewriteKiroCurrentInput(body, input => {
+		const context = payloadObject(input.userInputMessageContext);
+		return context ? rewriteField(input, "userInputMessageContext", () => rewriteField(context, "tools", mapDefinitions())) : input;
 	});
 	if (kind === "bedrock") return rewriteField(body, "toolConfig", value => {
 		const config = payloadObject(value);
@@ -297,7 +313,8 @@ export function requestToolView(payload: unknown, api: string, enabled: readonly
 export function rewriteToolGuidancePayload(payload: unknown, api: string, profile: string, enabled: readonly ToolInfo[] = []): unknown {
 	const root = payloadObject(payload);
 	const layout = root && requestLayout(root, api);
-	if (!root || !layout || layout.kind === "devin") return payload; // Devin's protobuf declarations are read-only.
+	// Leave Devin's protobuf declarations and Kiro's native tool declarations intact.
+	if (!root || !layout || layout.kind === "devin" || layout.kind === "kiro") return payload;
 	const resolve = wireNames(layout, api, wireTools(layout), enabled);
 	const next = visitTools(layout, definition => {
 		const name = resolve(definition.name);
