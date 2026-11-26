@@ -61,12 +61,13 @@ let watcher: FSWatcher | undefined;
 try {
   const cwd = join(root, "work");
   const sessions = join(root, "sessions");
-  const configRoot = join(root, "config");
-  const agentDir = join(configRoot, "agent");
+  const home = join(root, "home");
+  const configDirName = ".omp";
+  const agentDir = join(home, configDirName, "agent");
   for (const path of [cwd, sessions, agentDir]) mkdirSync(path, { recursive: true });
   const config = join(root, "probe.yml");
   // The scripted provider handles goal turns, not the editor's side-channel predictions.
-  writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: []\ncomposer:\n  predictions: false\ncompaction:\n  enabled: false\nstartup:\n  setupWizard: false\n  quiet: true\n");
+  writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: []\ncomposer:\n  predictions: false\ncompaction:\n  enabled: false\nmemory:\n  backend: off\nstartup:\n  setupWizard: false\n  quiet: true\n");
   watcher = watch(sessions, { recursive: true }, () => {
     try { events.emit("journal", { rows: journal() }); } catch (error) { fail(error); }
   });
@@ -130,13 +131,14 @@ try {
   child = Bun.spawn([
     "omp", "--no-extensions", "-e", join(repo, "index.ts"), "-e", join(repo, "tests/fixtures/super-goal-provider.ts"),
     "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", cwd, "--session-dir", sessions,
-    "--config", config, "--no-tools", "--no-skills", "--no-rules", "--no-title", "--no-lsp",
+    // Register only the native goal tool so the editor can activate it on entering goal mode.
+    "--config", config, "--tools", "goal", "--no-skills", "--no-rules", "--no-title", "--no-lsp", "--no-prewalk",
     "Keep this local model stream open for the terminal input regression.",
   ], {
     cwd, terminal, timeout: 65000, killSignal: "SIGKILL",
     env: {
-      ...process.env, TERM: "xterm-256color",
-      PI_CONFIG_DIR: configRoot, PI_CODING_AGENT_DIR: agentDir,
+      PATH: process.env.PATH, LANG: process.env.LANG ?? "en_US.UTF-8", TMPDIR: process.env.TMPDIR ?? tmpdir(),
+      HOME: home, USERPROFILE: home, PI_CONFIG_DIR: configDirName, PI_CODING_AGENT_DIR: agentDir, TERM: "xterm-256color",
       OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
       OMO_SUPER_GOAL_EVENTS_URL: `http://127.0.0.1:${server.port}/events`,
       OMO_SUPER_PROBE_PROVIDER: "", OMO_SUPER_PROBE_MODEL: "gpt-6.1-sol", OMO_SUPER_PROBE_CONTINUATION: "",

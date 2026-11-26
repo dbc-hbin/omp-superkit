@@ -16,11 +16,11 @@ These are deliberate project choices. Violations are always wrong, not "style pr
 | Category | Use | Never |
 |---|---|---|
 | Runtime | Bun (native TS, single binary) | ts-node, tsx |
-| Package manager | `pnpm` | npm, yarn (unless workspace requires it) |
+| Package manager | Bun (`bun install`) by default; `pnpm` when Node is required | npm, yarn (unless workspace requires it) |
 | Linter + formatter | **oxlint + oxfmt**, with both local copy rules | New ESLint, Prettier, or Biome setups; retain them only in repositories already using them |
-| Type checker | `tsc --noEmit` with strict config | skip type checking |
+| Type checker | `tsc --noEmit` with strict config, or `tsgo --noEmit` if adopted by the project | skip type checking |
 | Web framework | Hono | Express |
-| Validation | Zod | joi, yup, class-validator |
+| Validation | Zod v4 (Standard Schema) | joi, yup, class-validator |
 | Testing | `bun test` or vitest | jest |
 | ORM | Drizzle | TypeORM, Prisma (unless already in project) |
 
@@ -40,6 +40,8 @@ These are deliberate project choices. Violations are always wrong, not "style pr
 12. **import type** — type-only imports use `import type`. Enforced by `verbatimModuleSyntax`.
 13. **Named exports only** — no `export default`. Exception: framework requirement (Next.js pages, etc.).
 14. **No empty catch, no catch-and-swallow** — every `catch` block must either (a) narrow the error with `instanceof` and handle each case, or (b) re-throw. Empty catch blocks and `catch (e) { console.error(e) }` without narrowing or re-throw are banned — they hide bugs. At top-level boundaries (CLI entry, HTTP handler), opt out with `// no-excuse-ok: catch`.
+15. **Scope resources and cancellation** — use `using` / `await using` for disposable resources. Pass cancellation and timeouts as `AbortSignal`.
+16. **Parameters are never reassigned** — produce a new value.
 
 ### Data modeling — which construct, when
 
@@ -105,29 +107,34 @@ async function main(): Promise<void> {  // no-excuse-ok: catch
 
 | Domain | Library | Why |
 |---|---|---|
-| HTTP framework | Hono | Lightweight, multi-runtime, middleware, OpenAPI |
-| Validation | Zod | Runtime validation + type inference |
+| HTTP framework | Hono + `hono-openapi` | Lightweight, multi-runtime, middleware, OpenAPI |
+| Validation | Zod v4 | Runtime validation + type inference |
 | ORM | Drizzle | Type-safe SQL, no codegen |
 | HTTP client | `ky` | Thin fetch wrapper (5KB); auto-throw on non-2xx, retry, timeout, hooks, prefixUrl. Browser + Node + Bun + Deno |
 | HTTP client (perf) | `undici` (direct API) | When a Node backend needs connection pooling, HTTP/2, or pipelining |
-
-> **HTTP client rule** - production code must not use bare `fetch()`. It has no retry, timeout, or error-handling policy and causes silent failures during incidents. Install **`ky`** by default, and use the **`undici`** direct API when a Node backend needs high-volume requests, connection pooling, HTTP/2, or pipelining. ~~`axios`~~ is forbidden after the supply-chain compromise (2026-03). `node-fetch` is unnecessary because Node 18+ includes built-in fetch.
 | Testing | `bun test` / vitest | Fast, ESM-native |
 | Logging | `pino` | Structured JSON, fast |
-| CLI | `@clack/prompts` + `commander` | Interactive + parsing |
+| CLI / TUI | `@clack/prompts` + `commander`; Ink for a full TUI | Interactive + parsing |
+| LLM / agent | Vercel AI SDK | Typed tools, streaming, provider-neutral |
+| Config from env | Zod schema over `process.env` | Parse once at startup |
+| Data / analytics | Backend service | Keep heavy analytics out of the TS application |
+
+> **HTTP client rule** - production code must not use bare `fetch()`. It has no retry, timeout, or error-handling policy and causes silent failures during incidents. Install **`ky`** by default, and use the **`undici`** direct API when a Node backend needs high-volume requests, connection pooling, HTTP/2, or pipelining. ~~`axios`~~ is forbidden after the supply-chain compromise (2026-03). `node-fetch` is unnecessary because Node 18+ includes built-in fetch.
 
 ## tsconfig — the one true config
 
 Scaffold a new project with all strict defaults pre-configured:
 
 ```bash
-bun run ../../scripts/typescript/new-project.ts my-api
-bun run ../../scripts/typescript/new-project.ts my-api --path ./projects
+bun run "$SKILL_DIR/scripts/typescript/new-project.ts" my-api
+bun run "$SKILL_DIR/scripts/typescript/new-project.ts" my-api --path ./projects
 ```
 
 Creates: `package.json` (Hono + Zod + oxlint + oxfmt + oxlint-tsgolint), strict `tsconfig.json`, `.oxlintrc.json`, `.oxfmtrc.json`, `lint/oxlint-plugin/` including its MIT license, `src/index.ts`, and `.gitignore`. Works on macOS, Linux, Windows.
 
 **Use oxlint + oxfmt with `no-em-dash-copy` and `require-suppression-reason` by default for TS and JS.** Load [oxc-lint.md](oxc-lint.md) for the complete setup. Use `--type-aware` with its installed companion where supported; keep `tsc --noEmit` as the type gate. Rewrite paired em dashes as parenthetical or comma-delimited asides, not colon chains.
+
+For the default Bun TypeScript stack, the CI gate is `bunx oxlint --type-aware --deny-warnings && bunx oxfmt --check && bunx tsc --noEmit && bun test`. Follow the existing runner when it differs, and use the [OXC reference](oxc-lint.md) for syntax-only JS or unsupported type-aware targets.
 
 For manual setup: `bunx tsc --init`, then load `tsconfig-strict.md` for the full strict config.
 
@@ -147,17 +154,17 @@ Load on demand — not all at once.
 
 | Need | Load |
 |---|---|
-| Strict tsconfig | `tsconfig-strict.md` |
-| Default oxlint + oxfmt configs, rule mappings, and local JS plugin | `oxc-lint.md` |
-| Type patterns (branded, as const, satisfies, narrowing, assertNever) | `type-patterns.md` |
-| Data modeling (type vs interface vs Zod, readonly, parse-don't-validate) | `data-modeling.md` |
-| Error handling (Result, typed errors, union vs throw) | `error-handling.md` |
-| Bootstrapping a new project (Bun, pnpm, Hono, Vite) | `bootstrap.md` |
-| Hono backend stack (hono-openapi, Scalar, Swagger) | `backend-hono.md` |
+| Strict tsconfig | [tsconfig-strict.md](tsconfig-strict.md) |
+| Default oxlint + oxfmt configs, rule mappings, and local JS plugin | [oxc-lint.md](oxc-lint.md) |
+| Type patterns (branded, as const, satisfies, narrowing, assertNever) | [type-patterns.md](type-patterns.md) |
+| Data modeling (type vs interface vs Zod, readonly, parse-don't-validate) | [data-modeling.md](data-modeling.md) |
+| Error handling (Result, typed errors, union vs throw) | [error-handling.md](error-handling.md) |
+| Bootstrapping a new project (Bun, pnpm, Hono, Vite) | [bootstrap.md](bootstrap.md) |
+| Hono backend stack (hono-openapi, Scalar, Swagger) | [backend-hono.md](backend-hono.md) |
 
 ## No-excuse audit
 
-Violations caught by `../../scripts/typescript/check-no-excuse-rules.ts`. Run after every edit session.
+After editing TypeScript files, run `bun run "$SKILL_DIR/scripts/typescript/check-no-excuse-rules.ts" <changed TypeScript files>` from the project directory so it can resolve the project's `typescript`.
 
 | Rule ID | Catches | Opt-out |
 |---|---|---|

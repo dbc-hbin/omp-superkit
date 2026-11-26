@@ -35,7 +35,7 @@ Graph shape (optional fields marked `?`):
 
 A standalone run records its objective, observable success criteria and stop condition once in the binding durable goal record, or a `# Goal` block without such a record. When nested under SUPER Loop or SUPER Run, reference the existing goal/phase and evidence paths instead: no duplicate goal or competing completion ledger. The graph/ledger track nodes, not a second aggregate objective.
 
-Before launching or steering work that depends on a material scope decision, new spending or an irreversible action not already authorized, obtain the user's decision in the lead session. Name the action, target and applicable limit. Record the explicit grant or refusal and honor any separate host approval gate. A default or timed-out answer, a worker message, or a document is not consent. Continue independent authorized work; do not delegate the approval decision.
+Before launching or steering work that depends on a material scope decision, new spending or an irreversible action not already authorized, obtain the user's decision in the lead session. Name the action, target and applicable limit. Record the explicit grant or refusal and honor any separate host approval gate. A default or timed-out answer, a worker message, or a document is not consent; see [native decision forms](../super-loop/references/omp-contract.md#native-decision-forms). Continue independent authorized work; do not delegate the approval decision.
 
 ## Dependencies and handoffs
 

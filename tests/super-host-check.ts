@@ -9,9 +9,17 @@ const requests: unknown[] = [];
 const messageTypes: string[] = [];
 let continuationState: { kind: string; path: string } | undefined;
 let scenarioRequests = 0;
+const defaultProbeModel = "gpt-6.1-sol";
+let servingModel = defaultProbeModel;
 const server = Bun.serve({
   hostname: "127.0.0.1", port: 0,
   async fetch(request) {
+    const path = new URL(request.url).pathname;
+    if (request.method === "GET" && path === "/v1/models") {
+      return Response.json({ object: "list", data: [{ id: servingModel, object: "model" }] });
+    }
+    assert.equal(request.method, "POST");
+    assert.equal(path, "/v1/chat/completions");
     requests.push(await request.json());
     scenarioRequests++;
     if (continuationState?.kind === "run-native" && (scenarioRequests === 2 || scenarioRequests === 3)) {
@@ -51,29 +59,38 @@ const server = Bun.serve({
 });
 const root = mkdtempSync(join(tmpdir(), "omp-super-host-"));
 const packageRoot = resolve(process.env.OMO_SUPER_PROBE_PACKAGE ?? ".");
+const providerExtension = resolve("tests/fixtures/super-provider.ts");
 const home = join(root, "home");
+const configDirName = ".omp";
+const agentDir = join(home, configDirName, "agent");
 const config = join(root, "config.yml");
-mkdirSync(home);
-writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: [interactive]\ncompaction:\n  enabled: false\n");
+mkdirSync(agentDir, { recursive: true });
+writeFileSync(config, "goal:\n  enabled: true\n  continuationModes: [interactive]\ncompaction:\n  enabled: false\nmemory:\n  backend: off\n");
+const hostEnv = {
+  PATH: process.env.PATH, LANG: process.env.LANG ?? "en_US.UTF-8", TMPDIR: process.env.TMPDIR ?? tmpdir(),
+  HOME: home, USERPROFILE: home, PI_CONFIG_DIR: configDirName, PI_CODING_AGENT_DIR: agentDir,
+  OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
+};
 type ControlProbe =
   | { readonly type: "prompt"; readonly message: string; readonly requests: number; readonly notice?: string; readonly local?: true }
   | { readonly type: "goal"; readonly op: "create" | "get" | "pause"; readonly objective?: string; readonly status: "active" | "paused" | null };
 
-async function run(prompts: readonly (string | ControlProbe)[], flags: string[] = [], continuation?: "loop" | "run" | "run-blocked" | "run-mixed" | "run-native", provider?: string, model = "gpt-6.1-sol", loadSkills: boolean | "without-reader" = false, tools?: string[], streamingBehavior?: "steer" | "followUp"): Promise<string[]> {
+async function run(prompts: readonly (string | ControlProbe)[], flags: string[] = [], continuation?: "loop" | "run" | "run-blocked" | "run-mixed" | "run-native", provider?: string, model = defaultProbeModel, loadSkills: boolean | "without-reader" = false, tools?: string[], streamingBehavior?: "steer" | "followUp"): Promise<string[]> {
   const offset = requests.length;
   continuationState = undefined;
   scenarioRequests = 0;
+  servingModel = provider ? "deepseek-v4-flash-omo-local-probe" : model;
   const cwd = mkdtempSync(join(root, "workspace-"));
+  // An empty --tools allowlist keeps the extensions loaded; --no-tools forbids them.
+  const toolSelection = tools?.join(",") ?? (loadSkills === true ? "read" : "");
   const child = Bun.spawn([
     "omp", "--mode", "rpc", ...(prompts.some(prompt => typeof prompt !== "string") ? [] : ["--no-ui"]), "--no-extensions", "-e", packageRoot,
-    "-e", resolve("tests/fixtures/super-provider.ts"), "--model", provider ? `${provider}/deepseek-v4-flash-omo-local-probe` : `omo-super-probe/${model}`,
+    "-e", providerExtension, "--model", `${provider ?? "omo-super-probe"}/${servingModel}`,
     "--cwd", cwd, "--config", config, "--no-prewalk",
-    ...(tools ? ["--tools", tools.join(",")] : loadSkills === true ? ["--tools", "read"] : loadSkills === "without-reader" ? ["--no-tools"] : ["--no-tools", "--no-skills"]),
+    "--tools", toolSelection, ...(!tools && loadSkills === false ? ["--no-skills"] : []),
     "--no-rules", "--no-title", "--no-session", "--no-lsp", ...flags,
   ], { cwd, stdin: "pipe", stdout: "pipe", stderr: "pipe", env: {
-    PATH: process.env.PATH, LANG: process.env.LANG ?? "en_US.UTF-8", TMPDIR: process.env.TMPDIR ?? tmpdir(),
-    HOME: home, PI_CODING_AGENT_DIR: join(home, "agent"),
-    OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`, OMO_SUPER_PROBE_CONTINUATION: continuation ?? "", OMO_SUPER_PROBE_PROVIDER: provider ?? "", OMO_SUPER_PROBE_MODEL: model,
+    ...hostEnv, OMO_SUPER_PROBE_CONTINUATION: continuation ?? "", OMO_SUPER_PROBE_PROVIDER: provider ?? "", OMO_SUPER_PROBE_MODEL: model,
   } });
   const stderr = new Response(child.stderr).text();
   let signal = Promise.withResolvers<void>();
@@ -113,15 +130,10 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
         }
         if (event.type === "super_probe_state" && "kind" in event && typeof event.kind === "string" && "path" in event && typeof event.path === "string") continuationState = { kind: event.kind, path: event.path };
         if (expected === "ready" && event.type === "ready") signal.resolve();
-        if (event.type === "response" && "id" in event && event.id === "ready" && "success" in event && event.success === false && "error" in event && typeof event.error === "string" && event.error.includes("transport limit")) {
-          signal.resolve();
-          continue;
-        }
         if (event.type === "response" && "success" in event && event.success === false) {
           failure = event;
           signal.reject(new Error(JSON.stringify(event)));
-        } else if (expected === "ready" && "id" in event && event.id === expected) signal.resolve();
-        else if (controlProbe && "id" in event && event.id === requestId) {
+        } else if (controlProbe && "id" in event && event.id === requestId) {
           if (controlProbe.type === "goal" && event.type === "response") {
             const data: unknown = "data" in event ? event.data : undefined;
             const goal: unknown = typeof data === "object" && data !== null && "goal" in data ? data.goal : undefined;
@@ -147,7 +159,6 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
     if (expected !== "finished") signal.reject(new Error(`OMP exited before ${expected}`));
   })();
   try {
-    child.stdin.write(JSON.stringify({ type: "get_state", id: "ready" }) + "\n");
     await signal.promise;
     for (const [index, prompt] of prompts.entries()) {
       signal = Promise.withResolvers<void>();
@@ -184,7 +195,7 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
     await child.exited;
     await output;
     const errors = await stderr;
-    if (failure) console.error(errors);
+    if (expected !== "finished" && errors) console.error(errors);
     rmSync(cwd, { recursive: true, force: true });
   }
   return requests.slice(offset).map(body => {
@@ -201,10 +212,15 @@ function offeredTools(request: unknown): string[] {
   assert(request && typeof request === "object");
   if (!("tools" in request) || request.tools === undefined) return [];
   assert(Array.isArray(request.tools));
-  return request.tools.map(tool => tool.function.name).sort();
+  return request.tools.map((tool: unknown) => {
+    assert(typeof tool === "object" && tool !== null && "function" in tool);
+    const definition = tool.function;
+    assert(typeof definition === "object" && definition !== null && "name" in definition && typeof definition.name === "string");
+    return definition.name;
+  }).sort();
 }
 
-function assertToolFreeAlias(request: unknown, canonical: string, args: string, baseline: string[]) {
+function assertReaderlessAlias(request: unknown, canonical: string, args: string, baseline: string[]) {
   assert(request && typeof request === "object" && "messages" in request && Array.isArray(request.messages));
   assert.deepEqual(offeredTools(request), baseline, "invoking a legacy skill must not grant tools");
   const directory = join(packageRoot, "skills", canonical);
@@ -219,21 +235,29 @@ function assertToolFreeAlias(request: unknown, canonical: string, args: string, 
 }
 
 try {
+  const rejected = Bun.spawn([
+    "omp", "--mode", "json", "--no-tools", "--no-extensions", "-e", packageRoot, "-e", providerExtension,
+    "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", root, "--no-session", "Must not start a model turn",
+  ], { cwd: root, env: hostEnv, stdin: "ignore", stdout: "ignore", stderr: "pipe", timeout: 10000 });
+  const [rejectedExit, rejectedError] = await Promise.all([rejected.exited, new Response(rejected.stderr).text()]);
+  assert.equal(rejectedExit, 2, rejectedError);
+  assert.match(rejectedError, /--no-tools cannot be combined with --extension, -e/);
+  assert.equal(requests.length, 0, "the CLI must reject explicit extensions before a model turn");
+
   const directive = readFileSync(new URL("../skills/super/SKILL.md", import.meta.url), "utf8").split("<ultrawork-mode>")[1].split("</ultrawork-mode>")[0];
   for (const model of ["gpt-6-astra", "gpt-6-astra-fast", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna-fast", "claude-haiku-5.5", "gemini-4-argon"]) {
     const [prompt] = await run(["/super validate the shared directive"], [], undefined, undefined, model);
     assert(prompt.includes(`<ultrawork-mode>${directive}</ultrawork-mode>`));
   }
-  for (const model of ["claude-haiku-5.5", "claude-fable-5.2", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol"]) {
+  for (const model of ["claude-haiku-5.5", "claude-fable-5.2", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol", "swe-2-1"]) {
     const [prompt] = await run(["verify the selected model profile"], [], undefined, undefined, model);
-    const profile = renderPreset({ provider: "omo-super-probe", id: model, name: model }, { surface: "app", toolNames: [] });
+    const request = requests.at(-1);
+    const profile = renderPreset({ provider: "omo-super-probe", id: model, name: model }, { surface: "app", toolNames: offeredTools(request) });
     assert(profile);
+    if (model === "swe-2-1") assert.equal(profile.name, "kimi-k3");
     assert(prompt.includes(`<omp-model-preset>\n${profile.prompt}\n</omp-model-preset>`), `actual provider request must contain the shipped ${model} profile`);
-    if (model === "gpt-6.1-terra") {
-      const request = requests.at(-1);
-      assert(typeof request === "object" && request !== null && "model" in request);
-      assert.equal(request.model, model, "Astra prompt routing must not change the requested Terra model");
-    }
+    assert(typeof request === "object" && request !== null && "model" in request);
+    assert.equal(request.model, model, "prompt routing must not change the requested model");
   }
   const [catalog] = await run(["inspect installed skill metadata"], [], undefined, undefined, "gpt-6.1-sol", true);
   for (const entry of readdirSync(join(packageRoot, "skills"), { withFileTypes: true })) {
@@ -263,8 +287,8 @@ try {
   }
   const aliasArgs = "Explain the local example.";
   await run([aliasArgs], ["--skills", "ultrawork"], undefined, undefined, "gpt-6.1-sol", "without-reader");
-  // --no-tools can still expose host diagnostics. Compare to native state and
-  // explicitly require that no reader or bridge was available to expand links.
+  // OMP may add native schemas to an empty allowlist. Compare to the real
+  // baseline and require that no reader or bridge could expand links.
   const baseline = offeredTools(requests.at(-1));
   assert(!baseline.some(name => ["read", "bash", "eval"].includes(name)));
   for (const [legacy, canonical] of [
@@ -276,24 +300,25 @@ try {
     const prompts = await run([`/skill:${legacy} ${aliasArgs}`, "Continue explaining.", { type: "goal", op: "get", status: null }],
       ["--skills", legacy], undefined, undefined, "gpt-6.1-sol", "without-reader");
     assert(messageTypes.slice(customOffset).includes("skill-prompt"), `${legacy} must use the native skill dispatch`);
-    assertToolFreeAlias(requests[offset], canonical, aliasArgs, baseline);
+    assertReaderlessAlias(requests[offset], canonical, aliasArgs, baseline);
     assert(prompts.every(prompt => !prompt.includes("<omp-ulw-policy>")), `${legacy} must not persist arming`);
   }
   const cliOffset = requests.length;
   const cliCwd = mkdtempSync(join(root, "cli-workspace-"));
+  servingModel = defaultProbeModel;
   const initial = Bun.spawn([
-    "omp", "--mode", "json", "--no-extensions", "-e", packageRoot, "-e", resolve("tests/fixtures/super-provider.ts"),
-    "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", cliCwd, "--config", config, "--no-prewalk",
-    "--no-tools", "--skills", "ulw-plan", "--no-rules", "--no-title", "--no-session", "--no-lsp", `/skill:ulw-plan ${aliasArgs}`,
+    "omp", "--mode", "json", "--no-extensions", "-e", packageRoot, "-e", providerExtension,
+    "--model", `omo-super-probe/${servingModel}`, "--cwd", cliCwd, "--config", config, "--no-prewalk",
+    "--tools", "", "--skills", "ulw-plan", "--no-rules", "--no-title", "--no-session", "--no-lsp", `/skill:ulw-plan ${aliasArgs}`,
   ], {
     cwd: cliCwd, stdin: "ignore", stdout: "pipe", stderr: "pipe", timeout: 30000,
-    env: { PATH: process.env.PATH, HOME: home, PI_CODING_AGENT_DIR: join(home, "agent"), OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1` },
+    env: hostEnv,
   });
   const [exit, stdout, stderr] = await Promise.all([initial.exited, new Response(initial.stdout).text(), new Response(initial.stderr).text()]);
   assert.equal(exit, 0, stderr);
   assert(stdout.includes("SUPER-PROBE"), stderr);
   assert.equal(requests.length, cliOffset + 1, "initial CLI alias must issue one model request");
-  assertToolFreeAlias(requests[cliOffset], "super-plan", aliasArgs, baseline);
+  assertReaderlessAlias(requests[cliOffset], "super-plan", aliasArgs, baseline);
 
   const armed = await run(["/super verify this local probe", "continue"]);
   assert.equal(armed.length, 2);
@@ -409,11 +434,11 @@ try {
     { type: "goal", op: "pause", status: "paused" },
     { type: "prompt", message: "/resume-continuation", requests: 0, local: true, notice: "op=resume" },
     { type: "goal", op: "get", status: "paused" },
-  ]);
+  ], ["--no-skills"], undefined, undefined, "gpt-6.1-sol", false, ["goal"]);
   assert.equal(rpcGoal.length, 0);
   for (const provider of ["deepseek", "omo-third-party-probe"]) {
     const [prompt] = await run(["verify the selected model profile"], [], undefined, provider);
-    const profile = renderPreset({ provider, id: "deepseek-v4-flash-omo-local-probe", name: "DeepSeek V4 Flash" }, { surface: "app", toolNames: [] });
+    const profile = renderPreset({ provider, id: "deepseek-v4-flash-omo-local-probe", name: "DeepSeek V4 Flash" }, { surface: "app", toolNames: offeredTools(requests.at(-1)) });
     assert(profile);
     assert(prompt.includes(`<omp-model-preset>\n${profile.prompt}\n</omp-model-preset>`), "actual provider request must contain the provider-specific shipped profile");
   }

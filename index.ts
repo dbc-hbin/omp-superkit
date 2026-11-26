@@ -34,6 +34,7 @@ import { adaptOrchestrateNotice, projectHostGuidance } from "./host-guidance";
 import { createCodexCodeModeChain, requestToolView, rewritePresetPayload, rewriteToolGuidancePayload, syncCodeModeBlock } from "./payload";
 import type { CodexCompletion } from "./payload";
 import { isGeminiModel, renderPreset } from "./presets";
+import { resolveSWEPreset } from "./prompts/models/model-matchers.js";
 import { requestModelId } from "./request-tools";
 import type { PresetModel, PresetOptions } from "./presets";
 import { adaptPrewalkNotice, registerPrewalk } from "./prewalk";
@@ -144,10 +145,11 @@ export default function ompSuper(pi: ExtensionApi): void {
     const api = ctx.model.api;
     const chain = codexChain.request(payload, ctx.model, ctx.sessionManager);
     const available = requestToolView(chain?.toolView ?? payload, api, enabled);
-    // Routers such as Devin may select a backend after OMP sets ctx.model.
-    // Gemini keeps the native role even when the router name is opaque.
+    // A concrete Devin SWE backend, even one without a preset, outranks the
+    // router's display name. Use the assignment only for the prompt.
     const id = requestModelId(payload, ctx.model.api);
-    const model = id && isGeminiModel({ id }) ? { ...ctx.model, id } : ctx.model;
+    const model = id && (isGeminiModel({ id }) || (api === "devin-agent" && resolveSWEPreset(id) !== undefined))
+      ? { provider: ctx.model.provider, id } : ctx.model;
     const guidance = codeModeGuidance(available);
     chain?.observe(guidance);
     const syncGuidance = () => syncCodeModeBlock(payload, api, guidance, chain?.previousGuidance);

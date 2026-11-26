@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | 한국어
 
+### 2026-11-26 SWE-2.1 라우팅, OMP 19.2.1 규약과 OMO 스킬 업데이트
+
+- [Cognition SWE-2.1](https://cognition.com/blog/swe-2-1)에 기존 Kimi K3 프롬프트를 적용합니다. Devin의 추론 강도·고속 변형과 `adaptive` 배정을 지원합니다. 배포 ID가 불투명하면 `SWE-2.1 Ultrafast High` 같은 표시명을 쓰지만, 실제 ID가 미지원 SWE 변형이면 표시명으로 덮어쓰지 않습니다. 공급자, 요청 모델, 추론 강도는 바꾸지 않습니다.
+- OMO의 [programming 진입 문서](https://github.com/code-yeongyu/oh-my-openagent/commit/99d0a64aae2a3c6f89012afc3a5bc632809df5ce), [필요한 브라우저 정보만 읽는 지침](https://github.com/code-yeongyu/oh-my-openagent/commit/9bdd64026240cce260a6e5e4a38b350c89036826), [여러 화면에 걸친 사용 흐름 검증](https://github.com/code-yeongyu/oh-my-openagent/commit/4ca98913ae172230fef4ab7d16f8569c23923e86)을 기존 OMP 도구와 UI 검증 흐름에 맞게 반영합니다.
+- [OMP 19.2의 격리 규약](https://github.com/can1357/oh-my-pi/releases/tag/v19.2.0)에 따라 확장 호스트 검사에서 `-e`와 `--no-tools`를 함께 사용하지 않습니다. 모델 프롬프트 적용 시 필요한 호스트 지침을 보존하고, [19.2.1](https://github.com/can1357/oh-my-pi/releases/tag/v19.2.1)의 세션 기록 조회, 실행 중인 에이전트 제어, 기존 프로세스의 서비스 등록과 질문 폼 제약을 문서화합니다.
+
 ### 2026-11-24 OMP 도구 계약과 UI 상태 전이 검증
 
 - 특정 작업 경로가 필요한 bash 호출에는 각각 `cwd`를 지정하고, 데스크톱 입력의 전경 전환은 현재 세션의 계약을 따릅니다.

@@ -26,13 +26,15 @@ These are deliberate project choices. Violations are always wrong, not "style pr
 | Testing | `pytest` | unittest |
 | CLI | `typer` + `rich` | argparse, click, fire |
 
+For a new `uv` project, the CI gate is `uv run ruff format --check . && uv run ruff check . && uv run basedpyright && uv run pytest`. See [pyproject-strict.md](pyproject-strict.md) for the strict configuration; keep an existing project's chosen tools.
+
 ### The iron list
 
 1. **Frozen by default** — `@dataclass(frozen=True, slots=True)`. Pydantic: `model_config = ConfigDict(frozen=True)`. Mutable only when mutation is the documented purpose.
-2. **NewType for distinct IDs** — `UserId = NewType("UserId", int)`. Never pass raw `int` where a branded type exists.
+2. **Use types that carry the domain meaning.** Use `NewType` for distinct IDs, `StrEnum` or `Literal` for closed sets, `Decimal` for decimal money, timezone-aware `datetime` for instants and `timedelta` for durations. Never pass a raw `int` where the project defines a `UserId`.
 3. **`match` only for variants, `if` only for booleans** — **NEVER** use `if/elif/else` to discriminate on type (`isinstance`), enum value, or literal variant. `match/case` is mandatory for these — non-negotiable. **ALWAYS** end with `case unreachable: assert_never(unreachable)` — bare `case _: pass` and `case _: raise ValueError` are banned (they silently swallow new variants). `if/else` is fine only for boolean expressions, range checks, and predicate calls that aren't variant discrimination. See "Why `if/elif` on variants is banned" below for examples.
 4. **Protocol over ABC** — `typing.Protocol` for interfaces. ABC only when you need shared method implementation.
-5. **No raw dicts in signatures** — params and returns use `TypedDict`, `dataclass`, or Pydantic model. Internal scratch dicts are fine.
+5. **Type collection parameters for what the function needs.** Prefer `Iterable[T]`, `Sequence[T]` or `Mapping[K, V]` when the code need not mutate the caller's concrete container. Use a `TypedDict`, dataclass or Pydantic model for records with named fields. Internal scratch dicts are fine.
 6. **Parse, don't validate** — constructors produce typed objects or raise. Never pass unvalidated data deeper into the call stack.
 7. **Typed errors** — error types are dataclasses or exceptions with typed fields. Never `raise ValueError("something")` with a bare string. Use union returns when the caller is within 1-2 call levels and must handle the outcome (repository → service). Use exceptions when the error should propagate up many layers to a boundary handler (service → HTTP handler).
 8. **Final for constants** — module-level constants use `Final`. Mutable module globals are a code smell.
@@ -45,7 +47,7 @@ These are deliberate project choices. Violations are always wrong, not "style pr
 
 ### Typing and safety
 
-- `basedpyright` in `typeCheckingMode = "all"`. Every public function has full annotations. Internal helpers: annotate return type; parameter types may be inferred.
+- Annotate parameters and returns on public functions and private helpers alike (`self` and `cls` are inferred). The [strict config](pyproject-strict.md) sets basedpyright's `reportMissingParameterType` to `error` and enables Ruff's `ANN` rules for explicit return annotations (including `ANN201` and `ANN202`).
 - `ruff` with `select = ["ALL"]`. Override specific rules per project in `pyproject.toml`, never globally disable the strict baseline.
 - Every new function must have a `docstring` unless its name + signature makes it completely obvious (e.g. `def full_name(first: str, last: str) -> str:`).
 - Use `X | Y` union syntax (PEP 604), never `Union[X, Y]` or `Optional[X]`.
@@ -221,9 +223,9 @@ Canonical defaults (override only if `pyproject.toml` explicitly picks something
 Scaffold a new project with all strict defaults pre-configured:
 
 ```bash
-bun run ../../scripts/python/new-project.ts myproject
-bun run ../../scripts/python/new-project.ts myproject --path ./workspace
-bun run ../../scripts/python/new-project.ts myproject --lib   # publishable library
+bun run "$SKILL_DIR/scripts/python/new-project.ts" myproject
+bun run "$SKILL_DIR/scripts/python/new-project.ts" myproject --path ./workspace
+bun run "$SKILL_DIR/scripts/python/new-project.ts" myproject --lib   # publishable library
 ```
 
 Creates via `uv init`, then injects basedpyright `typeCheckingMode = "all"` + ruff `select = ["ALL"]` + pytest strict. Cross-platform (macOS, Linux, Windows).
@@ -234,7 +236,7 @@ For manual setup: `uv init --app myproject`, then load `pyproject-strict.md`.
 
 Every `.py` script — even throwaway — MUST use PEP 723 inline metadata with the `# ─── How to run ───` comment block. No venv, no `requirements.txt`. The script IS the environment spec. A script without the usage comment block is incomplete.
 
-Scaffold with: `bun run ../../scripts/python/new-script.ts <name> --deps "httpx2[http2,brotli,zstd]"` (writes to temp dir by default, `--output` for specific path).
+Scaffold with: `bun run "$SKILL_DIR/scripts/python/new-script.ts" <name> --deps "httpx2[http2,brotli,zstd]"` (writes to temp dir by default, `--output` for specific path).
 
 Load `one-liners.md` for full patterns, examples, and anti-patterns.
 
@@ -244,19 +246,19 @@ Load on demand — not all at once.
 
 | Need | Load |
 |---|---|
-| Full pyproject.toml config | `pyproject-strict.md` |
-| Type patterns (NewType, Final, enums, narrowing) | `type-patterns.md` |
-| Data modeling (container choice, frozen, parse-don't-validate) | `data-modeling.md` |
-| Error handling (typed errors, union returns, exhaustive match) | `error-handling.md` |
-| Async patterns (anyio) | `async-anyio.md` |
-| Data processing (polars / duckdb) | `data-processing.md` |
-| FastAPI + SQLAlchemy stack | `fastapi-stack.md` |
-| Library decision tree | `libraries.md` |
-| **httpx2 optimization** (MUST load for any network code) | `httpx2-optimization.md` |
-| **orjson** (when JSON is in the hot path; FastAPI/Pydantic v2 integration) | `orjson-stack.md` |
-| One-liner scripts (PEP 723) | `one-liners.md` |
-| PydanticAI agents | `pydantic-ai.md` |
-| Textual TUI | `textual-tui.md` |
+| Full pyproject.toml config | [pyproject-strict.md](pyproject-strict.md) |
+| Type patterns (NewType, Final, enums, narrowing) | [type-patterns.md](type-patterns.md) |
+| Data modeling (container choice, frozen, parse-don't-validate) | [data-modeling.md](data-modeling.md) |
+| Error handling (typed errors, union returns, exhaustive match) | [error-handling.md](error-handling.md) |
+| Async patterns (anyio) | [async-anyio.md](async-anyio.md) |
+| Data processing (polars / duckdb) | [data-processing.md](data-processing.md) |
+| FastAPI + SQLAlchemy stack | [fastapi-stack.md](fastapi-stack.md) |
+| Library decision tree | [libraries.md](libraries.md) |
+| **httpx2 optimization** (MUST load for any network code) | [httpx2-optimization.md](httpx2-optimization.md) |
+| **orjson** (when JSON is in the hot path; FastAPI/Pydantic v2 integration) | [orjson-stack.md](orjson-stack.md) |
+| One-liner scripts (PEP 723) | [one-liners.md](one-liners.md) |
+| PydanticAI agents | [pydantic-ai.md](pydantic-ai.md) |
+| Textual TUI | [textual-tui.md](textual-tui.md) |
 
 ## httpx2 — mandatory for ALL network requests
 
@@ -268,7 +270,7 @@ When writing or reviewing ANY network code, **ALWAYS load `httpx2-optimization.m
 
 ## No-excuse audit
 
-Violations caught by `../../scripts/python/check-no-excuse-rules.py`. Run after every edit session.
+After editing Python files, run `uv run "$SKILL_DIR/scripts/python/check-no-excuse-rules.py" <changed Python files>` from the project directory.
 
 | Rule ID | Catches | Opt-out |
 |---|---|---|

@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | [한국어](CHANGELOG.ko.md)
 
+### 2026-11-26 SWE-2.1, OMP 19.2.1 and selected OMO skill updates
+
+- Use the existing Kimi K3 prompt for [Cognition SWE-2.1](https://cognition.com/blog/swe-2-1), including Devin effort/speed lanes and adaptive assignments. An opaque deployment can use its `SWE-2.1 Ultrafast High` display name; a concrete unsupported SWE ID cannot inherit a preset from its label. This selects a prompt, not a different provider, model, or reasoning level.
+- Adapt the [OMO programming index](https://github.com/code-yeongyu/oh-my-openagent/commit/99d0a64aae2a3c6f89012afc3a5bc632809df5ce), [bounded browser reads](https://github.com/code-yeongyu/oh-my-openagent/commit/9bdd64026240cce260a6e5e4a38b350c89036826) and [multi-screen play-through](https://github.com/code-yeongyu/oh-my-openagent/commit/4ca98913ae172230fef4ab7d16f8569c23923e86) to OMP's native tools and existing UI verification flow.
+- Follow the [OMP 19.2 isolation boundary](https://github.com/can1357/oh-my-pi/releases/tag/v19.2.0): extension-backed host checks no longer combine `-e` with `--no-tools`. Preserve relevant host instructions when applying model prompts and document [19.2.1](https://github.com/can1357/oh-my-pi/releases/tag/v19.2.1) session history, live agent controls, service adoption, and native form semantics.
+
 ### 2026-11-24 OMP tool contracts and UI state verification
 
 - Set `cwd` on each bash call that needs a particular directory; follow the current computer input contract rather than assuming the caller decides takeover.

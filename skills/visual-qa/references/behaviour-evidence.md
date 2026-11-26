@@ -29,6 +29,20 @@ For each case record the client and revision (installed package or dev build), b
 
 Wait for the request or user-visible postcondition with a bounded deadline, not a fixed delay. Do not loosen a locator, threshold or expected result to make a check pass. If a retry passes after a failure, keep the first frame and log. If adding a behavior regression test, verify against the fault in an isolated copy as well as against the clean and restored builds; an unrelated timeout is not detection.
 
+## Representative playthrough
+
+When a changed flow is best understood across several screens or states,
+use a short, repeatable playthrough if it will expose gaps an isolated
+screenshot would miss. Start from the real entry point, operate visible
+controls, and capture each meaningful stop with its action and observed
+outcome. Include desktop and mobile when responsive behavior is in scope,
+or multiple relevant viewpoints for a spatial or 3D flow.
+Reuse the same route when a feature change affects it, refreshing the
+affected evidence. A cosmetic tweak does not require replaying the whole
+flow; refresh its affected visual captures under the normal freshness
+rule. This development check does not add a checklist item or replace
+required cases, reference pairs, matrix rows or independent reviews.
+
 ## Held, Failed and Switch
 
 - **Held:** arrange an explicit test-side release signal, trigger the real control, and wait until the targeted request is confirmed held. While held, capture the pending state and the keep/clear assertions below. A pending read should honestly show that it is loading, not report a settled empty, zero or signed-out result; it need not offer Retry while still pending. Release the request and wait for the expected settled state before capturing again. If the deadline path is required, keep it held until the expected deadline feedback and way out appear; release or abort it in cleanup.

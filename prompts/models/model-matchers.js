@@ -61,11 +61,18 @@ export function extractKimiK3Version(value) {
   if (minor[1] === "1" && /^(?:$|[/@:-]|[._](?!\d))/.test(suffix.slice(minor[0].length))) return "kimi-k3-1";
   return null;
 }
-function hasSWE2Signal(value) {
-  return /(?:^|[/@:._-])swe-2-(?:medium|high|max)(?:$|[/@:._])/.test(normalizeModelId(value));
-}
-export function isSWE2Model(model) {
-  return hasSWE2Signal(model.id) || model.name !== undefined && hasSWE2Signal(model.name);
+export function resolveSWEPreset(value) {
+  const name = value.slice(value.lastIndexOf("/") + 1).trim();
+  const id = normalizeModelId(name);
+  if (!/(?:^|[@:._-])swe-?\d/.test(id)) return undefined;
+  // Devin's wire ID puts effort before speed (high-lightning); the catalog
+  // label puts speed first (SWE-2.1 Ultrafast High).
+  if (/^swe-?2[.-]1(?:-(?:low|medium|high|xhigh|max))?(?:-(?:fast|ultrafast|lightning))?(?::(?:low|medium|high|xhigh|max))?$/.test(id)
+    || /^SWE-2\.1\s+Ultrafast\s+(?:Low|Medium|High|XHigh|Max)$/i.test(name)) return "kimi-k3";
+  if (/(?:^|[@:._-])swe-2-(?:medium|high|max)(?:$|[@:._])/.test(id)) return "kimi-k3";
+  // The ID identifies a SWE model or composite, not an opaque deployment.
+  // An unsupported lane must not inherit a supported display name or logical ID.
+  return null;
 }
 function hasDeepseekV4Flash0731Signal(value) {
   return /(?:^|[/@:._-])deepseek[._-]v4[._-]flash[.:_-]0731(?:$|[/@:._-])/.test(normalizeModelId(value));

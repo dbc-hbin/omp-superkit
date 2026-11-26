@@ -109,3 +109,7 @@ remain labeled in the references; these links do not assert the current live imp
 The upstream documentation credits OmOWright and Tencent BrowserSkill under MIT for the systems it
 drives. This port carries no copy of either implementation and does not claim its APIs are present.
 Use the original repositories for their own software and licensing, not as callable OMP interfaces.
+
+Bounded page reading is adapted from [OMO `9bdd64026240cce260a6e5e4a38b350c89036826`](https://github.com/code-yeongyu/oh-my-openagent/commit/9bdd64026240cce260a6e5e4a38b350c89036826)
+using the [OMP 19.2.1 inspection helpers](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/prompts/tools/browser.md);
+no Senpi monitor, token-budget API, or browser runtime is imported.

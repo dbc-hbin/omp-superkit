@@ -18,7 +18,7 @@ import {
   isKimiK26Model,
   isKimiK27Model,
   isKimiK28Model,
-  isSWE2Model,
+  resolveSWEPreset,
 } from "./model-matchers.js";
 
 const CLAUDE_PRESET_VERSIONS = new Set([
@@ -38,6 +38,8 @@ function claudePresetName(identity) {
 
 // undefined is unrecognized; null is recognized but must not fall back to metadata.
 function resolveModelAlias(model, claudeCorroboration) {
+  const swe = resolveSWEPreset(model.id);
+  if (swe !== undefined) return swe;
   const claude = extractClaudeModel(model.id, { provider: model.provider, corroboration: claudeCorroboration });
   if (claude !== undefined) return claudePresetName(claude) ?? null;
   if (isGpt62Model(model)) {
@@ -53,9 +55,6 @@ function resolveModelAlias(model, claudeCorroboration) {
   const kimiK3Version = extractKimiK3Version(model.id);
   if (kimiK3Version !== undefined) {
     return kimiK3Version;
-  }
-  if (isSWE2Model(model)) {
-    return "kimi-k3";
   }
   if (isKimiK28Model(model)) {
     return "kimi-k2-8";

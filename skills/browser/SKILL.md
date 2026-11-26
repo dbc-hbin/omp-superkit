@@ -63,6 +63,8 @@ console.log(await tab.observe({ compact: true }));
 `tab.ref("eN")`. Use IDs or refs from the current observation in the same cell, never guessed values.
 Navigation, rerendering and another snapshot can invalidate them. Read again after a state-changing
 action and verify the semantic postcondition; successful transport is not proof that a submit worked.
+Read the smallest evidence that answers the current question: the control, status, or region that
+changed, not the whole page. Keep Eval output bounded using the [inspection helpers](references/commands.md#observe-and-target).
 Prefer `fill` for replacing text and `select` for `<select>` elements. If the value changes but a
 search or autocomplete does not react, check whether it needs [keyboard events](references/commands.md#actions-and-waits).
 

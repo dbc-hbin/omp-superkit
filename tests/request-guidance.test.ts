@@ -125,3 +125,19 @@ test("Devin's Gemini backend gets code-mode guidance without replacing its nativ
   expect(retry.chatMessagePrompts).toBe(input.chatMessagePrompts);
   expect(s.request({ ...input, chatModelUid: "MODEL_OPENAI_GPT" }, router)).toHaveProperty("prompt", expect.stringContaining(codeMarker));
 });
+
+test("Devin's adaptive SWE-2.1 assignment gets Kimi K3 guidance without changing the assigned lane", () => {
+  const s = session(native);
+  const router = { id: "adaptive", api: "devin-agent" };
+  const input = {
+    prompt: s.blocks[0], chatModelUid: "swe-2-1-xhigh-lightning", modelAssignmentJwt: "test-assignment",
+    chatMessagePrompts: [{ prompt: "inspect" }], tools: [],
+  };
+  const result = s.request(input, router) as typeof input;
+  expect(result.prompt).toContain("running on Kimi K3.");
+  expect({ ...result, prompt: input.prompt }).toEqual(input);
+  const labeledRouter = { ...router, name: "SWE-2.1" };
+  const next = s.request({ ...result, chatModelUid: "swe-2-1-preview" }, labeledRouter) as typeof input;
+  expect(next.prompt).toContain("You are omp's trusted coding assistant.");
+  expect(next.chatModelUid).toBe("swe-2-1-preview");
+});

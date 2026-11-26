@@ -186,6 +186,30 @@ test("model guidance owns behavioral sections while native capability and permis
   expect(result.includes("# 4. Implement\nPERMISSION_BOUNDARY")).toBe(true);
 });
 
+test("OMP 19.2.1 entry and path rules survive without their surrounding defaults", () => {
+  // Native wording from b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac's system-prompt.md.
+  const direct = "- **Direct entry.** Request names a file? Read it on turn 1. Names a symbol or command? Search for it, or run only that command. NEVER spend a turn on exploratory `ls`, `find`, `cat`, or `git log`.";
+  const path = "- Path from an import or config? Resolve it from the file holding it, not cwd. NEVER scan `/`, `~`, or ancestors of the project for it.";
+  const checks = [
+    "- NEVER run checks between edits, and NEVER yield a code change unverified: one check after the last edit, the cheapest that covers it.",
+    "- **Changed what a function returns or prints?** Tests of its callers assert on that output without naming it. Find the callers in the sources, run their test files and its own once, and update assertions on the old output.",
+  ].join("\n");
+  const template = base
+    .replace("Original delegation preference", `Every turn costs seconds: batch independent reads, searches, and edits into the fewest turns. SHOULD resolve prerequisites, parallelize independent calls. Retry empty/partial/narrow results differently.\n${direct}\n- **Single-pass edits.** Batch every known edit, including existing tests asserting a value or symbol you changed, into one call. NEVER confirm an edit by re-reading or grepping.`)
+    .replace("# Delegation", `# Exploration\nNEVER open guessed files.\n${path}\n\n# Delegation`)
+    .replace("Original critical", `<critical>\n- NEVER re-audit applied edits or run git to validate them.\n${checks}\n</critical>`);
+  const prepared = replaceHostBehavior([template], "<omp-model-preset>MODEL_BEHAVIOR</omp-model-preset>");
+  if (!prepared) throw new Error("Expected recognized host template");
+  const source = prepared.blocks[0];
+  const result = projectHostGuidance(source, source, true);
+
+  expect(result).toContain(direct);
+  expect(result).toContain(path);
+  expect(result).toContain(`<critical>\n${checks}\n</critical>`);
+  expect(result).not.toMatch(/batch independent reads|Single-pass edits|NEVER open guessed files/);
+  expect(projectHostGuidance(result, source, false)).toBe(source);
+});
+
 test("model projection preserves native file-structure routing", () => {
   const nativeRouting = "- File structure/names: use `glob` for named patterns; follow the tool's native defaults.";
   const template = base.replace("Edit using the active editing tool", `Edit using the active editing tool\n${nativeRouting}`);

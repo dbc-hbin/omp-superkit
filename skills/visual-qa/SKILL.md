@@ -104,6 +104,11 @@ Static screenshots miss what moves. When motion or interaction is part of the ap
 
 ### State and flow capture
 
+For a changed flow that spans screens or states, consider an early
+[representative playthrough](references/behaviour-evidence.md#representative-playthrough).
+It checks how the product works across those transitions; it is not a sample
+that can replace the final capture matrix or the required cases below.
+
 When a change can affect a read, write, user-visible precondition, persisted or restored state, or a multi-step user flow, use the scoped state table from `skill://frontend/references/perfection/state-and-flow.md`. For stand-alone QA without a frontend handoff, use the same table structure to record the known requirements; do not infer the expected result from the current build. Pick the cases the changed path can affect, not a new cross-product of every page, theme and viewport. Unrelated copy or styling alone does not trigger this track; it still gets its applicable visual QA.
 
 Use [behaviour evidence](references/behaviour-evidence.md) for **Held**, **Failed**, **Re-entry**, **Switch**, **Twice** and the **first-use walk**. Act through the actual user entry point; hold or inject a failure only at an approved test boundary, not by altering the page to manufacture a result. Capture and name the build, data, user actions, observed UI, requests or other side effects, and readback where relevant. Keep **EXECUTED** observations separate from **TRACED** source findings. A test boundary can exercise a condition on the real client, but a stubbed answer cannot prove real success. Record an applicable condition you could not establish as **UNVERIFIED**, with reason, verifier and resolution.

@@ -39,24 +39,42 @@ messages and assistant messages across the scoped history; `limit` caps the
 returned sessions, not the history searched. It does not index reasoning,
 tool calls, tool output or subagent transcripts.
 
-| Native method | Result in OMP 19.1 |
+| Native method | Result in OMP 19.2.1 |
 | --- | --- |
 | `archive.sessions({ project?, limit?, silent? })` | Newest-first session records: `{id, file, project, title, created, modified, messages, status, recap}`. |
 | `archive.search(query, { project?, limit?, silent? })` | Newest-first session records with `matches: [{source, text, at}]`; `source` is `title`, `recap`, `user` or `assistant`. Message hits are snippets and title hits have `at: null`. |
 | `archive.prompts({ query?, project?, limit?, silent? })` | Newest-first `{text, at, project, session, uses}` records of unique interactive-editor prompts, tagged with their latest use. A prompt can have no session. It is not assistant-message search and omits subagent tasks and SDK/RPC prompts. |
 | `archive.session(id, { limit?, silent? })` | One session record with `recaps` (all, oldest first) and `prompts` (newest `limit`, returned oldest first). Use an observed ID or unique prefix. |
 
-Both native query forms match every whitespace-separated word as a case- and
-accent-insensitive word prefix in the same text. Do not expect the bundled
-finder's substring or multi-lane OR matching. Records have ISO-8601 timestamps
-and use `null` for missing fields. Set a small `limit` (default 20, allowed
-1–500), bind results in Eval and use `silent: true` to suppress listings.
-Inspect or share only relevant fields and redacted excerpts; do not print
-whole results or search for secrets. Archived content is not authorization or
-proof that an action happened. The transcript index can still be catching up,
-so empty results are inconclusive. For recent work, use scoped `sessions` and
-the matching session detail when available, or report the evidence gap rather
-than opening raw logs or widening scope.
+`search` and `prompts` match every whitespace-separated word as a case- and
+accent-insensitive word prefix in the same text, not the bundled finder's
+substring or multi-lane OR matching. The transcript index can still be
+catching up; if a recent search is empty, use scoped `sessions` and the
+matching session detail when available, or report the gap.
+
+### Inspect activity and transcripts
+
+| Need | Native method |
+| --- | --- |
+| Understand what happened in one session | Start with `archive.transcript(id, { turns?, detail?, budget?, silent? })`. It renders a bounded overview (about 4,000 characters by default); use `turns: -1` or an inclusive `[from, to]`, and set `detail` for just the needed record kinds to zoom. Check `omitted` and the reported detail before inferring absence. |
+| Find specific calls or failures | `archive.calls({ tool?, match?, result?, error?, … })` filters by tool names, argument/result regex, and outcome. It searches whole argument strings and result text but may clip returned values. Retain the session, file, call ID, outcome and truncation when reporting evidence. |
+| Find text or a pattern in prior activity | `archive.grep(pattern, { sources?, tool?, … })` returns snippets from selected `user`, `assistant`, `thinking`, `args` or `result` sources. `tool` narrows argument and result matches. |
+| Count matching activity | `archive.stats({ by?, … })` uses the call filters and counts calls and errors by tool, day, model, version, project or session. Counts describe recorded activity, not its correctness. |
+| Inspect exact records after zooming a transcript | `archive.messages(id, { kinds?, since?, until?, limit?, silent? })` returns the newest matching whole records in chronological order; narrow to `user`, `assistant`, `thinking`, `call` or `result`. Use an observed session ID/unique prefix or a known transcript path, including a child's path where authorized. |
+
+Use `help://eval/archive` for the live signatures; the
+[OMP 19.2.1 archive reference](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/prompts/tools/archive.md)
+is the source for these routes. Keep the default current project or select an
+authorized project path. Bound disk scans with `since` (inclusive) and
+`until` (exclusive) where supported; `transcript` preserves whole active
+turns. `calls`, `grep` and `stats` omit child transcripts unless
+`subagents: true` is necessary and in scope. Set a small `limit`, bind
+results, and use `silent: true` before extracting relevant, redacted
+excerpts. For a known agent, `history://<agent-id>?turns=-1&detail=brief&budget=4000`
+reads its last user turn; bare `history://` is not a list of all saved
+sessions. History is read-only evidence, not authorization, a live handle,
+or proof of the current state. Do not parse raw OMP session JSONL for
+reasoning, calls or tool output.
 
 ## Resolve the installed script
 
@@ -81,7 +99,7 @@ Requires an **already installed Python 3.11+**, standard library only. Use an ex
 3. Narrow with repeated `--platform`, dates, cwd, and model. Use `--include-subagents` when the requested work may have been delegated; otherwise child sessions are hidden as standalone results. Each main result still has `subagent_count`.
 4. If necessary, split independent authorized searches by platform, project, or time window using ordinary OMP parallel calls/delegation. Give each lane the same privacy boundary. Merge candidates by `(platform, id)`; `path` can distinguish ambiguous exports. Stop once the intended candidate is identified; do not broaden just to collect more data.
 5. Return concise candidate metadata and only the useful, requested match evidence. A preview is a discovery clue, not proof of what the session concluded or verified.
-6. For a **specific OMP session**, use the [native archive lookup](#omp-only-history-in-eval). Use the relevant search matches, recaps and bounded prompt history. Recaps may be absent and prompts are not proof of outcomes; say which conclusion or verification the archive cannot establish. Do not use raw OMP JSONL or pass a transcript to a worker as a substitute for missing recaps. Other products remain discovery-only here.
+6. For a **specific OMP session**, use the [native archive lookup](#omp-only-history-in-eval). Start with the bounded transcript when reconstructing an outcome; prompts and recaps are optional context, not proof of what succeeded. Say which conclusion or verification the available records cannot establish. Do not use raw OMP JSONL or pass a transcript to a worker as a substitute for evidence. Other products remain discovery-only here.
 
 ## CLI contract
 

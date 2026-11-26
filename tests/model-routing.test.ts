@@ -68,6 +68,12 @@ test.each([
   ["kimi-k3-1-pro-highspeed", "kimi-k3-1"],
   ["k3p1", "kimi-k3-1"],
   ["kimi-k3-2026-05-19", "kimi-k3"],
+  ["swe2-1", "kimi-k3"],
+  ["devin/swe-2-1", "kimi-k3"],
+  ["SWE-2.1 Ultrafast", "kimi-k3"],
+  ["devin/swe-2-1-xhigh-lightning", "kimi-k3"],
+  ["swe-2-1-fast:high", "kimi-k3"],
+  ["devin/swe-2-high", "kimi-k3"],
 ] as const)("routes the GPT or Kimi alias %s to %s", (id, preset) => {
   expect(resolvePresetName({ id })).toBe(preset);
 });
@@ -90,11 +96,27 @@ test.each([
   "kimi-k3p2",
   "k3.2",
   "krea/k3-edit",
+  "swe-2.10",
+  "devin/swe-2-1-preview",
+  "devin/swe-2.1-cyber",
+  "fusion-gpt-with-swe-2-1",
+  "devin/swe-2-low",
 ])("leaves GPT or Kimi lookalike or unprofiled release %s to the host", id => {
   expect(resolvePresetName({ id })).toBeUndefined();
 });
 
 type ModelReference = Parameters<typeof resolvePresetName>[0];
+
+test.each(["Low", "Medium", "High", "XHigh", "Max"])("routes an opaque deployment labeled SWE-2.1 Ultrafast %s", effort => {
+  expect(resolvePresetName({ id: "deployment-42", name: `SWE-2.1 Ultrafast ${effort}` })).toBe("kimi-k3");
+});
+
+test.each(["devin/swe-2.1-cyber", "swe-2-1-preview", "swe-2.10", "fusion-gpt-with-swe-2-1"])(
+  "does not replace the concrete SWE variant %s with conflicting metadata", id => {
+    expect(resolvePresetName({ id, name: "SWE-2.1" })).toBeUndefined();
+    expect(resolvePresetName({ id, identity: { logicalId: "devin/swe-2-1-high" } })).toBeUndefined();
+  },
+);
 
 test.each([
   ["opaque ID with a display name", { id: "deployment-42", name: "Claude Opus 4.8 Fast" }, "claude-opus-4-8"],

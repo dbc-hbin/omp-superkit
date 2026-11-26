@@ -54,8 +54,7 @@ exclude = ["**/__pycache__", "**/.venv", "**/build", "**/dist"]
 reportUnusedCallResult = "warning"       # flag ignored return values
 reportUnnecessaryTypeIgnoreComment = "error"  # stale type: ignore comments must die
 reportUnusedVariable = "error"           # unused variables are errors
-reportMissingParameterType = "error"     # every parameter must have a type
-reportMissingReturnType = "error"        # every function must declare its return type
+reportMissingParameterType = "error"     # parameters other than self and cls need annotations
 reportPrivateUsage = "error"             # respect _private convention
 
 # Optional: gradual adoption baseline
@@ -73,6 +72,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["ALL"]
+# Keep ANN enabled: Ruff requires explicit return annotations (including ANN201/ANN202).
 ignore = [
     # Formatter conflicts (ruff itself tells you to ignore these)
     "COM812",   # missing trailing comma

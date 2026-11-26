@@ -42,6 +42,14 @@ normally default to 30 seconds with explicit values clamped to 1–300 and cappe
 numeric IDs. `ariaSnapshot(selector?, { compact?, interactive?, urls?, diff? })` returns ARIA refs;
 with diff enabled its result may be full, unchanged or delta. Do not mix those namespaces.
 
+Use a known selector to scope the read; `compact` and `viewportOnly` can narrow an observation,
+and an interactive ARIA snapshot can focus on controls. Use a diff only with the corresponding
+baseline; keep the current refs you need for the next action. For a known assertion, read the
+target's value, attribute, count or a short text excerpt instead. Have `evaluate` return only
+the needed fields and cap rows and string lengths before printing. Do not dump body HTML or
+full page text into Eval output. Note omitted data if it affects the conclusion, and widen the
+read only when the small result leaves the question unanswered.
+
 `tab.id(n)` and `tab.ref("e5")` create element proxies with click, fill, type, hover, focus, press,
 check/uncheck, select, uploadFile, scrollIntoView and query helpers. Refs must come from the current
 real observation. Direct selectors support CSS, Puppeteer `aria/`, `text/`, `xpath/`, `pierce/` and

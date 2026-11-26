@@ -36,14 +36,16 @@ The skill enforces five non-negotiables:
 | Tests | `go test -race -shuffle=on -count=1` | `-count` cache, no race |
 | Goroutine leaks | `go.uber.org/goleak` in `TestMain` | "looks fine" |
 | Mock | `go.uber.org/mock` (gomock successor) | hand-written stubs |
-| DB | `sqlc` + `jackc/pgx/v5` | `database/sql` + `gorm` |
+| DB | `sqlc` + `jackc/pgx/v5` + `goose` migrations | `database/sql` + `gorm` |
 | HTTP framework | **`gin-gonic/gin`** (de facto, ~48% of Go API repos) — `go-chi/chi` for minimalist, `connectrpc/connect-go` for RPC | `echo` (smaller eco), `fiber` (fasthttp = non-stdlib), `gorilla/mux` (in maintenance mode) |
+| HTTP client | `net/http.Client` with explicit timeouts and a tuned `Transport`; `go-retryablehttp` for retry/backoff | untuned default clients |
 | RPC | **`connectrpc/connect-go`** (gRPC-compatible, HTTP/1.1-friendly, browser-friendly) | hand-rolled `grpc-go` unless you specifically need bidi streaming features Connect lacks |
 | Validation | `go-playground/validator/v10` for HTTP boundary + `bufbuild/protovalidate-go` for proto + smart constructors for domain | ad-hoc `if len(s) == 0` chains |
 | Config | `caarlos0/env/v11` (struct-tag env) | `viper` unless you actually need file+env+flag merging |
 | Logging | **`log/slog`** (stdlib, Go 1.21+) | logrus, zap, zerolog (all superseded) |
-| CLI | `spf13/cobra` | hand-rolled `os.Args` parsing past 2 flags |
+| CLI | `spf13/cobra` + `huh` for prompts | hand-rolled `os.Args` parsing past 2 flags |
 | TUI | `charm.land/bubbletea/v2` + `bubbles/v2` + `lipgloss/v2` — see `bubbletea-v2.md` for CJK/IME | bubbletea v1 if you need IME |
+| LLM / agent | direct `net/http` + Connect | langchaingo by default |
 
 A single CI command should be the gate:
 
@@ -54,28 +56,35 @@ gofumpt -l . && \
   go test -race -shuffle=on -count=1 ./...
 ```
 
-If any of these fails, the change is not done. Period. The bundle is set up so a clean run actually means clean — see `golangci-strict.md` for the per-linter rationale and the deliberate `nolint:` policy.
+If any of these fails, the change is not done. Period. See [golangci-strict.md](golangci-strict.md) for the per-linter rationale and the deliberate `nolint:` policy.
+
+Scaffold a new project with `bun run "$SKILL_DIR/scripts/go/new-project.ts" <name>`. For the supported arguments, run `bun run "$SKILL_DIR/scripts/go/new-project.ts" --help`.
+
+After editing Go files, run `bash "$SKILL_DIR/scripts/go/check-no-excuse-rules.sh" <changed Go files>` from the project directory. The checker uses the local Go toolchain to read source without building your project or resolving its modules.
 
 ## Hard rules — code
 
 Read these per-file references for the canonical patterns:
 
-- **Types & data** → `type-patterns.md`, `data-modeling.md` — branded named types, smart constructors with unexported fields, sealed interfaces as sum types.
-- **Errors** → `error-handling.md` — sentinel vs typed struct, `errors.Is/As`, `%w` wrapping, no panic in libraries, the `errorlint` ruleset.
-- **Concurrency** → `concurrency.md` — `context.Context` discipline, `errgroup`, `sync.OnceValue`, `goleak`, `-race`, channel selection rules.
-- **HTTP backend** → `backend-stack.md` — `gin` server skeleton, middleware ordering, SSE/streaming with `http.Flusher`, structured slog logging, graceful shutdown — distilled from the CLIProxyAPI codebase (a real proxy serving OpenAI/Gemini/Claude APIs).
-- **RPC** → `grpc-connect.md` — when to pick Connect vs grpc-go, codegen pipeline, protovalidate, streaming.
-- **DB** → `sqlc-pgx.md` — compile-time-safe SQL via sqlc + pgx connection pool + migrations via goose + testcontainers in CI.
-- **CLI** → `cobra-stack.md` — cobra layout, slog integration, graceful shutdown on signals, fang-style colored help.
-- **TUI** → `bubbletea-v2.md` — v2 model, `SetVirtualCursor(false)` + `tea.View{Cursor}` for CJK IME, why v1 was broken for Korean/Japanese/Chinese input.
-- **Testing** → `testing.md` — table-driven tests, `require` vs `assert`, `autogold` snapshots, `gopter` property tests, `testcontainers` for integration, `goleak` for goroutine leaks.
-- **Bootstrap** → `bootstrap.md` — `scripts/go/new-project.ts` invocation, project layout (`cmd/`, `internal/`, `pkg/`), Taskfile, CI.
-- **Strict config** → `golangci-strict.md` — the canonical `.golangci.yml` with the full linter whitelist and per-linter rationale.
-- **One-liners** → `one-liners.md` — `go run` scripts with `//go:build ignore`, `gorun`-style invocation.
+- **Types & data** → [type-patterns.md](type-patterns.md), [data-modeling.md](data-modeling.md) — branded named types, smart constructors with unexported fields, sealed interfaces as sum types. Prefer values for immutable, safely copyable types; avoid copying locks.
+- **Errors & resources** → [error-handling.md](error-handling.md) — sentinel vs typed struct, `errors.Is/As`, `%w` wrapping, one `httperr.Write` funnel for HTTP, and immediate `defer` cleanup (`bodyclose` / `sqlclosecheck`).
+- **Concurrency** → [concurrency.md](concurrency.md) — `context.Context` discipline, `errgroup`, `sync.OnceValue`, `goleak`, `-race`, channel selection rules.
+- **Library choice** → [libraries.md](libraries.md) — rationale and production defaults, including data and analytics with Arrow, DuckDB and Gonum.
+- **HTTP backend** → [backend-stack.md](backend-stack.md) — `gin` server skeleton, middleware ordering, SSE/streaming with `http.Flusher`, structured slog logging, graceful shutdown.
+- **RPC** → [grpc-connect.md](grpc-connect.md) — when to pick Connect vs grpc-go, codegen pipeline, protovalidate, streaming.
+- **DB** → [sqlc-pgx.md](sqlc-pgx.md) — compile-time-safe SQL via sqlc + pgx connection pool + migrations via goose + testcontainers in CI.
+- **CLI** → [cobra-stack.md](cobra-stack.md) — cobra layout, slog integration, graceful shutdown on signals, fang-style colored help.
+- **TUI** → [bubbletea-v2.md](bubbletea-v2.md) — v2 model, `SetVirtualCursor(false)` + `tea.View{Cursor}` for CJK IME.
+- **Testing** → [testing.md](testing.md) — table-driven tests, `require` vs `assert`, `autogold` snapshots, `rapid` property tests, `testcontainers` for integration, `goleak` for goroutine leaks.
+- **Bootstrap** → [bootstrap.md](bootstrap.md) — generated project layout (`cmd/`, `internal/`, `pkg/`), Taskfile, CI.
+- **Strict config** → [golangci-strict.md](golangci-strict.md) — canonical `.golangci.yml`, linter whitelist and rationale.
+- **One-liners** → [one-liners.md](one-liners.md) — `go run` scripts with `//go:build ignore`, `gorun`-style invocation.
 
 ## The 250 pure LOC ceiling
 
-Same rule as Python/Rust/TS: a `.go` file whose pure LOC (non-blank, non-comment) exceeds 250 is architecturally broken. Go encourages many small files in a single package, so this is *more* natural here than elsewhere — split by responsibility, keep one cohesive type and its methods per file.
+The checker reports pure LOC per file: nonblank physical lines containing source, not comment-only lines (including block comments). A line with code and a comment counts once; nonblank lines in a raw string are source, even if they look like comments.
+
+200–250 pure LOC is a warning band. More than 250 fails the check: split by responsibility, keeping one cohesive type and its methods per file. In the rare cases permitted by the [code-smell reference](../code-smells.md#acceptable-exceptions-rare-require-justification), add `// allow: SIZE_OK — <reason>` to report the count without failing the size check. Generated files remain excluded.
 
 The `cmd/server/main.go` is the most common violator. Refactor it: `main.go` only wires `os.Args` → `cmd.Execute()`. Anything else lives in `internal/`.
 

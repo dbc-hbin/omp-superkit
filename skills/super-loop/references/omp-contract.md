@@ -30,6 +30,29 @@ Native plan-mode children return proposed content without writing artifacts. The
 
 Source: [OMP v19.1.0 native plan-mode contract](https://github.com/can1357/oh-my-pi/blob/a7135b8f31826c878734388b648f52bed8da436e/packages/coding-agent/src/prompts/system/plan-mode-active.md).
 
+### Native decision forms
+
+Use `ask` only when advertised and a material decision needs the user. In
+[OMP 19.2.1](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/prompts/tools/ask.md),
+`required`, `min`, `max` and `pattern` are hints: invalid submissions can
+be flagged but still returned. Check that the response actually resolves
+the decision before acting. A missing or out-of-scope answer, cancellation,
+or timeout-selected default does not authorize action. A submitted form
+does not satisfy a separate host approval gate or replace native plan approval.
+
+### Live agent model controls
+
+When the host exposes these writes, target yourself or a live direct child
+you spawned, by its observed `agent://<id>`. Write a permitted task agent
+kind (e.g. `task:high`) or an available user model tag (e.g. `m1`) to `agent://<id>/model`,
+or a level such as `high` or `auto` to `agent://<id>/effort`. Read the
+result: unsupported levels may snap to a supported effort. These controls
+change only that live session's model or effort, not its assigned role,
+scope, permissions or settings defaults. Do not use a historical output,
+reused label, peer, cross-instance address or stale graph binding as a
+control target. A denied or unavailable control grants no alternative.
+See the [OMP 19.2.1 agent URL contract](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/prompts/internal-urls/agent.md).
+
 ## Continuation and evidence
 
 The installed extension can resume active loop-format or Boulder work owned by the current session. Resume the workflow identified by its brief and linked records: standalone research remains research when it reuses loop-format continuation state. The hook checks pending state, respects terminal/blocked state and stops repeating an unchanged fingerprint. A hook notification is not proof of completion; update state from the actual outcome.
@@ -47,3 +70,32 @@ Load linked references only when their artifact or state contract is needed. Too
 Continue independent work while jobs run. When only results from work you started or a blocking reply remain, follow the current session's native `wait` description. In OMP 19 TUI, end the turn when the host says results or messages resume it. This leaves the work pending; it does not complete the workflow. In other sessions use `wait` as advertised.
 
 A `wait` call is not a per-child wait or a wave barrier. It may return with no new terminal result, multiple events, or due to steering. Reconcile delivered results by their actual job or agent IDs and remove only terminal entries from the pending set. A message, preview, or running snapshot is not completion. Process delivered results before waiting again; never poll or sleep for them.
+
+### Task-owned services
+
+Use the advertised named Bash service for an authorized long-lived server.
+If a task-owned process is already running, OMP 19.2.1's embedded shell
+can adopt it without restarting it: `o2ctl services add <name> <pid|%job>`.
+Use a unique project service name and a verified PID or shell job
+belonging to this task. `o2ctl services ls` lists the project's services;
+`o2ctl services stop <name>` stops a named service and its process tree.
+Listing or adoption is not proof of readiness. Verify the endpoint
+needed by the task, and record the service identity, owner and cleanup
+result or explicitly authorized handoff. Do not stop unrelated services.
+
+Service lifetime and shell cleanup are separate:
+
+- `launch.persist` applies to named services, including adopted ones.
+  Without persistence they are lease-held and stop when the last lease
+  is released; with persistence they are not stopped by lease release.
+  Check the effective host setting rather than assuming they die with
+  the workflow or will outlive it.
+- `bash.reapBackground` covers **unregistered** Bash leftovers. Where
+  enabled, the main agent can receive a reminder at turn settle and
+  ordinary `&` leftovers are reaped at session end. `nohup` leftovers
+  may be reported but are not reaped by that path; RPC disables the
+  reaper. Neither a reminder nor session exit is a cleanup receipt.
+
+Sources at OMP 19.2.1: [service commands](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/launch/o2ctl-command.ts),
+[service lifetime](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/launch/services.ts)
+and [leftover process handling](https://github.com/can1357/oh-my-pi/blob/b55cd1bb664d8ab46ddc77f2a34eb47555dbf1ac/packages/coding-agent/src/session/leftover-processes.ts).

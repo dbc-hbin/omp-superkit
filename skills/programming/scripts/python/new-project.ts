@@ -48,7 +48,7 @@ reportUnknownArgumentType = false
 reportUnknownVariableType = false
 reportUnknownLambdaType = false
 reportUnknownParameterType = false
-reportMissingParameterType = false
+reportMissingParameterType = "error"
 reportUnnecessaryIsInstance = false
 reportUnusedCallResult = false
 reportImplicitOverride = false
@@ -63,8 +63,6 @@ ignore = [
     "COM812",   # trailing comma (conflicts with formatter)
     "ISC001",   # single-line string concat (conflicts with formatter)
     "D1",       # undocumented-public-* (too noisy early on)
-    "ANN101",   # deprecated: self annotation
-    "ANN102",   # deprecated: cls annotation
     "S101",     # assert used (pytest needs it)
     "PLR2004",  # magic-value-comparison (test data)
     "FBT",      # boolean-trap (too strict for CLIs)
@@ -73,7 +71,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "PLR2004", "SLF001", "D", "ARG", "ANN"]
+"tests/**/*.py" = ["S101", "PLR2004", "SLF001", "D", "ARG"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

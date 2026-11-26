@@ -24,7 +24,13 @@ export function projectHostGuidance(text: string, source: string, modelGuidance:
     // fallback restores the original role (which already contains them).
     const engineering = originalBehavior?.split("\n# Engineering\n")[1]?.split(/\n# /, 1)[0];
     const embed = engineering?.match(/^  - Picture that exists [^\n]*`<iframe src=[^\n]+(?:\n    - [^\n]+)*/m)?.[0];
-    policy = policy.replace(/(^|\n)# (?:General|Exploration)\n[\s\S]*?(?=\n# |$)/g, "$1");
+    // Keep native entry points without bringing back batching and readback defaults.
+    policy = policy.replace(/(^|\n)# (General|Exploration)\n([\s\S]*?)(?=\n# |$)/g, (_section, start: string, heading: string, body: string) => {
+      const rule = heading === "General"
+        ? body.match(/^- \*\*Direct entry\.\*\* [^\n]+/m)?.[0]
+        : body.match(/^- Path from an import or config\? [^\n]+/m)?.[0];
+      return rule ? `${start}# ${heading}\n${rule}\n` : start;
+    });
     // Delegation contains host-selected permissions and gates, not just preferences.
     // Drop only the known optional fan-out preference, leaving unfamiliar rules intact.
     policy = policy.replace(/(^|\n)# Delegation\n[\s\S]*?(?=\n# |$)/, section => section.replace(

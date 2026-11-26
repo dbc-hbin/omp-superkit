@@ -35,7 +35,7 @@ let val = map.get("key").unwrap();
 let val = map.get("key").context("missing 'key' in config")?;
 ```
 
-The one exception is a failure that can only mean a bug in this crate (a proven invariant): `.expect("<the invariant>")` behind `#[expect(clippy::expect_used, reason = "<why it cannot fail>")]` on that statement. Clippy's `expect_used` deny and `scripts/rust/check-no-excuse-rules.sh` both honor exactly that form.
+The one exception is a failure that can only mean a bug in this crate (a proven invariant): `.expect("<the invariant>")` behind `#[expect(clippy::expect_used, reason = "<why it cannot fail>")]` on that statement. For justified lint exceptions use `#[expect(lint, reason = "...")]`, never `#[allow]`.
 
 **Discarding is handling too.** `let _ = fallible();` and `.ok();` that drop an error are forbidden (`let_underscore_must_use`). A best-effort call (cleanup in `Drop`, a rollback on an error path) logs the error it cannot return.
 
@@ -43,7 +43,7 @@ Typed errors for libraries ([thiserror](https://docs.rs/thiserror)), ad-hoc erro
 
 ### 2. No `unsafe` Without Miri Proof
 
-If `unsafe` is unavoidable, you have miri. Run it. Always. **Load [`../rust-ub/README.md`](../rust-ub/README.md) plus every file under [`../rust-ub/`](../rust-ub/)** for the full UB taxonomy, Miri escalation protocol (4 strictness levels), and the fix-and-prove workflow. Every `unsafe` block needs the three components from [unsafe-discipline.md](unsafe-discipline.md): safe wrapper, `// SAFETY:` comment, miri test.
+If `unsafe` is unavoidable, you have Miri. Run it. Always. **Load [`../rust-ub/README.md`](../rust-ub/README.md) plus every file under [`../rust-ub/`](../rust-ub/)** for the full UB taxonomy, escalation protocol and fix-and-prove workflow. Every `unsafe` block needs the three components from [unsafe-discipline.md](unsafe-discipline.md): safe wrapper, `// SAFETY:` comment, and a test that passes Miri Level 3 (strict provenance, symbolic alignment and preemption) before shipping.
 
 ```bash
 cargo +nightly miri nextest run
@@ -219,11 +219,17 @@ Full decision tree with rationale and code snippets → [libraries.md](libraries
 |---|---|---|
 | Async runtime | `tokio` | Ecosystem standard. Patterns → [async-tokio.md](async-tokio.md) |
 | HTTP server | `axum` + `tower` | Type-safe extractors, tower middleware. Stack → [axum-stack.md](axum-stack.md) |
-| CLI | `clap` derive + `color-eyre` | Typed args, beautiful errors. Stack → [clap-stack.md](clap-stack.md) |
-| Serialization | `serde` + `serde_json` | Non-negotiable for any boundary type |
+| CLI | `clap` derive + `color-eyre` + `indicatif` | Typed args, rich errors, progress. Stack → [clap-stack.md](clap-stack.md) |
+| Boundary data | `serde` + `serde_json` + `validator` | Parse inputs into typed values and check domain constraints at the edge |
+| HTTP client | `reqwest` with rustls | Tune timeouts and connection pools |
 | Error (library) | `thiserror` | Derive `Error` with zero boilerplate |
 | Error (binary) | `anyhow` / `color-eyre` | Context-rich ad-hoc errors |
 | Database | `sqlx` (compile-time checked) | No runtime SQL surprises |
+| Logging | `tracing` + `tracing-subscriber` | Structured spans and fields |
+| Config from env | `figment` or `config` | Parse once into a typed struct |
+| Data / analytics | `polars` or `arrow` | Columnar processing |
+| LLM / agent | Python via subprocess | Use the Python agent stack |
+| TUI | `ratatui` | Terminal UI |
 | Arena alloc | `bumpalo` / `typed-arena` | Explicit allocation scope. Patterns → [zero-cost-safety.md §1](zero-cost-safety.md) |
 | Zero-copy parse | `zerocopy` | Safe binary parsing, no transmute. Patterns → [zero-cost-safety.md §4](zero-cost-safety.md) |
 | Scope guard | `scopeguard` | errdefer/defer. Patterns → [zero-cost-safety.md §5](zero-cost-safety.md) |
@@ -236,14 +242,17 @@ Full decision tree with rationale and code snippets → [libraries.md](libraries
 
 ## Cargo Strict Configuration
 
-Every new project gets the strict lint config from [cargo-strict.md](cargo-strict.md). The non-negotiable CI gate:
+Scaffold a new project with `bun run "$SKILL_DIR/scripts/rust/new-project.ts" <name>`. See [cargo-strict.md](cargo-strict.md) for strict lint groups, compiler warnings, formatting, `cargo-machete` and `cargo-deny`. The CI gate:
 
 ```bash
 cargo fmt --all -- --check && \
 cargo clippy --all-targets --all-features -- -D warnings && \
-cargo nextest run && cargo test --doc && \
-cargo +nightly miri nextest run  # when unsafe is involved
+cargo nextest run && cargo test --doc
 ```
+
+When unsafe is involved, add the [nightly Miri gate](../rust-ub/README.md) with strict provenance and the Tree Borrows pass.
+
+After editing Rust files, run `bash "$SKILL_DIR/scripts/rust/check-no-excuse-rules.sh" <changed Rust files>` from the project directory.
 
 ---
 
