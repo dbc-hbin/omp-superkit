@@ -9,7 +9,7 @@ from typing import TypeAlias
 
 from .jsonio import as_map, iter_jsonl, parse_json_text, text
 from .timeparse import file_time, unix_millis, unix_seconds
-from .transcript import content_text, existing, flat_parallel, merge_usage, recent
+from .transcript import content_text, existing_roots, flat_parallel, merge_usage, recent
 from .types import JsonMap, Session
 
 SqlValue: TypeAlias = str | int | float | bytes | None
@@ -28,7 +28,7 @@ class _StateRow:
 
 
 def scan_aside(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".aside"], extra_roots, (".aside",))
+    roots = existing_roots([Path.home() / ".aside"], extra_roots, (".aside",))
     sessions: list[Session] = []
     for user_dir in _user_dirs(roots):
         index = _state_index(user_dir / "state.db")
@@ -135,11 +135,3 @@ def _aside_session(path: Path, index: dict[str, _StateRow]) -> Session:
 
 def _dir_session_id(name: str) -> str:
     return name.split("_", 1)[-1]
-
-
-def _roots(defaults: list[Path], extra_roots: tuple[Path, ...], children: tuple[str, ...]) -> list[Path]:
-    candidates = [*defaults]
-    for root in extra_roots:
-        candidates.append(root)
-        candidates.extend(root / child for child in children)
-    return existing(candidates)

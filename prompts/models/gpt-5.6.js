@@ -131,5 +131,5 @@ While authorized work can still advance the stop goal, keep going. Before report
 ${buildFileOperationsTuning({ toolNames })}`;
 }
 export function buildGpt56Prompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt56Core, workstationDialect: "codex" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt56Core });
 }

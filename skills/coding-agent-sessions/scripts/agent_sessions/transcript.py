@@ -131,6 +131,14 @@ def existing(paths: list[Path]) -> list[Path]:
     return result
 
 
+def existing_roots(defaults: list[Path], extra_roots: tuple[Path, ...], children: tuple[str, ...]) -> list[Path]:
+    candidates = [*defaults]
+    for root in extra_roots:
+        candidates.append(root)
+        candidates.extend(root / child for child in children)
+    return existing(candidates)
+
+
 def recent(paths: list[Path]) -> list[Path]:
     return nlargest(MAX_PLATFORM_FILES, paths, key=modified_time)
 

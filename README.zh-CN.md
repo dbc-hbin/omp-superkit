@@ -69,7 +69,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 GitHub 源码压缩包不包含子模块和生成的参考文件。无需 Git 的部署应复制生成后的完整 `skills/` 目录。初始化和上游更新需要网络；参考生成在本地完成。
 
-在 [prompts/models/](prompts/models/) 中直接编辑模型模板。GPT‑6.2 Astra/Sol 使用 [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts)。[模型路由](prompts/models/model-routing.js) 识别模型别名，[presets.ts](presets.ts) 根据 OMP 的活动工具和会话组合提示。预设不再从 OMO 或 Senpi 下载或生成。
+所有模型模板（包括 [GPT‑6.2 Astra/Sol](prompts/models/gpt-6.2.ts)）都在 [prompts/models/](prompts/models/) 中直接编辑。[模型路由](prompts/models/model-routing.js) 识别模型别名，[presets.ts](presets.ts) 根据 OMP 的活动工具和会话组合提示。预设不再从 OMO 或 Senpi 下载或生成。
 
 ```bash
 bun test
@@ -79,6 +79,6 @@ bun run test:host
 
 宿主检查在隔离状态下使用已安装的 OMP 和脚本化本地 provider，验证集成与传输路径，而非外部模型是否遵循指令。
 
-## 更新历史与来源
+## 来源
 
-[更新历史](CHANGELOG.md)。预设的原始来源和 [MIT 许可证](prompts/models/LICENSE) 随[目录](prompts/models/catalog.js)保留。技能的来源和许可证记录在各自的 attribution 文件中。
+预设的原始来源和 [MIT 许可证](prompts/models/LICENSE) 随[目录](prompts/models/catalog.js)保留。技能的来源和许可证记录在各自的 attribution 文件中。

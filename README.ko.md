@@ -69,7 +69,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 GitHub 소스 압축 파일에는 서브모듈과 생성 참조가 없습니다. Git 없이 배포할 때는 생성이 완료된 `skills/` 트리 전체를 복사합니다. 초기화와 upstream 갱신에는 네트워크가 필요하며, 참조 생성은 로컬에서 수행합니다.
 
-모델별 템플릿은 [prompts/models/](prompts/models/)에서 직접 수정합니다. GPT‑6.2 Astra/Sol은 [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts)를 사용합니다. [모델 라우팅](prompts/models/model-routing.js)이 별칭을 판별하고, [presets.ts](presets.ts)가 OMP의 활성 도구와 세션에 맞춰 템플릿을 조합합니다. OMO·Senpi에서 프리셋을 가져오거나 다시 생성하지 않습니다.
+[GPT‑6.2 Astra/Sol](prompts/models/gpt-6.2.ts)을 포함한 모델별 템플릿은 [prompts/models/](prompts/models/)에서 직접 수정합니다. [모델 라우팅](prompts/models/model-routing.js)이 별칭을 판별하고, [presets.ts](presets.ts)가 OMP의 활성 도구와 세션에 맞춰 템플릿을 조합합니다. OMO·Senpi에서 프리셋을 가져오거나 다시 생성하지 않습니다.
 
 ```bash
 bun test
@@ -79,6 +79,6 @@ bun run test:host
 
 호스트 검증은 설치된 OMP를 격리된 상태와 로컬 응답기로 실행합니다. 통합·전송 경로를 확인하며, 외부 모델의 지침 준수까지 검증하지는 않습니다.
 
-## 변경 이력과 출처
+## 출처
 
-[변경 이력](CHANGELOG.ko.md). 프리셋 원본 출처와 [MIT 라이선스](prompts/models/LICENSE)는 [카탈로그](prompts/models/catalog.js)와 함께 보존합니다. 스킬 출처와 라이선스는 각 스킬의 attribution 파일에 기록합니다.
+프리셋 원본 출처와 [MIT 라이선스](prompts/models/LICENSE)는 [카탈로그](prompts/models/catalog.js)와 함께 보존합니다. 스킬 출처와 라이선스는 각 스킬의 attribution 파일에 기록합니다.

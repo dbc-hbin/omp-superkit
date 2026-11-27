@@ -175,38 +175,26 @@ export function terminalOrApp(surface) {
 
 const TEST_DISCIPLINE_RULES = [
   {
-    id: "deterministic-tests",
-    concern: "test-determinism",
     directive: "Reading/editing test code: nondeterminism = bug; no passing by timing luck.",
     fullDirective: "When you read or edit test code, treat nondeterminism as a bug; tests must not pass by timing luck."
   },
   {
-    id: "fixed-wait-ban",
-    concern: "async-test-orchestration",
     directive: "Fixed sleeps, polling delays, wait-for-time: forbidden unless time itself is under test.",
     fullDirective: "Unless time itself is the behavior under test, fixed sleeps, polling delays, and wait-for-time patterns are forbidden."
   },
   {
-    id: "event-timeout-pattern",
-    concern: "async-test-orchestration",
     directive: "Async: subscribe to the exact event/state change before triggering, then await it with a bounded timeout.",
     fullDirective: "For async behavior, subscribe to the exact event or state change before triggering the action, then await that signal with a bounded timeout."
   },
   {
-    id: "mock-contract-integrity",
-    concern: "mock-contracts",
     directive: "Mocks keep the asserted behavior; never isolate so hard the integration cannot fail.",
     fullDirective: "Mocks must preserve the behavior being asserted; do not isolate so heavily that the integration under test cannot fail."
   },
   {
-    id: "prompt-behavior-coverage",
-    concern: "prompt-tests",
     directive: "Never pin prose, prompt wording, or doc text with a test; test machine-consumed values only (parsed fields, sentinel tokens, shipped-copy equality). Pure-prose change = no new test.",
     fullDirective: "Never pin prose, prompt wording, or doc text with a test; test only machine-consumed values (parsed fields, sentinel tokens, shipped-copy equality). A pure-prose change ships with no new test."
   },
   {
-    id: "single-pass-runner",
-    concern: "test-runner",
     directive: "Run the relevant test command once, make that pass reliable; Bun targets: bun test passes in a single run.",
     fullDirective: "Run the relevant test command once and make that pass reliable; for Bun test targets, bun test must pass in a single run."
   }

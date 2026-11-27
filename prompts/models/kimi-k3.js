@@ -89,5 +89,5 @@ Have an opinion: agree or disagree plainly, and say why; raise only real problem
 Plain, literal prose; bullets only for genuinely list-shaped content; ASCII unless the file already uses Unicode. ${subagent ? "Lead with the outcome and the evidence the parent needs to act on it." : `${surface === "chat" ? `${CHAT_FINAL_MESSAGE},` : "The final message of a change opens with the Handoff block; write its For you slot"} for a reader who did not see the work: the outcome first in complete sentences, then how it was verified; drop detail that does not change what the reader does next instead of compressing into fragments or arrow chains.`}`;
 }
 export function buildKimiK3Prompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildKimiK3Core, workstationDialect: "kimi" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildKimiK3Core });
 }

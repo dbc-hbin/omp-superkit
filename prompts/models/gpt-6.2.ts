@@ -1,5 +1,5 @@
-import { APP_UNRUN_CHECK_RULE, SPECIALIST_REPLY, SPECIALIST_VERIFICATION } from "./models/shared-prompt.js";
-import type { PresetOptions } from "../presets";
+import { APP_UNRUN_CHECK_RULE, SPECIALIST_REPLY, SPECIALIST_VERIFICATION } from "./shared-prompt.js";
+import type { PresetOptions } from "../../presets";
 
 // Astra/Sol instructions. The model catalog owns matching separately from this text.
 export function gpt62Body({ surface, subagent, toolNames }: PresetOptions): string {

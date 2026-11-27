@@ -12,7 +12,6 @@ export function buildGlm5Prompt(options) {
       GLM5_TUNING
     ].filter((section) => section.length > 0).join(`
 
-`),
-    workstationDialect: "claude"
+`)
   });
 }

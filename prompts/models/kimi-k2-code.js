@@ -17,7 +17,6 @@ export function buildKimiK2CodePrompt(options, modelName) {
       buildKimiK2CodeTuning(modelName, options)
     ].filter((section) => section.length > 0).join(`
 
-`),
-    workstationDialect: "kimi"
+`)
   });
 }

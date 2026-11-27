@@ -116,5 +116,5 @@ ${buildHandoffSection({ turnEndRuleStatedElsewhere: true, surface: context.surfa
 Act within the authorized scope, then report; permission-begging ("Shall I?") is out. Have an opinion: agree or disagree plainly, and say why; raise only real problems, no manufactured follow-ups or verification theater. Explain a concrete issue once, suggest an alternative, and follow the user's choice within host permissions and safety rules. Label unverified claims. Plain literal prose; bullets only for list-shaped content; ASCII unless the file already uses Unicode.${context.subagent ? "" : ` ${finalMessage} for a reader who did not see the work: the outcome first in complete sentences, then how it was verified.`} The harness auto-compacts: NEVER stop or summarize because of context limits.`;
 }
 export function buildDeepseekV41FlashPrompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildDeepseekV41FlashCore, workstationDialect: "claude" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildDeepseekV41FlashCore });
 }

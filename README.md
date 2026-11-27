@@ -69,7 +69,7 @@ bun upstream/materialize-frontend-refs.mjs
 
 A GitHub source archive omits submodules and generated references. For deployment without Git, copy the complete materialized `skills/` tree. Initialization and upstream updates need network access; reference generation is local.
 
-Edit model templates directly in [prompts/models/](prompts/models/) or, for GPT‑6.2 Astra/Sol, in [prompts/gpt-6.2.ts](prompts/gpt-6.2.ts). [Model routing](prompts/models/model-routing.js) handles aliases, and [presets.ts](presets.ts) combines the templates with active OMP tool and session guidance. Presets are no longer fetched or generated from OMO or Senpi.
+Edit model templates directly in [prompts/models/](prompts/models/), including the [GPT‑6.2 Astra/Sol template](prompts/models/gpt-6.2.ts). [Model routing](prompts/models/model-routing.js) handles aliases, and [presets.ts](presets.ts) combines the templates with active OMP tool and session guidance. Presets are no longer fetched or generated from OMO or Senpi.
 
 ```bash
 bun test
@@ -79,6 +79,6 @@ bun run test:host
 
 Host checks use the installed OMP with isolated state and a scripted local provider. They verify integration and transport, not external model obedience.
 
-## History and attribution
+## Attribution
 
-[Change history](CHANGELOG.md). The original preset source is credited in the [catalog](prompts/models/catalog.js) and its [MIT license](prompts/models/LICENSE). Skill sources and licenses are recorded in their attribution files.
+The original preset source is credited in the [catalog](prompts/models/catalog.js) and its [MIT license](prompts/models/LICENSE). Skill sources and licenses are recorded in their attribution files.

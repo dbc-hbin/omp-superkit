@@ -5,12 +5,12 @@ from urllib.parse import unquote, urlparse
 
 from .jsonio import as_map, int_value, iter_jsonl, parse_json_text, read_json, text
 from .timeparse import file_time, unix_millis, unix_seconds
-from .transcript import content_text, env_path, existing, flat_parallel, jsonl_parallel, recent
+from .transcript import content_text, env_path, existing_roots, flat_parallel, jsonl_parallel, recent
 from .types import Json, JsonMap, Session
 
 
 def scan_openclaw(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".openclaw"], extra_roots, (".openclaw",))
+    roots = existing_roots([Path.home() / ".openclaw"], extra_roots, (".openclaw",))
     paths: list[Path] = []
     for root in roots:
         paths.extend((root / "agents").glob("*/sessions/*.jsonl"))
@@ -21,38 +21,38 @@ def scan_openclaw(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
 
 
 def scan_droid(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".factory"], extra_roots, (".factory",))
+    roots = existing_roots([Path.home() / ".factory"], extra_roots, (".factory",))
     paths = [path for root in roots for path in (root / "sessions").glob("*/*.jsonl")]
     return flat_parallel(recent(paths), workers, lambda path: [_droid_session(path)])
 
 
 def scan_amp(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".local" / "share" / "amp"], extra_roots, ("amp", ".local/share/amp"))
+    roots = existing_roots([Path.home() / ".local" / "share" / "amp"], extra_roots, ("amp", ".local/share/amp"))
     paths = [path for root in roots for path in (root / "threads").glob("T-*.json")]
     return flat_parallel(recent(paths), workers, _amp_sessions)
 
 
 def scan_gemini(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".gemini"], extra_roots, (".gemini",))
+    roots = existing_roots([Path.home() / ".gemini"], extra_roots, (".gemini",))
     paths = [path for root in roots for path in (root / "tmp").glob("*/chats/*.json")]
     return flat_parallel(recent(paths), workers, _gemini_sessions)
 
 
 def scan_kimi(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".kimi"], extra_roots, (".kimi",))
+    roots = existing_roots([Path.home() / ".kimi"], extra_roots, (".kimi",))
     paths = [path for root in roots for path in (root / "sessions").glob("*/*/wire.jsonl")]
     return flat_parallel(recent(paths), workers, lambda path: [_kimi_session(path)])
 
 
 def scan_qwen(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".qwen"], extra_roots, (".qwen",))
+    roots = existing_roots([Path.home() / ".qwen"], extra_roots, (".qwen",))
     paths = [path for root in roots for path in (root / "projects").glob("*/chats/*.jsonl")]
     return jsonl_parallel(recent(paths), workers, "qwen", lambda path: path.stem)
 
 
 def scan_codebuff(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
     defaults = [Path.home() / ".config" / name for name in ("manicode", "manicode-dev", "manicode-staging", "codebuff")]
-    roots = _roots(defaults, extra_roots, ("manicode", "codebuff"))
+    roots = existing_roots(defaults, extra_roots, ("manicode", "codebuff"))
     paths = [path for root in roots for path in (root / "projects").glob("*/chats/*/chat-messages.json")]
     return flat_parallel(recent(paths), workers, _codebuff_sessions)
 
@@ -70,7 +70,7 @@ def scan_cline(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
 
 
 def scan_aider(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / "local-workspaces", Path.home() / "indent"], extra_roots, ("local-workspaces",))
+    roots = existing_roots([Path.home() / "local-workspaces", Path.home() / "indent"], extra_roots, ("local-workspaces",))
     paths: list[Path] = []
     for root in roots:
         paths.extend(_bounded_named(root, ".aider.chat.history.md"))
@@ -167,7 +167,7 @@ def _scan_task_dirs(platform: str, extension: str, extra_roots: tuple[Path, ...]
         Path.home() / ".config" / "Code" / "User" / "globalStorage" / extension,
         *(path / "Code" / "User" / "globalStorage" / extension for path in (appdata,) if path is not None),
     ]
-    roots = _roots(defaults, extra_roots, (extension,))
+    roots = existing_roots(defaults, extra_roots, (extension,))
     paths = [path for root in roots for path in (root / "tasks").glob("*/api_conversation_history.json")]
     return flat_parallel(recent(paths), workers, lambda path: _task_sessions(platform, path))
 
@@ -234,14 +234,6 @@ def _without_system_reminders(value: Json | None) -> str:
 def _usage(data: JsonMap) -> JsonMap:
     usage = as_map(data.get("tokenUsage")) or {}
     return {key: value for key, value in usage.items() if isinstance(value, int | float)}
-
-
-def _roots(defaults: list[Path], extra_roots: tuple[Path, ...], children: tuple[str, ...]) -> list[Path]:
-    candidates = [*defaults]
-    for root in extra_roots:
-        candidates.append(root)
-        candidates.extend(root / child for child in children)
-    return existing(candidates)
 
 
 def _bounded_named(root: Path, name: str) -> list[Path]:

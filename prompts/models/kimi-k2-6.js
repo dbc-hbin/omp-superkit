@@ -16,7 +16,6 @@ export function buildKimiK26Prompt(options) {
       buildKimiK26Tuning(options)
     ].filter((section) => section.length > 0).join(`
 
-`),
-    workstationDialect: "kimi"
+`)
   });
 }

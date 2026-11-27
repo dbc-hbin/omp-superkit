@@ -1,6 +1,6 @@
 import { buildPreset, resolvePresetName } from "./prompts/models/catalog.js";
 import { buildAsyncRules, buildPendingResults, EXECUTION_ORDER as parallelRules, SHELL_STATE as shellRules } from "./prompts/models/execution-tooling.js";
-import { gpt62Body } from "./prompts/gpt-6.2";
+import { gpt62Body } from "./prompts/models/gpt-6.2";
 
 export interface PresetModel {
   readonly id: string;
@@ -130,8 +130,7 @@ Never invent evidence or claim unperformed checks passed.`,
   }
   // Native ask blocks; a resolved question is not a turn boundary.
   prompt = prompt
-    .replaceAll("request_user_input", "ask").replaceAll("ask_user_question", "ask")
-    .replaceAll(" (waitForAnswer true when the next step depends on the answer)", hasAsk ? " (ask blocks until answered)" : "")
+    .replaceAll("ask_user_question", "ask")
     .replaceAll("through ask when it is available", hasAsk ? "through `ask`" : "with a direct question")
     .replaceAll("then ask, with a direct question", "then ask a direct question");
   if (hasAsk) {

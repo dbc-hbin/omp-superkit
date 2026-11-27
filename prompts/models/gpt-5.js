@@ -13,7 +13,6 @@ ${buildFileOperationsTuning({ toolNames })}`;
 export function buildGpt5Prompt(options) {
   return buildDynamicSystemPrompt({
     ...options,
-    tuningSection: buildGpt5Tuning(options.selectedTools),
-    workstationDialect: "codex"
+    tuningSection: buildGpt5Tuning(options.selectedTools)
   });
 }

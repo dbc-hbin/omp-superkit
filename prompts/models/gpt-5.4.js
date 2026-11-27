@@ -15,7 +15,6 @@ ${buildFileOperationsTuning({ toolNames })}`;
 export function buildGpt54Prompt(options) {
   return buildDynamicSystemPrompt({
     ...options,
-    tuningSection: buildGpt54Tuning(options.selectedTools),
-    workstationDialect: "codex"
+    tuningSection: buildGpt54Tuning(options.selectedTools)
   });
 }

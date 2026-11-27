@@ -25,8 +25,7 @@
     "super-control.ts",
     "prompts/",
     "skills/",
-    "README*.md",
-    "CHANGELOG*.md"
+    "README*.md"
   ],
   "scripts": {
     "build": "bun upstream/materialize-frontend-refs.mjs",

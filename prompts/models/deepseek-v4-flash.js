@@ -6,7 +6,6 @@ import { buildDynamicSystemPrompt } from "./shared-prompt.js";
 export function buildDeepseekV4FlashPrompt(options) {
   return buildDynamicSystemPrompt({
     ...options,
-    tuningSection: buildDeepseekV4Tuning("deepseek-v4-flash", buildDeepseekV4FlashIntro("DeepSeek V4 Flash"), options),
-    workstationDialect: "claude"
+    tuningSection: buildDeepseekV4Tuning("deepseek-v4-flash", buildDeepseekV4FlashIntro("DeepSeek V4 Flash"), options)
   });
 }

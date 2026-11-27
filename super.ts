@@ -110,27 +110,27 @@ function nativeSkillInvocation(text: string) {
 
 /** SUPER ignores quoted code and already-expanded directive/pointer blocks. */
 export function visibleSuperText(text: string): string {
+  const mask = (value: string) => value.replace(/[^\r\n]/g, "\0");
   if (/\[IMPORTANT:\s*User invoked the "[^"\r\n]+" skill; follow its instructions\./i.test(text) ||
     /^\s*(?:\[(?:[A-Z][A-Z0-9_-]{2,}|[\w.-]+ -> [\w.-]+)\]|[A-Z][\w.-]{0,30} \([^()\s]{1,40}\)(?:, | to )[\w.-]{1,40}:)/.test(text)) {
-    return text.replace(/[^\r\n]/g, "\0");
+    return mask(text);
   }
-  text = text.replace(/<(om[op]-[a-z0-9-]+-pointer|ultrawork-mode|om[op]-(?:ulw|ultrawork)-reminder)>[\s\S]*?<\/\1>/gi, value => value.replace(/[^\r\n]/g, "\0"));
+  text = text.replace(/<(om[op]-[a-z0-9-]+-pointer|ultrawork-mode|om[op]-(?:ulw|ultrawork)-reminder)>[\s\S]*?<\/\1>/gi, mask);
   const fences = /^ {0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/gm;
   for (;;) {
     const opening = fences.exec(text);
     if (!opening) break;
     const closing = new RegExp(`^ {0,3}${opening[1][0]}{${opening[1].length},}[ \\t]*\\r?$`, "gm");
     closing.lastIndex = fences.lastIndex;
-    const limit = closing.exec(text)?.index;
-    const end = limit === undefined ? text.length : closing.lastIndex;
-    text = text.slice(0, opening.index) + text.slice(opening.index, end).replace(/[^\r\n]/g, "\0") + text.slice(end);
+    const end = closing.test(text) ? closing.lastIndex : text.length;
+    text = text.slice(0, opening.index) + mask(text.slice(opening.index, end)) + text.slice(end);
     fences.lastIndex = end;
   }
-  return text.replace(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, value => value.replace(/[^\r\n]/g, "\0"))
-    .replace(/^ {0,3}>[^\n]*/gm, value => value.replace(/[^\r\n]/g, "\0"))
-    .replace(/"[^"\n]*"|\u201C[^\u201D\n]*\u201D/g, value => value.replace(/[^\r\n]/g, "\0"))
-    .replace(/(?<![a-z0-9+.-])[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]+/gi, value => value.replace(/[^\r\n]/g, "\0"))
-    .replace(/\b(?:do\s+not|don['\u2019]t|dont|never)\s+(?:load|use|run|invoke|start|trigger|arm|enable)\b[^.;:!?\n]*?(?=[.;:!?\n]|\s(?:but|then|instead|however)\b|\s[\u2014\u2013-]\s|$)/gi, value => value.replace(/[^\r\n]/g, "\0"));
+  return text.replace(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, mask)
+    .replace(/^ {0,3}>[^\n]*/gm, mask)
+    .replace(/"[^"\n]*"|\u201C[^\u201D\n]*\u201D/g, mask)
+    .replace(/(?<![a-z0-9+.-])[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]+/gi, mask)
+    .replace(/\b(?:do\s+not|don['\u2019]t|dont|never)\s+(?:load|use|run|invoke|start|trigger|arm|enable)\b[^.;:!?\n]*?(?=[.;:!?\n]|\s(?:but|then|instead|however)\b|\s[\u2014\u2013-]\s|$)/gi, mask);
 }
 
 /** Preserve workflow identity while excluding expanded skill reference prose. */

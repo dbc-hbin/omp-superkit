@@ -15,17 +15,21 @@ export function buildPendingResults(hasWait) {
     : "When only pending work remains, leave it pending for result delivery by the host or parent and do not declare it complete.";
 }
 
+const KIMI_EVAL_ROUTING = "Sort a multi-call step before you write it: put independent reads, searches, symbol lookups, and probes into one `eval` cell together with `parallel(thunks)`, and run edits, side-effecting commands, deploys, approvals, and any call that depends on a result you have not seen yet one at a time, looking at each result before the next.";
+const KIMI_VISUAL_CHECK = "When the result must be seen rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge.";
+const KIMI_DIRECT_CALL = "Use a direct tool call when one call is enough, when each result decides the next call, or when the action needs approval - then stop deliberating and make it.";
+
 const EXECUTION_TOOLING_RULES = [
   {
     id: "eval-routing-decision",
     concern: "code-cell-routing",
     directive: {
       claude: "Sort each multi-call step first: independent reads/searches/symbol lookups/probes -> ONE `eval` cell via `parallel(thunks)`. Edits, side effects, deploys, approvals, any call fed by an unseen result -> one at a time, observe each before next.",
-      kimi: "Sort a multi-call step before you write it: put independent reads, searches, symbol lookups, and probes into one `eval` cell together with `parallel(thunks)`, and run edits, side-effecting commands, deploys, approvals, and any call that depends on a result you have not seen yet one at a time, looking at each result before the next."
+      kimi: KIMI_EVAL_ROUTING
     },
     fullDirective: {
       claude: "Sort a multi-call step before you write it: independent reads, searches, symbol lookups, and probes go into ONE `eval` cell together via `parallel(thunks)` - an extra read-only call in that wave is nearly free, a stale assumption costs the turn - while edits, side-effecting commands, deploys, approvals, and any call whose input is a result you have not seen yet run one at a time, each observed before the next.",
-      kimi: "Sort a multi-call step before you write it: put independent reads, searches, symbol lookups, and probes into one `eval` cell together with `parallel(thunks)`, and run edits, side-effecting commands, deploys, approvals, and any call that depends on a result you have not seen yet one at a time, looking at each result before the next."
+      kimi: KIMI_EVAL_ROUTING
     }
   },
   {
@@ -45,11 +49,11 @@ const EXECUTION_TOOLING_RULES = [
     concern: "code-cell-routing",
     directive: {
       claude: "Result must be SEEN (page, component, image, 3D scene, layout): one change -> render/screenshot -> look -> next. 3D: several angles. Page: desktop + mobile widths. Compare to reference or stated intent; ask only where two readings of intent diverge.",
-      kimi: "When the result must be seen rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge."
+      kimi: KIMI_VISUAL_CHECK
     },
     fullDirective: {
       claude: "When the result must be SEEN rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge.",
-      kimi: "When the result must be seen rather than read - a page, a component, an image, a 3D scene, a layout - make one change, render or screenshot it, look, then make the next; check a 3D scene from several angles and a page at desktop and mobile widths. Compare what you see with the reference or the stated intent, and ask only where two readings of that intent diverge."
+      kimi: KIMI_VISUAL_CHECK
     }
   },
   {
@@ -57,11 +61,11 @@ const EXECUTION_TOOLING_RULES = [
     concern: "code-cell-routing",
     directive: {
       claude: "Direct tool call only when: one call suffices, result decides next call, semantic judgment sits between calls, or action needs approval.",
-      kimi: "Use a direct tool call when one call is enough, when each result decides the next call, or when the action needs approval - then stop deliberating and make it."
+      kimi: KIMI_DIRECT_CALL
     },
     fullDirective: {
       claude: "Call a tool directly only when one call is enough, the result decides the next call, semantic judgment sits between calls, or the action needs approval.",
-      kimi: "Use a direct tool call when one call is enough, when each result decides the next call, or when the action needs approval - then stop deliberating and make it."
+      kimi: KIMI_DIRECT_CALL
     }
   }
 ];

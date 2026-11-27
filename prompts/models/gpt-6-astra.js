@@ -139,5 +139,5 @@ Context compacts automatically: continue from the summary without redoing finish
 ${buildFileOperationsTuning({ toolNames })}`;
 }
 export function buildGpt6AstraPrompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt6Core, workstationDialect: "codex" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt6Core });
 }

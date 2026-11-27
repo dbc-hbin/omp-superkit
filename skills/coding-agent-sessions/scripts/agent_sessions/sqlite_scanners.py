@@ -8,7 +8,7 @@ from typing import TypeAlias
 
 from .jsonio import as_map, parse_json_text, text
 from .timeparse import file_time, unix_millis
-from .transcript import content_text, env_path, existing, flat_parallel, recent
+from .transcript import content_text, env_path, existing_roots, flat_parallel, recent
 from .types import Json, JsonMap, Session
 
 SqlValue: TypeAlias = str | int | float | bytes | None
@@ -17,7 +17,7 @@ SqlRow: TypeAlias = tuple[SqlValue, ...]
 
 def scan_kodu(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
     appdata = env_path("APPDATA")
-    roots = _roots(
+    roots = existing_roots(
         [
             Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage" / "kodu-ai.claude-dev-experimental",
             Path.home() / ".config" / "Code" / "User" / "globalStorage" / "kodu-ai.claude-dev-experimental",
@@ -31,7 +31,7 @@ def scan_kodu(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
 
 
 def scan_cursor_cli(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".cursor"], extra_roots, (".cursor",))
+    roots = existing_roots([Path.home() / ".cursor"], extra_roots, (".cursor",))
     paths = [path for root in roots for path in (root / "chats").glob("*/*/store.db")]
     return flat_parallel(recent(paths), workers, _cursor_db)
 
@@ -169,11 +169,3 @@ def _row_number(row: SqlRow, index: int) -> int | float | None:
 def _row_int(row: SqlRow, index: int) -> int | None:
     value = row[index] if index < len(row) else None
     return value if isinstance(value, int) else None
-
-
-def _roots(defaults: list[Path], extra_roots: tuple[Path, ...], children: tuple[str, ...]) -> list[Path]:
-    candidates = [*defaults]
-    for root in extra_roots:
-        candidates.append(root)
-        candidates.extend(root / child for child in children)
-    return existing(candidates)

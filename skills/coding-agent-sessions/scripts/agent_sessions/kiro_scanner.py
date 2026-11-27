@@ -4,12 +4,12 @@ from pathlib import Path
 
 from .jsonio import as_map, iter_jsonl, read_json, text
 from .timeparse import file_time, unix_seconds
-from .transcript import existing, flat_parallel, recent
+from .transcript import existing_roots, flat_parallel, recent
 from .types import Json, JsonMap, Session
 
 
 def scan_kiro(extra_roots: tuple[Path, ...], workers: int) -> list[Session]:
-    roots = _roots([Path.home() / ".kiro"], extra_roots, (".kiro", "kiro"))
+    roots = existing_roots([Path.home() / ".kiro"], extra_roots, (".kiro", "kiro"))
     paths = [path for root in roots for path in (root / "sessions" / "cli").glob("*.json")]
     return flat_parallel(recent(paths), workers, _kiro_sessions)
 
@@ -81,11 +81,3 @@ def _kiro_content_part(value: Json) -> str:
     if kind is not None and kind != "text":
         return ""
     return text(item.get("data")) or text(item.get("text")) or text(item.get("content")) or ""
-
-
-def _roots(defaults: list[Path], extra_roots: tuple[Path, ...], children: tuple[str, ...]) -> list[Path]:
-    candidates = [*defaults]
-    for root in extra_roots:
-        candidates.append(root)
-        candidates.extend(root / child for child in children)
-    return existing(candidates)

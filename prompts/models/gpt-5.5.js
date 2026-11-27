@@ -77,5 +77,5 @@ Write directly, without moralizing. Label unverified sources and respect applica
 ${buildFileOperationsTuning({ toolNames })}`;
 }
 export function buildGpt55Prompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt55Core, workstationDialect: "codex" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildGpt55Core });
 }

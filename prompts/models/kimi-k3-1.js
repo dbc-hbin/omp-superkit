@@ -87,5 +87,5 @@ Have an opinion: agree or disagree plainly, and say why; raise only real problem
 Plain, literal prose; bullets only for genuinely list-shaped content; ASCII unless the file already uses Unicode. ${finalReply}: the outcome first in complete sentences, then how it was verified; drop detail that does not change what the reader does next instead of compressing into fragments or arrow chains.`;
 }
 export function buildKimiK31Prompt(options) {
-  return buildDynamicSystemPrompt({ ...options, corePrompt: buildKimiK31Core, workstationDialect: "kimi" });
+  return buildDynamicSystemPrompt({ ...options, corePrompt: buildKimiK31Core });
 }
