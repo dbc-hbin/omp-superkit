@@ -1,8 +1,8 @@
-// Run with: bun tests/super-host-check.ts (requires the installed omp binary).
+// Run with: bun tests/super-host-check.ts [--superstack-only] (requires installed omp).
 import { strict as assert } from "node:assert";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { renderPreset } from "../presets";
 
 const requests: unknown[] = [];
@@ -10,6 +10,12 @@ const messageTypes: string[] = [];
 let continuationState: { kind: string; path: string } | undefined;
 let scenarioRequests = 0;
 const defaultProbeModel = "gpt-6.1-sol";
+const nativeNotices: readonly string[] = ["ultrathink-notice", "orchestrate-notice", "workflow-notice", "jevify-notice"];
+const compactFocus = "SUPERSTACK-COMPACTION-FOCUS";
+const compactHistory = "SUPERSTACK-COMPACTED-HISTORY";
+const childTrigger = "SUPERSTACK-NATIVE-CHILD-PROBE";
+const childAssignment = "SUPERSTACK-CHILD-ASSIGNMENT";
+const childDone = "SUPERSTACK-CHILD-COMPLETE";
 let servingModel = defaultProbeModel;
 const server = Bun.serve({
   hostname: "127.0.0.1", port: 0,
@@ -20,7 +26,8 @@ const server = Bun.serve({
     }
     assert.equal(request.method, "POST");
     assert.equal(path, "/v1/chat/completions");
-    requests.push(await request.json());
+    const body: unknown = await request.json();
+    requests.push(body);
     scenarioRequests++;
     if (continuationState?.kind === "run-native" && (scenarioRequests === 2 || scenarioRequests === 3)) {
       const boulder: unknown = JSON.parse(readFileSync(continuationState.path, "utf8"));
@@ -50,9 +57,24 @@ const server = Bun.serve({
       writeFileSync(continuationState.path, scenarioRequests === 2
         ? plan.replace("- [ ] 3.", "- [x] 3.") : plan.replace("- [ ] F1.", "- [x] F1."));
     }
+    const user = textByRole(body, "user").at(-1);
+    const spawn = user?.trimEnd().endsWith(childTrigger) && !textByRole(body, "tool").length;
+    const historySummary = compactionConversation(body)?.includes(compactFocus);
+    const content = historySummary ? compactHistory
+      : isChildTitleRequest(body) ? "<title>Superstack Child Probe</title>"
+      : user?.includes(childAssignment) ? childDone : "SUPER-PROBE";
+    const delta = spawn ? { role: "assistant", tool_calls: [{ index: 0, id: "superstack-child-probe", type: "function", function: {
+      name: "task", arguments: JSON.stringify({
+        context: "Isolated loopback transport probe; no edits or other side effects.",
+        tasks: [{
+          agent: "scout", name: "ModeProbe", task: `superstack ${childAssignment}`,
+          solutionSpace: "Reply once, without using tools or making changes.",
+        }],
+      }),
+    } }] } : { role: "assistant", content };
     return new Response([
-      'data: {"id":"super-probe","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":"SUPER-PROBE"},"finish_reason":null}]}',
-      'data: {"id":"super-probe","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}',
+      `data: ${JSON.stringify({ id: "super-probe", object: "chat.completion.chunk", choices: [{ index: 0, delta, finish_reason: null }] })}`,
+      `data: ${JSON.stringify({ id: "super-probe", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: spawn ? "tool_calls" : "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}`,
       'data: [DONE]', "",
     ].join("\n\n"), { headers: { "content-type": "text/event-stream" } });
   },
@@ -72,23 +94,52 @@ const hostEnv = {
   OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
 };
 type ControlProbe =
-  | { readonly type: "prompt"; readonly message: string; readonly requests: number; readonly notice?: string; readonly local?: true }
-  | { readonly type: "goal"; readonly op: "create" | "get" | "pause"; readonly objective?: string; readonly status: "active" | "paused" | null };
+  | { readonly type: "prompt"; readonly message: string; readonly requests?: number; readonly notice?: string; readonly local?: true; readonly inspect?: (bodies: readonly unknown[]) => void }
+  | { readonly type: "goal"; readonly op: "create" | "get" | "pause"; readonly objective?: string; readonly status: "active" | "paused" | null; readonly inspect?: (goal: unknown) => void }
+  | { readonly type: "rpc"; readonly command: () => RpcControl; readonly inspect?: (data: unknown, bodies: readonly unknown[]) => void };
 
-async function run(prompts: readonly (string | ControlProbe)[], flags: string[] = [], continuation?: "loop" | "run" | "run-blocked" | "run-mixed" | "run-native", provider?: string, model = defaultProbeModel, loadSkills: boolean | "without-reader" = false, tools?: string[], streamingBehavior?: "steer" | "followUp"): Promise<string[]> {
+type RpcControl =
+  | { readonly type: "get_available_commands" | "get_state" | "get_entries" | "new_session" }
+  | { readonly type: "compact"; readonly customInstructions: string }
+  | { readonly type: "switch_session"; readonly sessionPath: string }
+  | { readonly type: "navigate_tree"; readonly entryId: string };
+
+interface SavedProfile {
+  readonly cwd: string;
+  readonly configPath: string;
+  readonly sessionPath?: string;
+}
+interface RunOptions {
+  readonly flags?: readonly string[];
+  readonly continuation?: "loop" | "run" | "run-blocked" | "run-mixed" | "run-native";
+  readonly provider?: string;
+  readonly model?: string;
+  readonly loadSkills?: boolean | "without-reader";
+  readonly tools?: readonly string[];
+  readonly streamingBehavior?: "steer" | "followUp";
+  readonly saved?: SavedProfile;
+}
+
+function run(prompts: readonly (string | ControlProbe)[], flags?: string[], continuation?: RunOptions["continuation"], provider?: string, model?: string, loadSkills?: RunOptions["loadSkills"], tools?: string[], streamingBehavior?: RunOptions["streamingBehavior"]): Promise<string[]> {
+  return runRpc(prompts, { flags, continuation, provider, model, loadSkills, tools, streamingBehavior });
+}
+
+async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunOptions = {}): Promise<string[]> {
+  const { flags = [], continuation, provider, model = defaultProbeModel, loadSkills = false, tools, streamingBehavior, saved } = options;
   const offset = requests.length;
   continuationState = undefined;
   scenarioRequests = 0;
   servingModel = provider ? "deepseek-v4-flash-omo-local-probe" : model;
-  const cwd = mkdtempSync(join(root, "workspace-"));
+  const cwd = saved?.cwd ?? mkdtempSync(join(root, "workspace-"));
   // An empty --tools allowlist keeps the extensions loaded; --no-tools forbids them.
   const toolSelection = tools?.join(",") ?? (loadSkills === true ? "read" : "");
   const child = Bun.spawn([
     "omp", "--mode", "rpc", ...(prompts.some(prompt => typeof prompt !== "string") ? [] : ["--no-ui"]), "--no-extensions", "-e", packageRoot,
     "-e", providerExtension, "--model", `${provider ?? "omo-super-probe"}/${servingModel}`,
-    "--cwd", cwd, "--config", config, "--no-prewalk",
+    "--cwd", cwd, "--config", saved?.configPath ?? config, "--no-prewalk",
     "--tools", toolSelection, ...(!tools && loadSkills === false ? ["--no-skills"] : []),
-    "--no-rules", "--no-title", "--no-session", "--no-lsp", ...flags,
+    "--no-rules", "--no-title", "--no-lsp",
+    ...(saved ? saved.sessionPath ? ["--session", saved.sessionPath] : [] : ["--no-session"]), ...flags,
   ], { cwd, stdin: "pipe", stdout: "pipe", stderr: "pipe", env: {
     ...hostEnv, OMO_SUPER_PROBE_CONTINUATION: continuation ?? "", OMO_SUPER_PROBE_PROVIDER: provider ?? "", OMO_SUPER_PROBE_MODEL: model,
   } });
@@ -98,6 +149,7 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
   let expectedRequests = 0;
   let requestId = "";
   let controlProbe: ControlProbe | undefined;
+  let controlData: unknown;
   const notices: string[] = [];
   let failure: unknown;
   const abort = AbortSignal.timeout(60000);
@@ -134,16 +186,28 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
           failure = event;
           signal.reject(new Error(JSON.stringify(event)));
         } else if (controlProbe && "id" in event && event.id === requestId) {
-          if (controlProbe.type === "goal" && event.type === "response") {
+          if (controlProbe.type === "rpc" && event.type === "response") {
+            controlData = "data" in event ? event.data : undefined;
+            signal.resolve();
+          } else if (controlProbe.type === "goal" && event.type === "response") {
             const data: unknown = "data" in event ? event.data : undefined;
             const goal: unknown = typeof data === "object" && data !== null && "goal" in data ? data.goal : undefined;
             if (controlProbe.status === null ? goal !== null :
               typeof goal !== "object" || goal === null || !("status" in goal) || goal.status !== controlProbe.status) {
               signal.reject(new Error(`Unexpected native goal state: ${JSON.stringify(event)}`));
-            } else signal.resolve();
-          } else if (controlProbe.type === "prompt" && controlProbe.local && event.type === "prompt_result") {
-            if ("agentInvoked" in event && event.agentInvoked === false && "status" in event && event.status === "completed") signal.resolve();
-            else signal.reject(new Error(`Unexpected local control result: ${JSON.stringify(event)}`));
+            } else {
+              controlData = goal;
+              signal.resolve();
+            }
+          } else if (controlProbe.type === "prompt" && controlProbe.local) {
+            // The host can acknowledge locally consumed input in the RPC
+            // response, or after a registered extension command finishes.
+            if (event.type === "response" && "data" in event && typeof event.data === "object" &&
+              event.data !== null && "agentInvoked" in event.data && event.data.agentInvoked === false) signal.resolve();
+            if (event.type === "prompt_result") {
+              if ("agentInvoked" in event && event.agentInvoked === false && "status" in event && event.status === "completed") signal.resolve();
+              else signal.reject(new Error(`Unexpected local control result: ${JSON.stringify(event)}`));
+            }
           }
         }
         // A stop hook can start another run after an RPC agent_end. Count requests
@@ -157,25 +221,40 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
       }
     }
     if (expected !== "finished") signal.reject(new Error(`OMP exited before ${expected}`));
-  })();
+  })().catch(error => {
+    failure = error;
+    signal.reject(error);
+  });
   try {
     await signal.promise;
     for (const [index, prompt] of prompts.entries()) {
       signal = Promise.withResolvers<void>();
       requestId = `prompt-${index}`;
       controlProbe = typeof prompt === "string" ? undefined : prompt;
+      controlData = undefined;
       const previousRequests = scenarioRequests;
       const noticeOffset = notices.length;
-      expected = controlProbe?.type === "goal" || controlProbe?.local ? "local result" : "session_settled";
-      expectedRequests = controlProbe?.type === "prompt" ? controlProbe.requests
-        : continuation === "run" || continuation === "run-mixed" || continuation === "run-native" ? 3 : continuation === "loop" ? 2 : index + 1;
-      const input = controlProbe?.type === "goal"
+      expected = controlProbe && (controlProbe.type !== "prompt" || controlProbe.local) ? "local result" : "session_settled";
+      expectedRequests = controlProbe?.type === "rpc" || controlProbe?.type === "goal" ? previousRequests
+        : controlProbe?.type === "prompt" && controlProbe.local ? controlProbe.requests ?? previousRequests
+        : controlProbe?.type === "prompt" && controlProbe.requests !== undefined ? controlProbe.requests
+        : continuation === "run" || continuation === "run-mixed" || continuation === "run-native" ? 3 : continuation === "loop" ? 2 : previousRequests + 1;
+      const input = controlProbe?.type === "rpc" ? controlProbe.command()
+        : controlProbe?.type === "goal"
         ? { type: "goal", op: controlProbe.op, objective: controlProbe.objective }
         : { type: "prompt", message: typeof prompt === "string" ? prompt : prompt.type === "prompt" ? prompt.message : "", ...(streamingBehavior ? { streamingBehavior } : {}) };
       child.stdin.write(JSON.stringify({ ...input, id: requestId }) + "\n");
       await signal.promise;
       if (failure) throw new Error(JSON.stringify(failure));
-      if (expected === "local result") assert.equal(scenarioRequests, previousRequests, "local control must not request a model turn");
+      const bodies = requests.slice(offset + previousRequests);
+      if (expected === "local result") {
+        // Compact is a side request that can summarize history, split-turn
+        // context and the display preview separately; every other control is local.
+        if (input.type !== "compact") assert.equal(scenarioRequests, expectedRequests, `unexpected model request count for ${JSON.stringify(input)}`);
+        if (controlProbe?.type === "rpc") controlProbe.inspect?.(controlData, bodies);
+        if (controlProbe?.type === "goal") controlProbe.inspect?.(controlData);
+      }
+      if (controlProbe?.type === "prompt") controlProbe.inspect?.(bodies);
       const notice = controlProbe?.type === "prompt" ? controlProbe.notice : undefined;
       if (notice) assert(notices.slice(noticeOffset).some(message => message.includes(notice)), JSON.stringify(notices));
     }
@@ -196,16 +275,36 @@ async function run(prompts: readonly (string | ControlProbe)[], flags: string[] 
     await output;
     const errors = await stderr;
     if (expected !== "finished" && errors) console.error(errors);
-    rmSync(cwd, { recursive: true, force: true });
+    if (!saved) rmSync(cwd, { recursive: true, force: true });
   }
-  return requests.slice(offset).map(body => {
-    assert(typeof body === "object" && body !== null && "messages" in body && Array.isArray(body.messages));
-    const messages: unknown[] = body.messages;
-    return messages.flatMap(message => {
-      if (typeof message !== "object" || message === null || !("role" in message) || !["system", "developer"].includes(String(message.role)) || !("content" in message) || typeof message.content !== "string") return [];
-      return [message.content];
-    }).join("\n");
+  return requests.slice(offset).map(body => textByRole(body, "system", "developer").join("\n"));
+}
+
+function textByRole(body: unknown, ...roles: string[]): string[] {
+  assert(typeof body === "object" && body !== null && "messages" in body && Array.isArray(body.messages));
+  const messages: unknown[] = body.messages;
+  return messages.flatMap(message => {
+    if (typeof message !== "object" || message === null || !("role" in message) || !("content" in message) ||
+      (roles.length && !roles.includes(String(message.role)))) return [];
+    if (typeof message.content === "string") return [message.content];
+    if (!Array.isArray(message.content)) return [];
+    return [message.content.flatMap((block: unknown) =>
+      typeof block === "object" && block !== null && "text" in block && typeof block.text === "string" ? [block.text] : []).join("\n")];
   });
+}
+
+function compactionConversation(body: unknown): string | undefined {
+  // Local soft compaction sends each summary as one user message containing
+  // serialized history, not as a continuation with the live message roles.
+  const users = textByRole(body, "user");
+  return users.length === 1 && !textByRole(body, "assistant", "tool").length &&
+    users[0]?.trimStart().startsWith("<conversation>") ? users[0] : undefined;
+}
+
+function isChildTitleRequest(body: unknown): boolean {
+  return textByRole(body, "user").some(text => text.includes(childAssignment)) &&
+    textByRole(body, "system", "developer").some(text =>
+      text.startsWith("# Task\n") && text.includes("<title>") && text.includes("</title>"));
 }
 
 function offeredTools(request: unknown): string[] {
@@ -234,7 +333,236 @@ function assertReaderlessAlias(request: unknown, canonical: string, args: string
   assert(!JSON.stringify(request).includes("<omp-ulw-policy>"), "a native skill alias must not arm the SUPER session");
 }
 
-try {
+const stackMarker = "<omp-superstack-policy>";
+const nativeStackDirectory = `[Skill directory: ${join(packageRoot, "skills", "superstack")}]`;
+
+function assertStackPolicy(body: unknown, active: boolean, label: string): void {
+  const delivered = textByRole(body).join("\n");
+  assert.equal(delivered.split(stackMarker).length - 1, active ? 1 : 0, `Superstack policy: ${label}`);
+}
+
+function stackTurn(message: string, active: boolean, inspect?: (body: unknown) => void): ControlProbe {
+  return { type: "prompt", message, inspect: bodies => {
+    assert.equal(bodies.length, 1, `expected one provider turn for ${message.slice(0, 100)}`);
+    assertStackPolicy(bodies[0], active, message.slice(0, 100));
+    inspect?.(bodies[0]);
+  } };
+}
+
+function localTurn(message: string): ControlProbe {
+  return { type: "prompt", message, local: true };
+}
+
+async function checkStackTransport(): Promise<void> {
+  const flags = ["--offline", "--skills", "superstack"];
+  const options = { flags: [...flags, "--omo-ultrawork-disabled"], loadSkills: "without-reader" } as const;
+  const nativeArgs = "SUPERSTACK-NATIVE-ARGUMENT";
+  const nativeBody = (body: unknown) => {
+    const delivered = textByRole(body, "user").join("\n");
+    assert.equal(delivered.split(nativeStackDirectory).length - 1, 1, "native skill must resolve the installed directory exactly once");
+    assert(delivered.includes(`User: ${nativeArgs}`), "native skill must carry its argument through OMP");
+  };
+  const offset = messageTypes.length;
+  let tools: string[] = [];
+  await runRpc([
+    { type: "rpc", command: () => ({ type: "get_available_commands" }), inspect: data => {
+      assert(typeof data === "object" && data !== null && "commands" in data && Array.isArray(data.commands));
+      const commands: unknown[] = data.commands;
+      const stackCommands = commands.flatMap(entry =>
+        typeof entry === "object" && entry !== null && "source" in entry && entry.source === "extension" &&
+        "name" in entry && typeof entry.name === "string" && /^superstack(?:$|-)/.test(entry.name) ? [{ name: entry.name,
+          subcommands: "subcommands" in entry && Array.isArray(entry.subcommands) ? entry.subcommands : [] }] : []);
+      assert.deepEqual(stackCommands.map(entry => entry.name), ["superstack"], "exactly one extension command must be discoverable");
+      assert(!stackCommands[0]?.subcommands?.length, "Superstack must not register subcommands");
+    } },
+    stackTurn('What does "/superstack" mean?', false, body => { tools = offeredTools(body); }),
+    localTurn("/superstack"),
+    stackTurn("SUPERSTACK-REGISTERED-FOLLOWUP", true, body => {
+      assert.deepEqual(offeredTools(body), tools, "mode activation must not grant tools");
+      assert(!textByRole(body).join("\n").includes("<omp-ulw-policy>"), "stack must not arm SUPER");
+    }),
+    localTurn("/superstack off"),
+    stackTurn("SUPERSTACK-OFF-FOLLOWUP", false),
+    stackTurn("/superstack SUPERSTACK-SLASH-ARGUMENT mentions /eval-integrity", true, body => {
+      assert(textByRole(body, "user").some(text => text.includes("SUPERSTACK-SLASH-ARGUMENT")), "slash command must forward its argument");
+      assert(!textByRole(body).join("\n").includes("<omp-eval-integrity-pointer>"), "a task mentioning a skill must not run its command");
+    }),
+    localTurn("/superstack off"),
+    localTurn("superstack"),
+    stackTurn("SUPERSTACK-BARE-FOLLOWUP", true),
+    localTurn("superstack off"),
+    stackTurn("superstack off by one SUPERSTACK-EXACT-OFF", true, body => {
+      assert(textByRole(body, "user").some(text => text.includes("off by one SUPERSTACK-EXACT-OFF")), "non-control arguments must reach the provider");
+    }),
+    localTurn("/superstack off"),
+    stackTurn(`/skill:superstack ${nativeArgs}`, false, body => {
+      nativeBody(body);
+      assert.deepEqual(offeredTools(body), tools, "native skill must not grant tools");
+    }),
+    stackTurn("SUPERSTACK-NATIVE-FOLLOWUP", true, body => {
+      const delivered = textByRole(body, "user").join("\n");
+      assert(!delivered.includes(nativeStackDirectory), "the earlier native skill envelope must not survive as a stale pointer");
+      assert(delivered.includes(nativeArgs), "stripping the old skill envelope must preserve the earlier user argument");
+    }),
+    localTurn("/skill:superstack off"),
+    stackTurn("SUPERSTACK-NATIVE-OFF-FOLLOWUP", false),
+    localTurn("/skill:superstack"),
+    stackTurn("SUPERSTACK-NATIVE-ON-FOLLOWUP", true),
+    { type: "goal", op: "get", status: null },
+  ], options);
+  assert.equal(messageTypes.slice(offset).filter(type => type === "skill-prompt").length, 1, "only native dispatch should submit a native skill message");
+  assert(!messageTypes.slice(offset).some(type => nativeNotices.includes(type)),
+    "stack must not inject OMP magic keywords");
+
+  await runRpc([
+    stackTurn("superstack SUPERSTACK-DISABLED-BARE", false),
+    stackTurn(`/skill:superstack ${nativeArgs}`, false, nativeBody),
+    stackTurn("SUPERSTACK-DISABLED-FOLLOWUP", false),
+  ], { flags: [...flags, "--omo-ulw-workflows-disabled"], loadSkills: "without-reader" });
+}
+
+function sessionLeaf(data: unknown): string {
+  assert(typeof data === "object" && data !== null && "leafId" in data && typeof data.leafId === "string", "saved RPC session must expose a real leaf");
+  return data.leafId;
+}
+
+async function checkSavedStack(): Promise<void> {
+  const cwd = mkdtempSync(join(root, "superstack-saved-"));
+  const configPath = join(cwd, "saved.yml");
+  writeFileSync(configPath, [
+    "goal:", "  enabled: true", "  continuationModes: [interactive]",
+    "compaction:", "  enabled: true", "  methodOrder: [soft]", "  keepRecentTokens: 32",
+    "memory:", "  backend: off", "",
+  ].join("\n"));
+  const objective = "SUPERSTACK-INDEPENDENT-PAUSED-GOAL";
+  let pausedId = "";
+  const sameGoal = (goal: unknown) => {
+    assert(typeof goal === "object" && goal !== null && "id" in goal && typeof goal.id === "string" &&
+      "objective" in goal && goal.objective === objective, "Superstack must leave the independent goal intact");
+    if (pausedId) assert.equal(goal.id, pausedId, "Superstack must not replace the paused goal");
+    else pausedId = goal.id;
+  };
+  let sessionPath = "";
+  let beforeOn = "";
+  let whileOn = "";
+  let afterOff = "";
+  let persistedSummary = "";
+  const flags = ["--offline", "--skills", "superstack"];
+  const filler = "History for a real local compaction. ".repeat(80);
+  await runRpc([
+    stackTurn(`SUPERSTACK-SAVE-BEFORE-ON\n${filler}`, false),
+    { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => { beforeOn = sessionLeaf(data); } },
+    localTurn("/superstack"),
+    stackTurn(`SUPERSTACK-SAVE-ON\n${filler}`, true),
+    stackTurn("SUPERSTACK-SAVE-ON-FOLLOWUP", true),
+    { type: "goal", op: "get", status: null },
+    { type: "goal", op: "create", objective, status: "active", inspect: sameGoal },
+    { type: "goal", op: "pause", status: "paused", inspect: sameGoal },
+    { type: "rpc", command: () => ({ type: "compact", customInstructions: compactFocus }), inspect: (data, bodies) => {
+      const summaries = bodies.map(compactionConversation);
+      assert(summaries.every(text => text !== undefined), "compaction must not dispatch an ordinary model turn");
+      assert(summaries.some(text => text?.includes(compactFocus) && text.includes("SUPERSTACK-SAVE-BEFORE-ON")),
+        "compaction must send the older fixture conversation to the summarizer with the requested focus");
+      assert(typeof data === "object" && data !== null && "summary" in data && typeof data.summary === "string" &&
+        data.summary.includes(compactHistory), "the compact response must incorporate the focused history summary, not an ordinary reply");
+      persistedSummary = data.summary;
+    } },
+    { type: "rpc", command: () => ({ type: "get_state" }), inspect: data => {
+      assert(typeof data === "object" && data !== null && "autoCompactionEnabled" in data && data.autoCompactionEnabled === true,
+        "restoration must be exercised in a profile with compaction enabled");
+      assert("sessionFile" in data && typeof data.sessionFile === "string" && data.sessionFile, "profile must save its session");
+      const location = relative(root, data.sessionFile);
+      assert(location && !location.startsWith(".."), "session file must stay inside the isolated home/workspace");
+      sessionPath = data.sessionFile;
+      const rows = readFileSync(sessionPath, "utf8").trimEnd().split("\n").map(line => JSON.parse(line));
+      assert.deepEqual(rows.filter(row => row.type === "compaction").map(row => row.summary), [persistedSummary],
+        "require exactly one compaction record on disk with the successful summary before reopening OMP");
+    } },
+  ], { saved: { cwd, configPath }, flags, loadSkills: true });
+
+  // A fresh OMP process must restore the on state from the compacted file.
+  const saved = { cwd, configPath, sessionPath };
+  await runRpc([
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+    stackTurn("SUPERSTACK-RESUME-AFTER-COMPACTION", true, body => {
+      const delivered = textByRole(body).join("\n");
+      assert(delivered.includes(compactHistory), "reopening OMP must replay the persisted compaction summary");
+      const policy = delivered.split(stackMarker)[1]?.split("</omp-superstack-policy>")[0];
+      assert(policy?.includes("skill://superstack"), "the restored policy must resolve the installed skill when a reader is offered");
+      assert(offeredTools(body).includes("read"), "the restored policy must use the caller's existing reader");
+    }),
+    { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => { whileOn = sessionLeaf(data); } },
+    stackTurn("/eval-integrity SUPERSTACK-SPECIALIST-ARGUMENT", false, body => {
+      const delivered = textByRole(body).join("\n");
+      assert.equal(delivered.split("<omp-eval-integrity-pointer>").length - 1, 1, "explicit specialist must retain its existing pointer once");
+      assert(delivered.includes(join(packageRoot, "skills", "eval-integrity", "SKILL.md")));
+      assert(textByRole(body, "user").some(text => text.includes("SUPERSTACK-SPECIALIST-ARGUMENT")));
+    }),
+    stackTurn("SUPERSTACK-AFTER-SPECIALIST", true),
+    localTurn("/superstack off"),
+    stackTurn("SUPERSTACK-SAVE-OFF", false),
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+    { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => { afterOff = sessionLeaf(data); } },
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: beforeOn }) },
+    stackTurn("SUPERSTACK-BRANCH-BEFORE-ON", false),
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: whileOn }) },
+    stackTurn("SUPERSTACK-BRANCH-WHILE-ON", true),
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: afterOff }) },
+    stackTurn("SUPERSTACK-BRANCH-AFTER-OFF", false),
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: whileOn }) },
+    stackTurn("SUPERSTACK-BEFORE-NEW-SESSION", true),
+    { type: "rpc", command: () => ({ type: "new_session" }), inspect: data => {
+      assert.deepEqual(data, { cancelled: false }, "OMP must open a distinct new session");
+    } },
+    stackTurn("SUPERSTACK-IN-NEW-SESSION", false),
+    { type: "goal", op: "get", status: null },
+    { type: "rpc", command: () => ({ type: "switch_session", sessionPath }) },
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: afterOff }) },
+    stackTurn("SUPERSTACK-RESTORED-OFF", false),
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+  ], { saved, flags, loadSkills: true });
+
+  await runRpc([
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: whileOn }) },
+    stackTurn("SUPERSTACK-SAVED-ON-BUT-DISABLED", false),
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+  ], { saved, flags: [...flags, "--omo-ulw-workflows-disabled"], loadSkills: true });
+}
+
+async function checkStackChild(): Promise<void> {
+  const configPath = join(root, "superstack-child.yml");
+  writeFileSync(configPath, [
+    "async:", "  enabled: false",
+    "task:", "  batch: true", "  isolation:", "    enabled: false", "  completionProbe: false",
+    "  speculativeLaunch: false", "  prewalk: false", "  enableLsp: false", "  maxRecursionDepth: 1",
+    "  agentPrewalk: {}", "  agentAdvisor: {}", "  agentModelOverrides:", `    scout: omo-super-probe/${defaultProbeModel}`,
+    "compaction:", "  enabled: false", "memory:", "  backend: off", "",
+  ].join("\n"));
+  await runRpc([
+    localTurn("/superstack"),
+    { type: "prompt", message: childTrigger, requests: 4, inspect: bodies => {
+      const [title] = bodies.filter(isChildTitleRequest);
+      const turns = bodies.filter(body => !isChildTitleRequest(body));
+      assert.equal(turns.length, 3, "the native delegation-title request is not a child or parent turn");
+      assertStackPolicy(title, false, "delegation title");
+      const [parent, child, result] = turns;
+      assertStackPolicy(parent, true, "parent before child");
+      assert(offeredTools(parent).includes("task"), "native task tool must actually be available for the child probe");
+      assert(textByRole(child, "user").some(text => text.includes(childAssignment)), "a real child must receive the assignment");
+      assertStackPolicy(child, false, "native child");
+      assert(textByRole(result, "tool").some(text => text.includes(childDone)), "native task must return the child's result to the parent");
+      assertStackPolicy(result, true, "parent after child");
+    } },
+  ], { flags: ["--offline", "--no-ui", "--config", configPath], tools: ["task"] });
+}
+
+async function checkSuperstack(): Promise<void> {
+  await checkStackTransport();
+  await checkSavedStack();
+  await checkStackChild();
+}
+
+async function checkExistingSuper(): Promise<void> {
   const rejected = Bun.spawn([
     "omp", "--mode", "json", "--no-tools", "--no-extensions", "-e", packageRoot, "-e", providerExtension,
     "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", root, "--no-session", "Must not start a model turn",
@@ -345,7 +673,6 @@ try {
   const disabled = await run(["ulw verify this probe"], ["--omo-ultrawork-disabled"]);
   assert.equal(disabled.length, 1);
   assert(!disabled[0].includes("<omp-ulw-policy>"));
-  const nativeNotices = ["ultrathink-notice", "orchestrate-notice", "workflow-notice", "jevify-notice"];
   for (const [canonical, legacy, notice] of [
     ["super-plan", "ulw-plan", "ultrathink-notice"], ["super-loop", "ulw-loop", "orchestrate-notice"],
     ["super-run", "ulw-execute", "orchestrate-notice"], ["super-research", "ulw-research", "workflow-notice"], ["super-graph", "mass-ulw", "workflow-notice"],
@@ -486,6 +813,11 @@ try {
   const shSignature = evalDescription.split("\n").find(line => line.includes("sh(command,") && line.includes("embedded bash engine"));
   assert(shSignature?.includes("runs to completion (never backgrounded)"), "native eval must retain the shell helper's completion contract");
   assert(evalDescription.includes("stdout+stderr") && evalDescription.includes("ShellError"));
+}
+
+try {
+  if (!process.argv.includes("--superstack-only")) await checkExistingSuper();
+  await checkSuperstack();
 } finally {
   await server.stop(true);
   rmSync(root, { recursive: true, force: true });

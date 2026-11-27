@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerContinuationControls } from "./super-control";
+import { createSuperstack, superstackPrefix } from "./superstack";
 
 export type SuperSessionEntry = { readonly type: string; readonly customType?: string; readonly data?: unknown; readonly mode?: string };
 export type SuperGoalEvent = {
@@ -30,17 +31,18 @@ export interface SuperContext {
   ui: { notify(message: string, level: "warning" | "info"): void };
 }
 interface InputEvent { text: string; source: "interactive" | "rpc" | "extension" }
-interface InputEventResult { text?: string }
+interface InputEventResult { text?: string; handled?: boolean }
 interface SuperMessage { customType: string; content: string; display: false }
 type ContextMessage = Record<string, unknown>;
 export interface SuperApi {
   registerCommand(name: string, options: { description: string; handler: (args: string, ctx: SuperContext) => Promise<void> }): void;
   getCommands(): readonly { readonly name: string; readonly source: string; readonly path?: string }[];
-  sendUserMessage(content: string): void;
+  sendUserMessage(content: string): void | Promise<void>;
+  getActiveTools?(): readonly string[];
   registerFlag(name: string, options: { description: string; type: "boolean"; default: boolean }): void;
   getFlag(name: string): boolean | string | undefined;
   appendEntry(customType: string, data: unknown): void;
-  on(event: "input", handler: (event: InputEvent, ctx: SuperContext) => InputEventResult | void): void;
+  on(event: "input", handler: (event: InputEvent, ctx: SuperContext) => InputEventResult | void | Promise<InputEventResult | void>): void;
   on(event: "goal_updated", handler: (event: SuperGoalEvent, ctx: SuperContext) => void): void;
   on(event: "session_start" | "session_switch" | "session_branch" | "session_tree" | "session_compact", handler: (event: unknown, ctx: SuperContext) => void): void;
   on(event: "before_agent_start", handler: (event: { prompt: string; reason?: "prompt" | "revive"; systemPrompt: string[] }, ctx: SuperContext) => { systemPrompt: string[]; message?: SuperMessage } | undefined): void;
@@ -154,12 +156,18 @@ export function superRequest(prompt: string): { text: string; workflow?: string;
       workflow = canonicalSkillName(command[1]);
     } else {
       const visible = visibleSuperText(prompt);
-      const invocation = workflows.flatMap(candidate => {
-        const match = candidate.pattern.exec(visible);
-        return match ? [{ name: candidate.name, length: match[0].length }] : [];
-      }).sort((a, b) => b.length - a.length)[0];
-      workflow = invocation?.name;
-      invocationLength = invocation?.length ?? superInvocation.exec(visible)?.[0].length ?? 0;
+      const stack = superstackPrefix(visible);
+      if (stack) {
+        workflow = "superstack";
+        invocationLength = stack.length;
+      } else {
+        const invocation = workflows.flatMap(candidate => {
+          const match = candidate.pattern.exec(visible);
+          return match ? [{ name: candidate.name, length: match[0].length }] : [];
+        }).sort((a, b) => b.length - a.length)[0];
+        workflow = invocation?.name;
+        invocationLength = invocation?.length ?? superInvocation.exec(visible)?.[0].length ?? 0;
+      }
     }
   }
   const remaining = visibleSuperText(text.slice(invocationLength));
@@ -171,7 +179,13 @@ export function superRequest(prompt: string): { text: string; workflow?: string;
 
 export function registerSuper(pi: SuperApi): void {
   pi.registerFlag("omo-ultrawork-disabled", { description: "Disable automatic SUPER mode activation", type: "boolean", default: false });
-  pi.registerFlag("omo-ulw-workflows-disabled", { description: "Disable SUPER workflow skill pointers", type: "boolean", default: false });
+  pi.registerFlag("omo-ulw-workflows-disabled", { description: "Disable SUPER workflow pointers and Superstack routing", type: "boolean", default: false });
+  const stack = createSuperstack(pi, {
+    path: join(skillRoot, "superstack", "SKILL.md"),
+    body: () => shippedSkillBody("superstack"),
+    visible: visibleSuperText,
+    envelope: nativeSkillInvocation,
+  });
   let armed = false;
   let rearmed = false;
   let inputSource: InputEvent["source"] | undefined;
@@ -204,6 +218,7 @@ export function registerSuper(pi: SuperApi): void {
 
   const restore = (_event: unknown, ctx: SuperContext) => {
     continuation.restore(ctx);
+    stack.restore(ctx);
     armed = false;
     rearmed = false;
     inputSource = undefined;
@@ -217,6 +232,13 @@ export function registerSuper(pi: SuperApi): void {
   for (const event of ["session_start", "session_switch", "session_branch", "session_tree"] as const) pi.on(event, restore);
   pi.on("session_compact", () => { rearmed = armed; });
   pi.on("input", (event, ctx) => {
+    if (event.source !== "extension") {
+      const stackInput = stack.input(event.text, ctx);
+      if (stackInput) {
+        if ("text" in stackInput) inputSource = event.source;
+        return stackInput;
+      }
+    }
     inputSource = event.source;
     if (event.source !== "extension") {
       resetProgress();
@@ -304,7 +326,8 @@ export function registerSuper(pi: SuperApi): void {
       });
       return replaced ? { ...message, content: blocks } : message;
     });
-    return changed ? { messages } : undefined;
+    const projected = stack.project(messages, ctx);
+    return projected ? { messages: projected } : changed ? { messages } : undefined;
   });
 
   pi.on("before_agent_start", (event, ctx) => {
@@ -316,7 +339,8 @@ export function registerSuper(pi: SuperApi): void {
       const blocks = event.systemPrompt.filter(block => !superPolicyBlock.test(block));
       return blocks.length === event.systemPrompt.length ? undefined : { systemPrompt: blocks };
     }
-    let { text } = superRequest(event.prompt);
+    const request = superRequest(event.prompt);
+    let text = request.workflow === "superstack" ? "" : request.text;
     text = text.replace(/^\s*\/goal\s+/i, "");
     text = visibleSuperText(text);
     // Initial CLI prompts may bypass the input event; child briefs never arm workflows.
@@ -326,6 +350,13 @@ export function registerSuper(pi: SuperApi): void {
     if (initial && canonicalSkillName(initial) !== initial && pi.getCommands().some(command =>
       command.source === "skill" && command.name === `skill:${initial}` && command.path === join(skillRoot, initial, "SKILL.md"))) {
       initialAlias = { name: initial, prompt: event.prompt };
+    }
+    if (event.reason !== "revive") {
+      stack.prepare({
+        prompt: event.prompt,
+        source: inputSource,
+        specialist: eligible && request.workflow !== undefined && request.workflow !== "superstack",
+      }, ctx);
     }
     inputSource = undefined;
     commandPending = false;

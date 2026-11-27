@@ -45,6 +45,8 @@ test("registered skill metadata and relative resource links resolve inside the s
     names.add(name!);
     expect(/^description:\s*\S/m.test(source)).toBe(true);
   }
+  expect(names.has("superstack")).toBe(true);
+  expect(lstatSync(join(root, "superstack", "ATTRIBUTION.md")).isFile()).toBe(true);
   for (const path of new Bun.Glob("**/*.md").scanSync({ cwd: root, absolute: true })) {
     const source = readFileSync(path, "utf8").replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "").replace(/`[^`\n]*`/g, "");
     for (const match of source.matchAll(/\[[^\]\n]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)/g)) {
@@ -57,6 +59,7 @@ test("registered skill metadata and relative resource links resolve inside the s
 
 test("canonical workflow templates and legacy aliases point to canonical skill resources", () => {
   const routes = {
+    superstack: "superstack",
     "super-plan": "super-plan",
     "super-run": "super-run",
     "super-loop": "super-loop",

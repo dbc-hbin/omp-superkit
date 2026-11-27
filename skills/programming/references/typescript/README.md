@@ -57,6 +57,8 @@ These are deliberate project choices. Violations are always wrong, not "style pr
 
 **The one rule**: data crosses trust boundary → Zod. Everything else → plain `type` with `readonly`.
 
+Strengthen a collection type only when its current shape admits a value that violates an actual caller invariant. Keep `readonly T[]` when callers handle empty input normally. If non-emptiness is guaranteed and a caller otherwise needs `!`, a cast, or an impossible-empty throw, construct or parse a `readonly [T, ...T[]]` at the owner of that invariant. Don't narrow a public input that legitimately accepts empty collections.
+
 Load `data-modeling.md` for the full decision flowchart and comparison.
 
 ### When readonly does not apply
@@ -202,3 +204,5 @@ When editing an existing file that doesn't follow these rules: **write new code 
 ## Activation
 
 This reference applies to `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and `.cjs`. JavaScript uses the same lint, formatting, and copy rules; TypeScript-only syntax and compiler gates apply to TS or checked JS projects. Even one-off scripts get the strict treatment.
+
+Collection modeling guidance adapts pstack's TypeScript practices; see [pinned source and MIT notice](../../../superstack/ATTRIBUTION.md).

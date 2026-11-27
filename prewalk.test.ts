@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { prewalkIntent } from "./prewalk";
+import { superRequest } from "./super";
 
 test.each([
   "Investigate only; report findings without edits.",
@@ -67,12 +68,25 @@ test.each([
   "계속해",
   "ulw",
   "orchestrate",
+  "superstack",
+  "/superstack",
+  "/superstack off",
+  "superstack off",
+  "/skill:superstack",
+  "/skill:superstack off",
+  'What does "/superstack fix login" do?',
   'The example says "fix login" and "investigate only".',
   "> Just explain this.\n\n`implement the fix`",
   "```text\n/ulw-plan fix login\n```\n\nWhat does that command do?",
   "[Worker -> Main] Implement the fix.",
 ])("preserves the current task scope for ambiguous or reference text: %s", prompt => {
   expect(prewalkIntent(prompt)).toBeUndefined();
+});
+
+test.each(["superstack", "/superstack", "/skill:superstack"])("passes only the opaque task to Prewalk: %s", prefix => {
+  const task = "REQUEST-ID-9417";
+  const request = superRequest(`${prefix} ${task}`);
+  expect(request.text.slice(request.invocationLength)).toBe(task);
 });
 
 test("native skill reference bodies cannot change the user's task scope", () => {
@@ -89,4 +103,6 @@ test("native skill reference bodies cannot change the user's task scope", () => 
   expect(prewalkIntent(expanded("debugging", "Fix the login error."))).toBe("implementation");
   expect(prewalkIntent(expanded("debugging", "workflowz Explain the error."))).toBe("restricted");
   expect(prewalkIntent(expanded("debugging"))).toBeUndefined();
+  expect(prewalkIntent(expanded("superstack"))).toBeUndefined();
+  expect(prewalkIntent(expanded("superstack", "Confirm receipt."))).toBeUndefined();
 });

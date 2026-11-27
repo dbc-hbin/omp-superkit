@@ -15,7 +15,15 @@ Start with the reported failure, existing code and logs, and the smallest safe r
 4. When a minimal fix is authorized, change the root cause and use the repository's regression coverage. Capture the failing reproduction before editing, then verify the same scenario and relevant checks after the fix. Never weaken a failing test or suppress errors.
 5. Remove only owned instrumentation and resources. Report observed evidence, remaining uncertainty and anything that could not be verified. Stop when the requested outcome and checks hold.
 
-Keep a record of temporary files, processes, ports, scoped environment overrides and instrumentation before creating them; preserve requested evidence and verify cleanup. Ordinary code/log inspection and CLI timing probes do not require a separate debug bootstrap, journal file, debugger, specialist tool or phase-reference read.
+Keep a record of temporary files, processes, ports, scoped environment overrides and instrumentation before creating them; preserve requested evidence and verify cleanup. Ordinary code/log inspection and incidental CLI timing probes do not require a separate debug bootstrap, journal file, debugger, specialist tool or phase-reference read.
+
+### Test the premise before trying another fix
+
+When different fixes fail the same check and assume the same thing, pause patches. State the shared premise in one sentence and name the actual runtime observation that should differ depending on whether it holds. Run the smallest allowed probe on the failing input; compare the predicted values with what was observed. For example, if two retry fixes both assume the second send comes from the same handler, trace one event ID across both send sites and see which caller made each send. The duplicate count alone cannot tell you that. If the premise is false, follow the first divergence to its owner; if the probe cannot distinguish the cases, report what is still unknown instead of trying another fix based on that premise. This step does not require a debugger or a panel of agents.
+
+### Measure a change or audit a claim
+
+For a requested baseline, before/after comparison or performance choice, use [performance comparison](references/performance-comparison.md) to measure the real workload. If the user only asks whether an existing number is trustworthy, use [eval-integrity](../eval-integrity/SKILL.md) as a read-only audit; don't start a new measurement or edit the system.
 
 ## Load references only when needed
 
@@ -51,7 +59,7 @@ Use methodology references when the working loop cannot resolve that specific st
 | Complex environment or instrumentation ownership | [setup](references/methodology/00-setup.md) |
 | Hypothesis design or parallel investigation contracts | [investigation](references/methodology/02-investigate.md) |
 | Intermittent failure | [flaky triage](references/methodology/03-flaky-triage.md) |
-| Two inconclusive investigation rounds | [oracle triple](references/methodology/04-oracle-triple.md), then [escalation](references/methodology/05-escalate.md) if still unresolved |
+| Two inconclusive rounds, with no direct probe left or independent reframing needed | [oracle triple](references/methodology/04-oracle-triple.md), then [escalation](references/methodology/05-escalate.md) if still unresolved |
 | Regression proof or fix verification is unclear | [fix](references/methodology/06-fix.md) |
 | Real-surface QA procedure is unclear | [QA](references/methodology/08-qa.md) |
 | Cleanup ownership or final evidence is unclear | [cleanup](references/methodology/09-cleanup.md) |
@@ -60,3 +68,5 @@ Use methodology references when the working loop cannot resolve that specific st
 ## Source
 
 OMP-native adaptation of the debugging workflow and shared specialist guidance, checked 2026-10-08. Runtime and specialist references retain their operational safeguards; the entry provides an immediate working loop and loads detailed guidance only for the operation that needs it.
+
+Shared-premise diagnosis is adapted from pstack's `principle-attack-the-premise`; see [attribution](../superstack/ATTRIBUTION.md).

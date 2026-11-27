@@ -5,7 +5,11 @@ description: "Post-implementation gate review: root-owned real-surface QA and fr
 
 # Review work - Two-lane gate
 
-Consult [the responsibility boundary](../super-loop/references/omp-contract.md) for model guidance, native modes and permissions. Activate for an explicit completed-work gate review, not automatically on bare SUPER. A review-only request is read-only. An explicit “review and fix” request authorizes only minimal in-scope fixes for confirmed blockers, followed by fresh affected QA and review; it does not authorize unrelated refactoring, destructive actions, external writes or commits. The gate needs root-owned hands-on QA and fresh independent read-only review. Dispatch count and grouping follow selected model guidance and any explicit native mode; this workflow does not require a one-off task or prohibit a required native review group. Reviewers cannot delegate or replace root manual QA. Passing requires every applicable QA row verified PASS and a supported APPROVE receipt covering all required review scopes.
+Consult [the responsibility boundary](../super-loop/references/omp-contract.md) for model guidance, native modes and permissions. Run the gate only for an explicit completed-work gate review, not automatically on bare SUPER. A review-only request is read-only. An explicit “review and fix” request authorizes only minimal in-scope fixes for confirmed blockers, followed by fresh affected QA and review; it does not authorize unrelated refactoring, destructive actions, external writes or commits. The gate needs root-owned hands-on QA and fresh independent read-only review. Dispatch count and grouping follow selected model guidance and any explicit native mode; this workflow does not require a one-off task or prohibit a required native review group. Reviewers cannot delegate or replace root manual QA. Passing requires every applicable QA row verified PASS and a supported APPROVE receipt covering all required review scopes.
+
+## Choose the review scope
+
+For a targeted compatibility or blast-radius question, or a request to challenge a design or diff, use [change-risk](references/change-risk.md) without invoking the full gate. Return evidence about the requested safety premise or counterexamples, not an approval or edits. For an explicit completed-work gate, continue below; targeted risk work can inform the gate but cannot replace either lane.
 
 ## Phase 0 - Gather context and bind the scope
 
@@ -14,6 +18,8 @@ Collect original GOAL, every CONSTRAINT, BACKGROUND and conversation decisions; 
 Inspect git status --short, branch/base and the user's named scope. For uncommitted work review staged and unstaged diffs plus explicitly relevant untracked files. For a branch/PR discover the correct target branch/merge-base or user-specified commits; then collect that comparison. Do not assume main or HEAD~1, omit untracked changes, or change the working tree to manufacture a clean diff. Bind captures to HEAD plus working-content diff/digest and untracked inputs. A passing result belongs to this content, not just its commit id.
 
 Locate actual run/test commands from project configuration and inspect relevant callers and docs/config. Mine scoped history and reverts, plus related issues/PRs when accessible. Record source -> finding -> why it matters. External messaging is never part of context mining. Do not browse unrelated code or expand the goal from tracker suggestions.
+
+When a compatibility claim or disputed assumption could change the gate outcome, use [change-risk](references/change-risk.md) to choose a check against the real consumer and carry its evidence or unresolved risk into the applicable QA row.
 
 A separate worktree is OPTIONAL when isolation is necessary and safe, not required for dirty local work. Prefer the current tree without branch switching. If using an owned review worktree, preserve uncommitted inputs explicitly, record ownership and leave user work intact. Never force removal, reset, checkout user files or remove the worktree while a child is using it. Worktree creation/cleanup does not authorize commits or destructive commands.
 

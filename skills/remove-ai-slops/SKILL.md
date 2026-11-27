@@ -10,6 +10,8 @@ Consult [the OMP contract](../super-loop/references/omp-contract.md) only for na
 
 This conditional OMP-contract loading and same-session reuse policy applies throughout this workflow, including all referenced documents, and supersedes their unconditional OMP-contract read directives. Operation-specific reference requirements remain binding.
 
+This is a targeted pass on existing code, not the pre-write simplification in `skill://programming`. Finding clutter during implementation does not authorize cleanup of the user's existing diff or an automatic sweep.
+
 The safety invariant is observable behavior preservation, not a green test manufactured by changing expectations. Reuse existing regression coverage and repository patterns, document risk and preserve load-bearing guards. Current caller inputs, return/exception behavior, side effects, public signatures, types and security remain contracts.
 
 ## Categories (what counts as slop)
@@ -18,8 +20,9 @@ The agent looks for these nine categories. The first three are stylistic, the ne
 
 ### Stylistic
 1. **Obvious comments** — comments restating code, trivial docstrings, section dividers, commented-out code, vague TODOs/Notes.
-   - KEEP: comments explaining WHY (business logic, edge cases, workarounds), ticket links, regex/algorithm explanations.
+   - KEEP: legal and license notices, public API documentation, and comments explaining WHY (business rules, workarounds, non-obvious constraints, ticket links, regex/algorithm explanations).
    - KEEP: BDD markers (`# given`, `# when`, `# then`, `# when/then`).
+   - REVIEW: check an external dependency, platform, vendor, or protocol claim against its authoritative docs or source and the affected code. If it cannot be confirmed or refuted, leave the comment in place and report the claimed constraint and missing evidence. The goal is clearer code, not zero comments.
 
 2. **Over-defensive code** — null checks for guaranteed values, try/except around code that cannot raise, isinstance checks for statically typed params, default values for required params, backward-compat shims, redundant validation duplicated at multiple layers, **broad exception catching** (`except Exception`/`except BaseException` in Python, empty `catch {}` or `catch (e) { console.error(e) }` without narrowing in TypeScript/JavaScript).
    - KEEP: validation at system boundaries (user input, external APIs), I/O error handling, nullable DB fields. Top-level boundary catch-all (CLI `main()`, HTTP handler) with explicit logging + re-raise is acceptable.
@@ -64,6 +67,8 @@ The agent looks for these nine categories. The first three are stylistic, the ne
 
 
 ## Size and scope policy
+
+Judge readability by how many layers a reader must trace and how much mutable state they must track, not by lines removed. A shorter diff that hides state or adds indirection is not an improvement.
 
 Module size can signal multiple responsibilities, but there is NO mandatory 250-LOC split, recursive fixed-size checker, exception marker or new module quota. Do not add helpers/interfaces/modules solely to shrink a file or replace a type annotation. A genuine multi-responsibility extraction is a separate proposal unless explicitly in this cleanup scope. No obsolete LOC scripts are shipped.
 
@@ -137,3 +142,5 @@ Do not manufacture missing tests for prose, force abstractions/splits, optimize 
 ## Source
 
 Ported nine categorized passes, deletion ladder, adversarial guard proof, behavior lock, critical review and report from the upstream cleanup workflow, checked 2026-10-08; the test-junk category, baseline-red list, static detector and serial mutation proofs follow upstream OMO `8bda141b` (2026-11-01) and call the bundled `programming` skill scripts. Fixed LOC enforcement, unconditional fanout, obsolete harness tools and unsafe whole-file rollback were intentionally replaced by the OMP host contract.
+
+Comment and reader-load guidance adapts pstack; see [pinned sources and MIT notice](../superstack/ATTRIBUTION.md).

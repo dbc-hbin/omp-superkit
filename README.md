@@ -18,11 +18,22 @@ In the interactive TUI, enter `/super <task>` or `super <task>` to activate SUPE
 
 Commands must start the input; mentions such as `Explain /super` do not activate them. Plain SUPER does not automatically select a specialized workflow, and specialized commands do not start a separate plain native goal. Restart OMP after changing the installed extension.
 
+### Choose `/super` or `/superstack`
+
+- Use `/super Fix the duplicate notification and verify the retry path` when you want SUPER's goal and continuation behavior, without automatic workflow selection.
+- Use `/superstack Why does a retry send two notifications? Don't edit anything.` when you want Superkit to choose how to investigate. It should explain the cause without editing. Follow with `Now fix it and verify that a retry sends only one notification.` to authorize the fix and its check without repeating `/superstack`.
+- For a compound task, try `Add the setting to the preferences screen, then check it at a narrow viewport.` in Superstack mode. It selects both implementation and visual verification; you don't need to name the skills.
+
+`/superstack` by itself enables the mode without starting a task. Use `/superstack <task>`, bare `superstack <task>`, or OMP's `/skill:superstack <task>` to enable it and give it a task. The mode stays on for follow-ups on the current session branch, including after compaction or resuming that branch. New sessions and child workers don't inherit it. Use `/superstack off` with `off` as the only argument to disable it. This neither disables SUPER nor changes an existing goal or its paused state.
+
+[Superstack](skills/superstack/SKILL.md) adds one command, not a family of subcommands. It uses existing skills and doesn't add OMP keywords or override explicit workflow requests. It doesn't set up external bots, scheduled routines, or tunnels, and enabling it doesn't authorize tool installs, commits, PRs, deployments, or spending.
+
 ## Workflows and skills
 
 | Command | Purpose | Default OMP keyword |
 | --- | --- | --- |
 | `/super` | Activate SUPER for the session | — |
+| `/superstack` | Select workflows for requests on the current session branch | — |
 | `/super-plan` | Create a reviewed plan without implementation | `ultrathink` |
 | `/super-run` | Execute and track a plan | `orchestrate` |
 | `/super-loop` | Track goals, dependencies and evidence | `orchestrate` |
@@ -33,7 +44,7 @@ All commands in the table also work without the leading `/`. Canonical skill IDs
 
 Use `/stop-continuation` to pause automatic SUPER continuation for the current session without deleting its plan or evidence. Use `/resume-continuation` to re-enable eligible work. These commands do not cancel running workers. In the TUI they can also pause the native goal created by this session's plain SUPER invocation (including a legacy alias) and resume only the goal they paused; they do not take over an unrelated goal. If OMP reports the native goal is busy, automatic SUPER continuation is stopped but the goal has not been paused. To pause it too, run `/stop-continuation` again when idle. RPC clients control native goals separately through the goal API.
 
-Specialized commands add their default keyword unless one is already specified, respecting OMP's keyword settings and tool requirements. For RPC, use `prompt` with the appropriate `streamingBehavior`; separate `steer` and `follow_up` requests bypass keyword processing. Direct `/skill:` calls still use the installed skill IDs. Those calls and initial CLI text need an explicit keyword when they bypass the input hook.
+Commands with a default keyword add it unless one is already specified, respecting OMP's keyword settings and tool requirements. For RPC, use `prompt` with the appropriate `streamingBehavior`; separate `steer` and `follow_up` requests bypass keyword processing. Direct `/skill:` calls still use the installed skill IDs. For workflows that use a keyword, specify it explicitly when a direct skill call or initial CLI text bypasses the input hook.
 
 Other entry points:
 
@@ -81,4 +92,4 @@ Host checks use the installed OMP with isolated state and a scripted local provi
 
 ## Attribution
 
-The original preset source is credited in the [catalog](prompts/models/catalog.js) and its [MIT license](prompts/models/LICENSE). Skill sources and licenses are recorded in their attribution files.
+The original preset source is credited in the [catalog](prompts/models/catalog.js) and its [MIT license](prompts/models/LICENSE). Skill sources and licenses are recorded in their attribution files, including [Superstack's attribution](skills/superstack/ATTRIBUTION.md).

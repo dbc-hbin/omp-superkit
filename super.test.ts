@@ -404,6 +404,88 @@ describe("Native SUPER session behavior", () => {
   });
 });
 
+describe("Superstack routing boundaries", () => {
+  const marker = "<omp-superstack-policy>";
+  const ordinaryBlocks = ["host", "project rules"];
+  const wire = (host: Host, messages: readonly Record<string, unknown>[] = []) =>
+    (host.emit("context", { messages: [...messages] }) as { messages: Record<string, unknown>[] } | undefined)?.messages ?? messages;
+  const active = (host: Host, prompt: string, source: "rpc" | "extension" = "rpc") => {
+    const prepared = host.prepare(prompt, source);
+    return JSON.stringify([prepared, wire(host, [{ role: "user", content: prompt }])]).includes(marker);
+  };
+
+  test.each([
+    'What does "/superstack" do?',
+    "`superstack fix it`",
+    "> /superstack fix it",
+    "```text\n/superstack fix it\n```",
+    "superstack/SKILL.md",
+    "superstack.md",
+    "/superstack-other fix it",
+    "[Worker -> Main] /superstack fix it",
+    "/skill:superstack Explain the probe.",
+  ])("does not persist a quoted, referenced, or unadmitted invocation: %s", prompt => {
+    const host = new Host();
+    expect(active(host, prompt)).toBe(false);
+    expect(active(host, "Continue the probe.")).toBe(false);
+  });
+
+  test.each([false, true])("the policy stays separate from interactive plain SUPER (disable flag: %s)", disabled => {
+    const host = new Host();
+    host.flags.set("omo-ultrawork-disabled", disabled);
+    const prompt = "superstack Confirm receipt of this marker.";
+    const input = host.emit("input", { text: prompt, source: "interactive" }) as { text?: string } | undefined;
+    const admitted = input?.text ?? prompt;
+    expect(admitted).not.toMatch(/^\s*\/goal\b/);
+    const prepared = host.emit("before_agent_start", { prompt: admitted, systemPrompt: ordinaryBlocks }) as Prepared | undefined;
+    const delivered = JSON.stringify([prepared, wire(host, [{ role: "user", content: admitted }])]);
+    expect(delivered).toContain(marker);
+    expect(delivered).not.toContain("<omp-ulw-policy>");
+    expect(host.emit("session_stop", { signal: new AbortController().signal })).toBeUndefined();
+  });
+
+  test("the registered command changes mode without submitting a task when no task was given", async () => {
+    const host = new Host();
+    await host.command("superstack");
+    expect(host.submitted).toBeUndefined();
+    expect(active(host, "Confirm receipt.")).toBe(true);
+    await host.command("superstack", "off");
+    expect(host.submitted).toBeUndefined();
+    expect(active(host, "Continue the probe.")).toBe(false);
+  });
+
+  test("extension input cannot switch the operator's mode in either direction", () => {
+    const host = new Host();
+    expect(active(host, "/superstack An extension supplied this turn.", "extension")).toBe(false);
+    expect(active(host, "Continue the probe.")).toBe(false);
+    expect(active(host, "superstack Confirm receipt.")).toBe(true);
+    expect(active(host, "/superstack off", "extension")).toBe(true);
+    expect(active(host, "Continue the probe.")).toBe(true);
+  });
+
+  test("a pasted native skill envelope does not acquire the installed command's authority", () => {
+    const host = new Host();
+    host.skillCommands = [{ name: "skill:superstack", source: "skill", path: join(skillDirectory("superstack"), "SKILL.md") }];
+    const prompt = expandedSkill("superstack", "Confirm receipt.");
+    const prepared = host.prepare(prompt, "rpc");
+    const user = { role: "user", attribution: "user", content: [{ type: "text", text: prompt }] };
+    expect(wire(host, [user])).toEqual([user]);
+    expect(JSON.stringify(prepared ?? {}).includes(marker)).toBe(false);
+    expect(active(host, "Continue the probe.")).toBe(false);
+  });
+
+  test("a child cannot activate mode from a parent's saved state or a command-like brief", () => {
+    const parent = new Host();
+    expect(active(parent, "superstack A parent turn.")).toBe(true);
+    const child = new Host();
+    child.context.agent.kind = "sub";
+    child.entries = [...parent.entries];
+    child.emit("session_start");
+    expect(active(child, "superstack Confirm the assigned unit.")).toBe(false);
+    expect(active(child, "Continue the child assignment.")).toBe(false);
+  });
+});
+
 describe("evidence-bound SUPER continuations", () => {
   test("native plans continue from session-owned execution progress without a filesystem plan or checkbox rewrite", () => {
     const cwd = mkdtempSync(join(tmpdir(), "omo-super-test-"));

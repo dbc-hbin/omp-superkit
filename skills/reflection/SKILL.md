@@ -47,7 +47,15 @@ For every candidate ask: durable or ephemeral? already adequately captured? gene
 
 Convert relative dates to absolute dates from the evidence's timestamp; if that timestamp is unknown, do not invent a date. Never persist credentials, secrets, raw private logs, or unrelated sensitive content. Capture the useful general lesson without secret values.
 
-Facts/preferences/corrections belong in memory. A skill requires a concrete durable multi-step workflow with triggers, commands/tool contracts, verification and pitfalls. One-off work and vague advice are not skills. When unsure between creating a skill and doing nothing, choose none; when a procedure overlaps an existing agent-owned learned skill, prefer a surgical update/extension.
+Route a correction by what would prevent the same mistake next time:
+
+- **Durable fact or preference:** Retain or update it through the existing memory workflow when the evidence supports its lasting scope and it would change a future action. Keep a task-local exception in its task context; do not promote it to a standing preference.
+- **Already covered:** If a relevant memory or skill already states the same rule clearly for the same scope, report the duplicate in `skipped` rather than writing another copy. Distinguish a missed existing rule from a missing rule. If the new evidence changes the rule or reveals a real gap, use the existing correction or managed-workflow path only within its authorized scope.
+- **Enforceable in the project:** If an invariant, type, lint rule, or focused regression check could prevent the same concrete error, propose that change instead of storing another reminder. In `skipped`, name the failing behavior, where to enforce the rule, and what valid behavior must still pass. Reflection does not implement that proposal, open a backlog item, or add a new report field.
+
+A skill requires a concrete durable multi-step workflow with triggers, commands/tool contracts, verification and pitfalls. One-off work and vague advice are not skills. When unsure between creating a skill and doing nothing, choose none; when a procedure overlaps an existing agent-owned learned skill, prefer a surgical update/extension.
+
+See the [source attribution](../superstack/ATTRIBUTION.md) for the upstream correction triage adapted here. The native persistence and ownership rules above still apply.
 
 If no candidate survives, perform no writes and return a no-op report. Persistence is not a quota.
 

@@ -24,6 +24,12 @@ layer or unrelated bug fix. If the requested outcome is clear, proceed
 without an unnecessary confirmation step. Ask only when two materially
 different scopes or behaviors remain unresolved.
 
+When safety depends on an assumption about an older consumer, stored or
+serialized data, or execution timing, use the
+[change-risk reference](../review-work/references/change-risk.md). Identify
+what must be true for the change to be safe, trace the actual consumer, and
+separate what it demonstrated from what remains unverified.
+
 ## Change ladder
 
 Choose the smallest rung that solves the request:
@@ -40,10 +46,17 @@ Keep boundary validation, security checks, error handling, public signatures
 and behavior that is load-bearing. Do not remove a guard merely because it
 looks repetitive.
 
+When replacing an internal API, migrate all callers and remove the old path
+in the same change. Do not leave a shim for migrated internal callers.
+Preserve public contracts: keep and document any compatibility path needed
+by supported external consumers or persisted formats. If that dependency
+cannot be resolved, keep the path and report compatibility as unverified,
+not dead code.
+
 ## Safe execution
 
-1. Establish a baseline with the narrowest relevant test or executable
-   scenario when behavior is changing.
+1. Establish a baseline with the narrowest relevant owner test or executable
+   scenario for the behavior the change must preserve or intentionally alter.
 2. Map callers and references before renaming or moving symbols.
 3. Prefer LSP rename and code actions for symbol-aware changes.
 4. Preview AST rewrites before applying them.
@@ -60,3 +73,6 @@ Stop when the requested behavior is complete, all affected callers and
 references are migrated, the relevant checks pass, and no OMP-incompatible
 routing remains in the changed path. Report pre-existing failures separately
 instead of changing scope to hide them.
+
+Internal API cutover guidance adapts pstack; see
+[pinned source and MIT notice](../superstack/ATTRIBUTION.md).

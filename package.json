@@ -21,6 +21,7 @@
     "prewalk.ts",
     "omp-settings.d.ts",
     "super.ts",
+    "superstack.ts",
     "super-continuation.ts",
     "super-control.ts",
     "prompts/",

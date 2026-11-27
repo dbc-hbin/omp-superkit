@@ -18,11 +18,22 @@ omp -e ./omp-superkit
 
 命令必须位于输入开头；`Explain /super` 等提及不会启用工作流。基础 SUPER 命令不会自动选择专用工作流，专用命令也不会另外启动基础原生目标。修改已安装的扩展后，请重启 OMP。
 
+### 何时使用 `/super` 或 `/superstack`
+
+- `/super 修复重复通知并验证重试路径` 使用 SUPER 的目标和自动续行机制，但不自动选择工作流。
+- `/superstack 为什么重试时会发两次通知？先别改代码。` 把调查方法交给 Superkit，只解释原因，不修改文件。接着说 `现在修好它，并确认重试时只发一次通知。` 即可要求修复并验证，无需重复输入 `/superstack`。
+- 需要组合多个步骤时，可在 Superstack 模式下说 `在设置页面加上这个选项，再用窄窗口确认显示效果。` 它会为实现和界面验证分别选择合适的流程，无需指定技能名称。
+
+单独输入 `/superstack` 只开启模式，不启动任务。也可用 `/superstack <任务>`、位于输入开头的 `superstack <任务>` 或 OMP 的 `/skill:superstack <任务>` 开启模式并交代任务。模式会继续用于当前会话分支中的后续请求，压缩对话或恢复该分支后仍然有效；新会话和子任务不会继承它。要关闭，请输入 `/superstack off`，让 `off` 成为唯一参数。关闭此模式不会关闭 SUPER，也不会改变已有目标或其暂停状态。
+
+[Superstack](skills/superstack/SKILL.md) 只新增一个命令，不引入一套子命令。它复用现有技能，不添加 OMP 关键词，也不会覆盖明确指定的工作流。它不会自动配置外部机器人、定时任务或隧道；启用模式不等于授权安装工具、提交代码、创建 PR、部署或产生费用。
+
 ## 工作流与技能
 
 | 命令 | 用途 | 默认 OMP 关键词 |
 | --- | --- | --- |
 | `/super` | 为当前会话启用 SUPER | — |
+| `/superstack` | 为当前会话分支的请求选择工作流 | — |
 | `/super-plan` | 创建经过审查的计划，不进行实现 | `ultrathink` |
 | `/super-run` | 执行并跟踪计划 | `orchestrate` |
 | `/super-loop` | 跟踪目标、依赖和证据 | `orchestrate` |
@@ -33,7 +44,7 @@ omp -e ./omp-superkit
 
 `/stop-continuation` 暂停当前会话的 SUPER 自动续行，不删除计划或证据。`/resume-continuation` 重新允许符合条件的工作继续。这两个命令不会取消正在运行的子任务。在 TUI 中，它们还可以暂停当前会话通过基础 SUPER 命令（包括旧别名）创建的原生目标，但只会恢复由该命令暂停的同一目标，不会接管其他目标。如果 OMP 提示原生目标正忙，则仅停止了 SUPER 自动续行；要暂停该目标，请在当前回合结束后再次运行 `/stop-continuation`。RPC 客户端须通过 goal API 单独控制原生目标。
 
-专业命令会在尚未指定关键词时添加默认关键词，并遵守 OMP 的关键词设置与工具要求。RPC 请使用带相应 `streamingBehavior` 的 `prompt`；独立的 `steer` 和 `follow_up` 请求会跳过关键词处理。通过 `/skill:` 直接调用时仍使用已安装的技能 ID。直接调用或初始 CLI 文本若绕过输入钩子，须显式指定关键词。
+有默认关键词的命令会在尚未指定关键词时添加默认值，并遵守 OMP 的关键词设置与工具要求。RPC 请使用带相应 `streamingBehavior` 的 `prompt`；独立的 `steer` 和 `follow_up` 请求会跳过关键词处理。通过 `/skill:` 直接调用时仍使用已安装的技能 ID。对于使用关键词的工作流，如果直接调用或初始 CLI 文本绕过了输入钩子，请显式指定关键词。
 
 其他入口：
 
@@ -81,4 +92,4 @@ bun run test:host
 
 ## 来源
 
-预设的原始来源和 [MIT 许可证](prompts/models/LICENSE) 随[目录](prompts/models/catalog.js)保留。技能的来源和许可证记录在各自的 attribution 文件中。
+预设的原始来源和 [MIT 许可证](prompts/models/LICENSE) 随[目录](prompts/models/catalog.js)保留。技能的来源和许可证记录在各自的 attribution 文件中，例如 [Superstack 的来源说明](skills/superstack/ATTRIBUTION.md)。
