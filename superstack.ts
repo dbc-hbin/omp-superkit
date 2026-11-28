@@ -131,13 +131,9 @@ export function createSuperstack(pi: SuperApi, skill: Skill) {
   }
 
   const instruction = (modeControl: boolean, user: Message | undefined): Message => {
-    let text = "This request changes only the Superstack setting. Acknowledge it without beginning, inventing, or resuming work.";
-    if (!modeControl) {
-      const routing = pi.getActiveTools?.().includes("read")
-        ? `Read ${admitted() ? "skill://superstack" : skill.path} and follow its routing instructions.`
-        : `Use only the capabilities actually available.\n\n${skill.body()}`;
-      text = `<${policyTag}>\nSuperstack is active on this branch. Apply it to the current identifiable user request; do not guess an objective after resume.\n${routing}\n</${policyTag}>`;
-    }
+    const text = modeControl
+      ? "This request changes only the Superstack setting. Acknowledge it without beginning, inventing, or resuming work."
+      : `<${policyTag}>\nSuperstack is active on this branch. Apply the routing below to the current identifiable user request; do not guess an objective after resume. Resolve relative references from ${directory}.\n\n${skill.body()}\n</${policyTag}>`;
     return { role: "developer", attribution: "agent", timestamp: user?.timestamp ?? 0, content: [{ type: "text", text }] };
   };
 

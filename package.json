@@ -24,6 +24,8 @@
     "superstack.ts",
     "super-continuation.ts",
     "super-control.ts",
+    "goal-interruption.ts",
+    "goal-evidence.ts",
     "prompts/",
     "skills/",
     "README*.md"

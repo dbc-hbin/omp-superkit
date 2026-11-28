@@ -56,7 +56,9 @@ When delegating test-writing, hand the child the behavior the test must distingu
 
 ## After writing: test your test
 
-A test earns its place by failing. Before the PR, run `bun run $SKILL_DIR/scripts/typescript/check-test-junk.ts <test files>` for the classes a regex can see (source grep, prose pin, fixed sleep, `.only`/`.skip`, self-comparison, lower bound), then for each new or reshaped test:
+Before the PR, run `bun run $SKILL_DIR/scripts/typescript/check-test-junk.ts <test files>` for the classes a regex can see (source grep, prose pin, fixed sleep, `.only`/`.skip`, self-comparison, lower bound).
+
+For each new or reshaped test, reuse the actual regression as proof if the same test, inputs and assertions failed on the unfixed owner for the intended reason and passed after the fix. Do not recreate that failure with a mutation. A different reproduction, a setup error or a passing run alone does not prove this test. Without that red/green pair:
 
 1. **Break the owner** (flip the condition, drop the branch, return a constant, skip the write) and run the test. Confirm the mutated bytes are actually in the file before reading the result; a no-op edit "passes" identically to the original.
 2. **Red for the intended reason?** Read the failure message: a loose pattern can match the base's generic error by coincidence (a false red), and a fake that simulates the failure by a different mechanism than the guard reads fails with the fix present.

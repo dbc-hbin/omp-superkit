@@ -664,6 +664,114 @@ describe("evidence-bound SUPER continuations", () => {
     } finally { rmSync(cwd, { recursive: true, force: true }); }
   });
 
+  test("a blocking question needs current evidence; a claimed blocker cannot displace pending work", async () => {
+    const host = new Host();
+    const ask = () => host.emit("tool_call", { toolName: "ask", input: { html: "<form>Which external key can unlock the only archive?</form>" } });
+    expect(await ask()).toBeUndefined(); // No goal: ordinary questions retain the host's contract.
+    const quote = "Key unavailable on this machine";
+    host.emit("goal_updated", { goal: { id: "g", objective: "Open the archive", createdAt: 5, status: "active" } });
+    host.context.hasPendingMessages = () => false;
+    host.context.getAsyncJobSnapshot = () => null;
+    host.context.runEphemeralTurn = async () => ({
+      replyText: JSON.stringify({ decision: "blocked", quote, unblock: "Supply the missing key", answersBlocker: true }),
+      assistantMessage: { stopReason: "stop" },
+    });
+    host.entries.push({ type: "message", message: { timestamp: 6, role: "user", content: "Open the archive" } });
+    const observation = (timestamp: number, role: string) => ({ type: "message", message: { timestamp, role, toolName: "read", content: quote } });
+    host.entries.push(observation(3, "toolResult"), observation(7, "assistant"));
+    expect(await ask()).toMatchObject({ block: true }); // Before goal creation / assistant assertion.
+    host.entries.push(observation(8, "toolResult"), observation(9, "assistant"));
+    host.context.getAsyncJobSnapshot = () => ({ running: [], delivery: { queued: 1, delivering: false, pendingJobIds: ["lookup"] } });
+    expect(await ask()).toMatchObject({ block: true });
+    host.context.getAsyncJobSnapshot = () => null;
+    expect(await ask()).toBeUndefined();
+  });
+
+  test("concurrent interruptions share a refusal; only fresh blocker evidence reopens it after restore", async () => {
+    const host = new Host();
+    const goal = { id: "active", objective: "Import the records", createdAt: 1, status: "active" };
+    host.entries.push({ type: "mode_change", mode: "goal", data: { goal } },
+      { type: "message", message: { role: "user", content: goal.objective, timestamp: 2 } });
+    host.emit("session_start");
+    const deferred = Promise.withResolvers<string>();
+    let reviews = 0;
+    const setup = (h: Host) => {
+      h.context.hasPendingMessages = () => false;
+      h.context.getAsyncJobSnapshot = () => null;
+      h.context.runEphemeralTurn = async () => {
+        reviews++;
+        return { replyText: await deferred.promise, assistantMessage: { stopReason: "stop" } };
+      };
+    };
+    setup(host);
+    const pause = { toolName: "goal", input: { op: "pause" } };
+    const first = host.emit("tool_call", pause);
+    expect(await host.emit("tool_call", { toolName: "ask", input: { html: "<form>Pause?</form>" } })).toMatchObject({ block: true });
+    deferred.resolve('{"decision":"continue"}');
+    expect(await first).toMatchObject({ block: true });
+    const resumed = new Host();
+    resumed.entries = [...host.entries];
+    setup(resumed);
+    resumed.emit("session_start");
+    const result = (content: string, isError: boolean) => ({ type: "message", message: { role: "toolResult", toolName: "read", timestamp: 3, content, isError } });
+    resumed.entries.push(result("An unrelated file", false));
+    expect(await resumed.emit("tool_call", pause)).toMatchObject({ block: true });
+    expect(reviews).toBe(1);
+    resumed.entries.push(result("Unrelated indexing error, run 1", true), result("Unrelated indexing error, run 2", true));
+    expect(await resumed.emit("tool_call", pause)).toMatchObject({ block: true });
+    expect(reviews).toBe(1);
+    const fact = "Permission denied for required records";
+    const cite = { type: "message", message: { role: "assistant", timestamp: 4, content: `Import blocked: "${fact}".` } };
+    resumed.entries.push(result(`Status from owner registry:\n  records: ${fact}; external approval required\nEnd of response`, false), cite);
+    expect(await resumed.emit("tool_call", pause)).toMatchObject({ block: true });
+    expect(reviews).toBe(2);
+    resumed.entries.push(result(`Run 2: ${fact}`, true), cite);
+    expect(await resumed.emit("tool_call", pause)).toMatchObject({ block: true });
+    expect(reviews).toBe(2);
+
+    const blocker = "The owner revoked the import credential";
+    resumed.entries.push({
+      type: "custom_message", customType: "async-result", attribution: "agent", display: true,
+      timestamp: new Date(5).toISOString(),
+      details: { meta: { source: { type: "report", value: "background job delivery" } }, jobs: [{ jobId: "registry", type: "bash", status: "failed" }] },
+      content: `<system-notice>\nBackground job registry has completed.\nResume your work using the result below.\nRegistry response:\n${blocker}\n\nCommand exited with code 1\n</system-notice>`,
+    }, { type: "message", message: { role: "assistant", timestamp: 6, content: `Cannot import: ${blocker}.` } });
+    resumed.context.runEphemeralTurn = async () => {
+      reviews++;
+      return { replyText: JSON.stringify({ decision: "blocked", quote: blocker, unblock: "Owner restores the credential" }), assistantMessage: { stopReason: "stop" } };
+    };
+    expect(await resumed.emit("tool_call", pause)).toBeUndefined();
+    expect(reviews).toBe(3);
+  });
+
+  test("only a current user stop can authorize a pause while a job runs", async () => {
+    const host = new Host();
+    const pause = () => host.emit("tool_call", { toolName: "goal", input: { op: "pause" } });
+    const goal = { id: "current", objective: "Finish the import", createdAt: 1, status: "active" };
+    host.emit("goal_updated", { goal });
+    host.context.hasPendingMessages = () => false;
+    host.context.getAsyncJobSnapshot = () => ({ running: ["import"], delivery: { queued: 0, delivering: false, pendingJobIds: [] } });
+    const quote = "Stop the entire import";
+    const reply = { replyText: JSON.stringify({ decision: "user_requested", action: "pause", quote }), assistantMessage: { stopReason: "stop" } };
+    let reviews = 0;
+    host.context.runEphemeralTurn = async () => { reviews++; return reply; };
+    host.entries.push({ type: "message", message: { timestamp: 2, role: "user", content: "Is the input format correct?" } },
+      { type: "message", message: { timestamp: 3, role: "user", synthetic: true, content: quote } });
+    expect(await pause()).toMatchObject({ block: true });
+    host.entries.push({ type: "message", message: { timestamp: 4, role: "user", content: quote } });
+    const ask = () => host.emit("tool_call", { toolName: "ask", input: { html: "<form>Should I pause?</form>" } });
+    expect(await ask()).toMatchObject({ block: true });
+    expect(await ask()).toMatchObject({ block: true });
+    expect(reviews).toBe(2);
+    expect(await pause()).toBeUndefined();
+    expect(reviews).toBe(3);
+    host.context.runEphemeralTurn = async () => {
+      host.emit("goal_updated", { goal: { ...goal, id: "replacement" } });
+      return reply;
+    };
+    expect(await pause()).toMatchObject({ block: true });
+  });
+
   test("native control retries a host refusal and resumes only the same goal paused by this command", async () => {
     const host = new Host();
     const objective = "ulw preserve the goal";
@@ -688,11 +796,16 @@ describe("evidence-bound SUPER continuations", () => {
     expect(host.warnings.at(-1)).toContain("/goal pause");
     expect(host.notices).toHaveLength(0);
     busy = false;
+    host.branch = []; // Move to a leaf written before the live goal was created.
+    host.emit("session_tree");
     await host.command("stop-continuation");
     expect(goal.status).toBe("paused");
+    host.branch = undefined;
     host.emit("session_start");
     host.prepare("ordinary follow-up");
     expect(nativeCalls).toEqual(["pause", "pause"]);
+    host.branch = [{ type: "mode_change", mode: "goal", data: { goal: { ...goal, status: "active" } } }];
+    host.emit("session_tree");
     await host.command("resume-continuation");
     expect(nativeCalls).toEqual(["pause", "pause", "resume"]);
     expect(goal).toEqual({ id: "owned", objective, status: "active" });
@@ -709,6 +822,24 @@ describe("evidence-bound SUPER continuations", () => {
     await host.command("stop-continuation");
     expect(nativeCalls).toEqual(["pause", "pause", "resume", "pause"]);
     expect(host.warnings.at(-1)).toContain("/goal pause");
+  });
+
+  test("tree navigation never resurrects a dropped goal; a session reload reconciles even with the same ID", () => {
+    const host = new Host();
+    const goal = { id: "original", objective: "Finish the import", status: "active" };
+    const input = { text: "super handle the next request", source: "interactive" };
+    host.emit("goal_updated", { goal });
+    host.emit("goal_updated", { goal: null });
+    host.branch = [{ type: "mode_change", mode: "goal", data: { goal } }];
+    host.emit("session_tree");
+    expect(host.emit("input", input)).toEqual({ text: `/goal ${input.text}` });
+    for (const id of [host.sessionId, "different-session"]) {
+      host.emit("goal_updated", { goal });
+      host.sessionId = id;
+      host.branch = [];
+      host.emit("session_switch");
+      expect(host.emit("input", input)).toEqual({ text: `/goal ${input.text}` });
+    }
   });
 
   test("loop continuation is session-owned, progress-sensitive, cancellation-aware and stops for paused/blocked/completed work", () => {

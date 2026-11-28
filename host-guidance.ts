@@ -76,6 +76,10 @@ export function projectHostGuidance(text: string, source: string, modelGuidance:
 
 /** Native mechanics remain authoritative; only the active profile can own duplicate requirements. */
 export function adaptToolGuidance(name: string, text: string, profile: string): string {
+  if (name === "goal" && text.startsWith("Manage active goal-mode objective.")) {
+    return text.replace("- `pause`: stops continuation while blocked on the user.",
+      "- `pause`: only for an explicit whole-goal stop or an evidenced external blocker that leaves no authorized work. Continue through questions, corrections and partial failures. Do not use `ask` to confirm a pause; report the specific blocker and what would unblock it.");
+  }
   if (name === "eval" && text.startsWith("One cell per call;")) {
     return text.replace("For 2+ independent items, use a named `workpool()`; results auto-deliver.", "`workpool()` results auto-deliver.");
   }

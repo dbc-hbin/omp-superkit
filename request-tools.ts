@@ -172,7 +172,7 @@ function wireTools(layout: RequestLayout): WireTool[] {
 	return tools;
 }
 
-const guidanceNames = new Set(["task", "todo", "eval", "bash"]);
+const guidanceNames = new Set(["task", "todo", "eval", "bash", "goal"]);
 const googleAliases = new Map([["invoke_subagent", "task"], ["run_command", "bash"]]);
 
 function wireNames(layout: RequestLayout, api: string, tools: readonly WireTool[], enabled: readonly ToolInfo[]) {

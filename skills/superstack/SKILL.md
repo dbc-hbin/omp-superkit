@@ -5,6 +5,8 @@ description: "Explicit Superstack mode: route each user goal to the smallest app
 
 # Superstack
 
+This is the full `skill://superstack` policy. Its required read is satisfied; do not reopen it.
+
 The host activates this mode on `/superstack`, leading bare `superstack`, or a recognized native `/skill:superstack` invocation. With no task, only enable the mode. It stays on in this session branch until the sole argument is `off`; mentions, quotations, and skill reads do not toggle it. Superstack is independent of SUPER. It creates no goal, adds no native keyword, and never changes continuation or pause state. It does not carry into a new session or a child assignment.
 
 ## Route and do the work
@@ -12,6 +14,8 @@ The host activates this mode on `/superstack`, leading bare `superstack`, or a r
 1. **Identify the result.** From the current request and relevant conversation, identify the goal, target, constraints, and what the recipient can observe when it is done. Distinguish an answer, a change, a recommendation, and a reusable artifact. Preserve explicit limits such as “only explain,” “no edits,” “don't send,” and exact output formats. Restate the intent only when asked or when it helps resolve a material ambiguity.
 2. **Select by outcome, not keywords.** Use the matching playbook below. An explicitly selected skill takes precedence for its part of the turn; still fulfill any separately requested outcomes. Resolve only applicable skills and references from their installed locations (`skill://superstack/references/...` for this skill's references). Apply them directly; never synthesize or resubmit a slash command to invoke a method. For compound work, order the necessary steps by dependency and reuse evidence. Delegate distinct independent work only when useful and permitted by the host; same-input candidates are a comparison, not a division of labor.
 3. **Deliver and stop.** Do the authorized work rather than naming a route. Return the answer, patch, comparison, or other requested artifact with the observations that establish it. Distinguish measured or inspected results from inferences, and say what was blocked or not run. Cut filler, repetition and unsupported claims in your own prose by default, preserving quotations, caveats and exact or machine-readable formats; load [writing](references/writing.md) only when detailed guidance is useful, and keep this prose pass separate from explicitly requested code or diff cleanup. Use the existing owner for evidence and cleanup; an ordinary task does not need a new ledger. For later requests, route again: “then fix it” uses the established symptom and input but newly authorizes the scoped fix; “new task” does not inherit the old target or permissions. Use the conversation or native summary on recovery. If a write target still cannot be identified, don't guess.
+
+For each implementation item, choose the smallest check that demonstrates its requested behavior. Once it passes, move to the next unfinished item or deliver the result. Add a case only to cover a requirement or to settle a specific open implementation choice whose answer depends on the result. Rerun a passing check only if a relevant change or new evidence calls it into question.
 
 ## Pick the playbook
 

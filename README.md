@@ -18,6 +18,8 @@ In the interactive TUI, enter `/super <task>` or `super <task>` to activate SUPE
 
 Commands must start the input; mentions such as `Explain /super` do not activate them. Plain SUPER does not automatically select a specialized workflow, and specialized commands do not start a separate plain native goal. Restart OMP after changing the installed extension.
 
+With an active goal, an agent cannot pause it or wait on a question just because a step failed. A tool-free assessment by the session model requires an explicit user request for that action or evidence of an external blocker leaving no independent work. This uses model tokens, not a confirmation dialog. If work can continue, switching between `pause` and `ask` on the same evidence does not trigger another assessment. A new user instruction or a blocker cited from a new result can reopen it. When the user explicitly stops the whole goal, refusing an unnecessary question does not prevent `pause`. Direct operator goal controls and host interrupts are unchanged.
+
 ### Choose `/super` or `/superstack`
 
 - Use `/super Fix the duplicate notification and verify the retry path` when you want SUPER's goal and continuation behavior, without automatic workflow selection.

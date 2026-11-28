@@ -42,8 +42,9 @@ export function renderPreset(model: PresetModel, options: PresetOptions): { name
     const prompt = [
       options.surface === "terminal" && !options.subagent && routingLine,
       gpt62Body(options),
+      !options.subagent && progressReport,
       hasTask && `Do short or tightly coupled work and checks on your own changes yourself. ${delegationRule}`,
-      !options.subagent && progressReport, hasTodo && !options.subagent && todoRule,
+      hasTodo && todoRule,
       parallelRules, asyncRules, waitRules, hasBash && shellRules, refusals,
     ].filter(Boolean).join("\n\n");
     return { name, prompt };

@@ -99,6 +99,8 @@ When the scoped design-system gate applies, the resulting `DESIGN.md` is the imp
 
 Hand `skill://visual-qa` the actual render target, the scoped surface list (including consumers of changed shared UI), the intended change and applicable design or fidelity reference, and any matched before captures. For stateful changes, include the state table, the expected transitions and preserve/clear assertions, and the available authorized data and ways to reach the cases. The [behavior evidence guide](skill://visual-qa/references/behaviour-evidence.md) owns executed checks H12–H19. Source tracing can explain a cause but cannot prove what the user sees. Report an applicable case that could not be run or observed as UNVERIFIED with the reason; use N/A only for an inapplicable case. For static-only changes, note that no state or flow changed and still verify the real render.
 
+For web work, pass the existing detect JSON with the build, page/state, scan settings and viewport coverage it represents. Identify blocked scans; an empty findings list alone does not establish coverage.
+
 Retain visual QA's applicable capture matrix, accessibility and behavior checks, approval boundaries, and independent assessment. Pass consequential design decisions, evidence and unresolved debt to `skill://review-work` for significant work; it does not replace visual QA.
 
 ## Ruleset 1 — design (`references/design/`)

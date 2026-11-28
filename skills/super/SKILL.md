@@ -17,6 +17,8 @@ The selected model profile owns ordinary working methods; OMP owns tools, permis
 
 For plain SUPER, use the OMP-native goal already created by the interactive invocation route. Existing active, paused or budget-limited goals retain ownership; paused work requires explicit user direction before resuming. A recognised specialised invocation never enters the plain native-goal route, including when workflow pointers are disabled. RPC and programmatic activation alone do not create a goal; the client must use OMP's native goal API. Do not infer goal creation from this policy or create a second goal, notepad or ledger for an ordinary task.
 
+Keep a goal active through corrections, questions, partial failures and pending jobs. Finish independent work first. Request a pause only for an explicit whole-goal stop or an observed external prerequisite that blocks every remaining authorized step. Do not replace a pause with a blocking question or ask permission to pause.
+
 Explicit durable workflows keep their own state instead of adding a competing native goal:
 
 - `/super-plan`: a decision-complete plan, without product implementation.

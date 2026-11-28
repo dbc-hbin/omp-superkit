@@ -1,4 +1,4 @@
-// Run with: bun tests/super-host-check.ts [--superstack-only] (requires installed omp).
+// Run with: bun tests/super-host-check.ts [--superstack-only | --goal-only] (requires installed omp).
 import { strict as assert } from "node:assert";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,6 +16,56 @@ const compactHistory = "SUPERSTACK-COMPACTED-HISTORY";
 const childTrigger = "SUPERSTACK-NATIVE-CHILD-PROBE";
 const childAssignment = "SUPERSTACK-CHILD-ASSIGNMENT";
 const childDone = "SUPERSTACK-CHILD-COMPLETE";
+const goalBlockerQuote = "Only the owner has the decryption key. It cannot be obtained this session, and no independent work remains.";
+const goalStopQuote = "Pause this entire goal now. Leave the remaining decryption work paused until I resume it.";
+const goalScenarios = {
+  sameEvidence: {
+    userText: "Use SHA-256, not MD5.\nSUPER-GOAL-SAME-EVIDENCE",
+    verdict: { decision: "continue" },
+    calls: [
+      { id: "super_goal_model_pause", name: "goal", args: { op: "pause" }, refused: true },
+      {
+        id: "super_goal_rephrased_ask", name: "ask",
+        args: { html: '<form><label>What hash function should I use to verify the fixture? <input name="algorithm" required></label></form>' },
+        refused: true,
+      },
+      { id: "super_goal_retry_pause", name: "goal", args: { op: "pause" }, refused: true },
+    ],
+  },
+  branchAsk: {
+    userText: "The fixture manifest confirms SHA-256 and supplies the expected digest.\nSUPER-GOAL-BRANCH-ASK",
+    verdict: { decision: "continue" },
+    calls: [{
+      id: "super_goal_branch_ask", name: "ask",
+      args: { html: '<form><label>What color should the other project use for its logo? <input name="color" required></label></form>' },
+      refused: true,
+    }],
+  },
+  nativeStop: {
+    userText: goalStopQuote,
+    command: "/skill:superstack",
+    // This answers what the operator requested, even when the proposed action is ask.
+    verdict: { decision: "user_requested", action: "pause", quote: goalStopQuote },
+    calls: [
+      {
+        id: "super_goal_stop_ask", name: "ask",
+        args: { html: '<form><label>When should the other project schedule its demo? <input name="time" required></label></form>' },
+        refused: true,
+      },
+      { id: "super_goal_stop_pause", name: "goal", args: { op: "pause" }, refused: false },
+    ],
+  },
+  blocker: {
+    userText: goalBlockerQuote,
+    verdict: {
+      decision: "blocked", quote: goalBlockerQuote,
+      unblock: "The owner supplies the decryption key.", answersBlocker: false,
+    },
+    calls: [{ id: "super_goal_whole_blocker", name: "goal", args: { op: "pause" }, refused: false }],
+  },
+} as const;
+type GoalScenario = typeof goalScenarios[keyof typeof goalScenarios];
+const dialogMethods = new Set(["ask", "confirm", "editor", "form", "input", "select"]);
 let servingModel = defaultProbeModel;
 const server = Bun.serve({
   hostname: "127.0.0.1", port: 0,
@@ -57,10 +107,17 @@ const server = Bun.serve({
       writeFileSync(continuationState.path, scenarioRequests === 2
         ? plan.replace("- [ ] 3.", "- [x] 3.") : plan.replace("- [ ] F1.", "- [x] F1."));
     }
-    const user = textByRole(body, "user").at(-1);
-    const spawn = user?.trimEnd().endsWith(childTrigger) && !textByRole(body, "tool").length;
+    const users = textByRole(body, "user");
+    const user = users.at(-1);
+    const trigger = user?.trimEnd();
+    const spawn = trigger?.endsWith(childTrigger) && !textByRole(body, "tool").length;
+    const goalReview = goalReviewScenario(body, users);
+    const goalScenario = goalReview ? undefined : goalScenarioFor(user);
+    // Advance only after the real host sends back the preceding tool result.
+    const goalCall = goalScenario?.calls.find(call => !hasProviderToolResult(body, call.id));
     const historySummary = compactionConversation(body)?.includes(compactFocus);
-    const content = historySummary ? compactHistory
+    const content = goalReview ? JSON.stringify(goalReview.verdict)
+      : historySummary ? compactHistory
       : isChildTitleRequest(body) ? "<title>Superstack Child Probe</title>"
       : user?.includes(childAssignment) ? childDone : "SUPER-PROBE";
     const delta = spawn ? { role: "assistant", tool_calls: [{ index: 0, id: "superstack-child-probe", type: "function", function: {
@@ -71,10 +128,12 @@ const server = Bun.serve({
           solutionSpace: "Reply once, without using tools or making changes.",
         }],
       }),
+    } }] } : goalCall ? { role: "assistant", tool_calls: [{ index: 0, id: goalCall.id, type: "function", function: {
+      name: goalCall.name, arguments: JSON.stringify(goalCall.args),
     } }] } : { role: "assistant", content };
     return new Response([
       `data: ${JSON.stringify({ id: "super-probe", object: "chat.completion.chunk", choices: [{ index: 0, delta, finish_reason: null }] })}`,
-      `data: ${JSON.stringify({ id: "super-probe", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: spawn ? "tool_calls" : "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}`,
+      `data: ${JSON.stringify({ id: "super-probe", object: "chat.completion.chunk", choices: [{ index: 0, delta: {}, finish_reason: spawn || goalCall ? "tool_calls" : "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}`,
       'data: [DONE]', "",
     ].join("\n\n"), { headers: { "content-type": "text/event-stream" } });
   },
@@ -93,9 +152,15 @@ const hostEnv = {
   HOME: home, USERPROFILE: home, PI_CONFIG_DIR: configDirName, PI_CODING_AGENT_DIR: agentDir,
   OMO_SUPER_PROBE_BASE_URL: `http://127.0.0.1:${server.port}/v1`,
 };
+type ToolReceipt = {
+  readonly toolName: string;
+  readonly toolCallId: string;
+  readonly isError: boolean;
+  readonly result: unknown;
+};
 type ControlProbe =
-  | { readonly type: "prompt"; readonly message: string; readonly requests?: number; readonly notice?: string; readonly local?: true; readonly inspect?: (bodies: readonly unknown[]) => void }
-  | { readonly type: "goal"; readonly op: "create" | "get" | "pause"; readonly objective?: string; readonly status: "active" | "paused" | null; readonly inspect?: (goal: unknown) => void }
+  | { readonly type: "prompt"; readonly message: string; readonly requests?: number | null; readonly notice?: string; readonly local?: true; readonly inspect?: (bodies: readonly unknown[], toolReceipts: readonly ToolReceipt[]) => void }
+  | { readonly type: "goal"; readonly op: "create" | "get" | "pause" | "resume"; readonly objective?: string; readonly status: "active" | "paused" | null; readonly inspect?: (goal: unknown) => void }
   | { readonly type: "rpc"; readonly command: () => RpcControl; readonly inspect?: (data: unknown, bodies: readonly unknown[]) => void };
 
 type RpcControl =
@@ -118,6 +183,7 @@ interface RunOptions {
   readonly tools?: readonly string[];
   readonly streamingBehavior?: "steer" | "followUp";
   readonly saved?: SavedProfile;
+  readonly forbidDialogs?: true;
 }
 
 function run(prompts: readonly (string | ControlProbe)[], flags?: string[], continuation?: RunOptions["continuation"], provider?: string, model?: string, loadSkills?: RunOptions["loadSkills"], tools?: string[], streamingBehavior?: RunOptions["streamingBehavior"]): Promise<string[]> {
@@ -125,7 +191,7 @@ function run(prompts: readonly (string | ControlProbe)[], flags?: string[], cont
 }
 
 async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunOptions = {}): Promise<string[]> {
-  const { flags = [], continuation, provider, model = defaultProbeModel, loadSkills = false, tools, streamingBehavior, saved } = options;
+  const { flags = [], continuation, provider, model = defaultProbeModel, loadSkills = false, tools, streamingBehavior, saved, forbidDialogs } = options;
   const offset = requests.length;
   continuationState = undefined;
   scenarioRequests = 0;
@@ -134,7 +200,8 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
   // An empty --tools allowlist keeps the extensions loaded; --no-tools forbids them.
   const toolSelection = tools?.join(",") ?? (loadSkills === true ? "read" : "");
   const child = Bun.spawn([
-    "omp", "--mode", "rpc", ...(prompts.some(prompt => typeof prompt !== "string") ? [] : ["--no-ui"]), "--no-extensions", "-e", packageRoot,
+    // rpc-ui binds native tool dialogs. A headless run could hide an unintended ask.
+    "omp", "--mode", forbidDialogs ? "rpc-ui" : "rpc", ...(forbidDialogs || prompts.some(prompt => typeof prompt !== "string") ? [] : ["--no-ui"]), "--no-extensions", "-e", packageRoot,
     "-e", providerExtension, "--model", `${provider ?? "omo-super-probe"}/${servingModel}`,
     "--cwd", cwd, "--config", saved?.configPath ?? config, "--no-prewalk",
     "--tools", toolSelection, ...(!tools && loadSkills === false ? ["--no-skills"] : []),
@@ -146,15 +213,16 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
   const stderr = new Response(child.stderr).text();
   let signal = Promise.withResolvers<void>();
   let expected = "ready";
-  let expectedRequests = 0;
+  let expectedRequests: number | null = 0;
   let requestId = "";
   let controlProbe: ControlProbe | undefined;
   let controlData: unknown;
   const notices: string[] = [];
+  const toolReceipts: ToolReceipt[] = [];
   let failure: unknown;
   const abort = AbortSignal.timeout(60000);
   abort.addEventListener("abort", () => {
-    failure = new Error(`OMP host deadline: provider=${provider ?? "omo-super-probe"}, mode=${continuation ?? "ordinary"}, event=${expected}, requests=${scenarioRequests}/${expectedRequests}; prompts=${JSON.stringify(prompts)}`);
+    failure = new Error(`OMP host deadline: provider=${provider ?? "omo-super-probe"}, mode=${continuation ?? "ordinary"}, event=${expected}, requests=${scenarioRequests}/${expectedRequests ?? "unchecked"}; prompts=${JSON.stringify(prompts)}`);
     signal.reject(failure);
   }, { once: true });
   const output = (async () => {
@@ -169,8 +237,19 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
         if (!line.startsWith("{")) continue;
         const event: unknown = JSON.parse(line);
         if (typeof event !== "object" || event === null || !("type" in event)) continue;
+        if (forbidDialogs && event.type === "extension_ui_request" && "method" in event &&
+          typeof event.method === "string" && dialogMethods.has(event.method)) {
+          throw new Error(`Goal interruption unexpectedly requested human input: ${JSON.stringify(event)}`);
+        }
         if (event.type === "extension_ui_request" && "method" in event && event.method === "notify" &&
           "message" in event && typeof event.message === "string") notices.push(event.message);
+        if (event.type === "tool_execution_end" && "toolName" in event && typeof event.toolName === "string" &&
+          "toolCallId" in event && typeof event.toolCallId === "string") {
+          toolReceipts.push({
+            toolName: event.toolName, toolCallId: event.toolCallId, isError: "isError" in event && event.isError === true,
+            result: "result" in event ? event.result : undefined,
+          });
+        }
         if (event.type === "message_end" && "message" in event && typeof event.message === "object" && event.message !== null && "customType" in event.message && typeof event.message.customType === "string") messageTypes.push(event.message.customType);
         if (event.type === "extension_error") {
           failure = event;
@@ -210,10 +289,10 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
             }
           }
         }
-        // A stop hook can start another run after an RPC agent_end. Count requests
-        // only when the host confirms that nothing remains scheduled.
+        // A stop hook can start another run after an RPC agent_end. Check any
+        // specified request count only when the host confirms it has settled.
         else if (expected === "session_settled" && event.type === "session_settled") {
-          if (scenarioRequests !== expectedRequests) {
+          if (expectedRequests !== null && scenarioRequests !== expectedRequests) {
             failure = new Error(`OMP settled with requests=${scenarioRequests}/${expectedRequests}; model=${model}; continuation=${continuation ?? "ordinary"}; prompts=${JSON.stringify(prompts)}`);
             signal.reject(failure);
           } else signal.resolve();
@@ -234,6 +313,7 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
       controlData = undefined;
       const previousRequests = scenarioRequests;
       const noticeOffset = notices.length;
+      const toolOffset = toolReceipts.length;
       expected = controlProbe && (controlProbe.type !== "prompt" || controlProbe.local) ? "local result" : "session_settled";
       expectedRequests = controlProbe?.type === "rpc" || controlProbe?.type === "goal" ? previousRequests
         : controlProbe?.type === "prompt" && controlProbe.local ? controlProbe.requests ?? previousRequests
@@ -254,7 +334,7 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
         if (controlProbe?.type === "rpc") controlProbe.inspect?.(controlData, bodies);
         if (controlProbe?.type === "goal") controlProbe.inspect?.(controlData);
       }
-      if (controlProbe?.type === "prompt") controlProbe.inspect?.(bodies);
+      if (controlProbe?.type === "prompt") controlProbe.inspect?.(bodies, toolReceipts.slice(toolOffset));
       const notice = controlProbe?.type === "prompt" ? controlProbe.notice : undefined;
       if (notice) assert(notices.slice(noticeOffset).some(message => message.includes(notice)), JSON.stringify(notices));
     }
@@ -280,17 +360,44 @@ async function runRpc(prompts: readonly (string | ControlProbe)[], options: RunO
   return requests.slice(offset).map(body => textByRole(body, "system", "developer").join("\n"));
 }
 
-function textByRole(body: unknown, ...roles: string[]): string[] {
+function providerMessages(body: unknown): readonly unknown[] {
   assert(typeof body === "object" && body !== null && "messages" in body && Array.isArray(body.messages));
-  const messages: unknown[] = body.messages;
-  return messages.flatMap(message => {
+  return body.messages;
+}
+
+function wireContentText(content: unknown): string | undefined {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return undefined;
+  return content.flatMap((block: unknown) =>
+    typeof block === "object" && block !== null && "text" in block && typeof block.text === "string" ? [block.text] : []).join("\n");
+}
+
+function textByRole(body: unknown, ...roles: string[]): string[] {
+  return providerMessages(body).flatMap(message => {
     if (typeof message !== "object" || message === null || !("role" in message) || !("content" in message) ||
       (roles.length && !roles.includes(String(message.role)))) return [];
-    if (typeof message.content === "string") return [message.content];
-    if (!Array.isArray(message.content)) return [];
-    return [message.content.flatMap((block: unknown) =>
-      typeof block === "object" && block !== null && "text" in block && typeof block.text === "string" ? [block.text] : []).join("\n")];
+    const text = wireContentText(message.content);
+    return text === undefined ? [] : [text];
   });
+}
+
+function goalScenarioFor(userMessage: string | undefined): GoalScenario | undefined {
+  return Object.values(goalScenarios).find(scenario => userMessage?.trimEnd().endsWith(scenario.userText));
+}
+
+function goalReviewScenario(body: unknown, users = textByRole(body, "user")): GoalScenario | undefined {
+  // A side request adds its own user message and drops the main tool catalog.
+  // Bind it to the latest fixture turn in history, not to the assessment prose.
+  for (const user of users.slice(0, -1).reverse()) {
+    const scenario = goalScenarioFor(user);
+    if (scenario) return offeredTools(body).length === 0 ? scenario : undefined;
+  }
+}
+
+function hasProviderToolResult(body: unknown, id: string): boolean {
+  return providerMessages(body).some(message =>
+    typeof message === "object" && message !== null && "role" in message && message.role === "tool" &&
+    "tool_call_id" in message && message.tool_call_id === id);
 }
 
 function compactionConversation(body: unknown): string | undefined {
@@ -335,10 +442,15 @@ function assertReaderlessAlias(request: unknown, canonical: string, args: string
 
 const stackMarker = "<omp-superstack-policy>";
 const nativeStackDirectory = `[Skill directory: ${join(packageRoot, "skills", "superstack")}]`;
+const stackBody = readFileSync(join(packageRoot, "skills", "superstack", "SKILL.md"), "utf8").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "").trim();
 
 function assertStackPolicy(body: unknown, active: boolean, label: string): void {
   const delivered = textByRole(body).join("\n");
   assert.equal(delivered.split(stackMarker).length - 1, active ? 1 : 0, `Superstack policy: ${label}`);
+  if (active) {
+    const policy = delivered.split(stackMarker)[1].split("</omp-superstack-policy>")[0];
+    assert(policy.includes(stackBody), `routing must be available without a skill read: ${label}`);
+  }
 }
 
 function stackTurn(message: string, active: boolean, inspect?: (body: unknown) => void): ControlProbe {
@@ -487,9 +599,7 @@ async function checkSavedStack(): Promise<void> {
     stackTurn("SUPERSTACK-RESUME-AFTER-COMPACTION", true, body => {
       const delivered = textByRole(body).join("\n");
       assert(delivered.includes(compactHistory), "reopening OMP must replay the persisted compaction summary");
-      const policy = delivered.split(stackMarker)[1]?.split("</omp-superstack-policy>")[0];
-      assert(policy?.includes("skill://superstack"), "the restored policy must resolve the installed skill when a reader is offered");
-      assert(offeredTools(body).includes("read"), "the restored policy must use the caller's existing reader");
+      assert(offeredTools(body).includes("read"), "exercise restored routing with a reader available");
     }),
     { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => { whileOn = sessionLeaf(data); } },
     stackTurn("/eval-integrity SUPERSTACK-SPECIALIST-ARGUMENT", false, body => {
@@ -553,7 +663,7 @@ async function checkStackChild(): Promise<void> {
       assert(textByRole(result, "tool").some(text => text.includes(childDone)), "native task must return the child's result to the parent");
       assertStackPolicy(result, true, "parent after child");
     } },
-  ], { flags: ["--offline", "--no-ui", "--config", configPath], tools: ["task"] });
+  ], { flags: ["--offline", "--no-ui", "--config", configPath], tools: ["task", "read"] });
 }
 
 async function checkSuperstack(): Promise<void> {
@@ -562,7 +672,95 @@ async function checkSuperstack(): Promise<void> {
   await checkStackChild();
 }
 
+async function checkModelGoalInterruptions(): Promise<void> {
+  const objective = "Decrypt the isolated fixture and verify its checksum";
+  const beforeGoal = "SUPER-GOAL-TREE-BEFORE-CREATE";
+  let beforeGoalLeaf = "";
+  let sessionId: string | undefined;
+  const sameSession = (state: unknown) => {
+    assert(typeof state === "object" && state !== null && "sessionId" in state && typeof state.sessionId === "string");
+    if (sessionId === undefined) sessionId = state.sessionId;
+    else assert.equal(state.sessionId, sessionId, "tree navigation must stay inside the original session");
+  };
+  let goalId: string | undefined;
+  const sameGoal = (goal: unknown) => {
+    assert(typeof goal === "object" && goal !== null && "id" in goal && typeof goal.id === "string" &&
+      "objective" in goal && goal.objective === objective, "RPC must read back the test goal");
+    if (goalId === undefined) goalId = goal.id;
+    else assert.equal(goal.id, goalId, "model and operator actions must preserve goal identity");
+  };
+  const attempt = (fixture: GoalScenario): ControlProbe => ({
+    type: "prompt",
+    message: "command" in fixture ? `${fixture.command} ${fixture.userText}` : fixture.userText,
+    requests: null,
+    inspect: (bodies, receipts) => {
+      const isReview = (body: unknown) => goalReviewScenario(body) === fixture;
+      const expectedReviews = fixture === goalScenarios.nativeStop ? 2 : 1;
+      assert.equal(bodies.filter(isReview).length, expectedReviews,
+        `expected ${expectedReviews} tool-free assessment(s) with current-turn history for ${fixture.userText}`);
+      const turns = bodies.filter(body => !isReview(body));
+      assert(turns.length && turns.every(body => goalScenarioFor(textByRole(body, "user").at(-1)) === fixture),
+        `unexpected request outside the main turn and its assessment for ${fixture.userText}`);
+      const [main] = turns;
+      const tools = offeredTools(main);
+      for (const { name } of fixture.calls) {
+        assert(tools.includes(name), `the main turn must be offered the native ${name} tool`);
+      }
+      if (fixture === goalScenarios.branchAsk) {
+        const history = textByRole(main, "user");
+        const hasPrompt = (text: string) => history.some(user => user.includes(text));
+        assert(hasPrompt(beforeGoal) && !hasPrompt(goalScenarios.sameEvidence.userText),
+          `wrong branch for ask: before-create=${hasPrompt(beforeGoal)}, earlier-attempt=${hasPrompt(goalScenarios.sameEvidence.userText)}, user messages=${JSON.stringify(history.map(text => text.slice(-180)))}`);
+      }
+      assert.deepEqual(receipts.map(receipt => [receipt.toolCallId, receipt.toolName, receipt.isError]),
+        fixture.calls.map(call => [call.id, call.name, call.refused]), JSON.stringify(receipts));
+      // The judge must see the stop when reviewing the ask, but that review
+      // must not itself authorize the subsequent pause.
+      if (fixture === goalScenarios.nativeStop) {
+        const ask = fixture.calls[0];
+        const firstResult = bodies.findIndex(body => !isReview(body) && hasProviderToolResult(body, ask.id));
+        assert(firstResult > 0, "the model must receive the irrelevant ask's refusal");
+        assert.equal(bodies.slice(0, firstResult).filter(isReview).length, 1,
+          "the judge must assess evidence of the whole-goal stop when reviewing the ask");
+      }
+      for (const { id, refused } of fixture.calls) {
+        if (refused) assert(hasProviderToolResult(turns.at(-1), id), `the main turn must receive the native refusal for ${id}`);
+      }
+    },
+  });
+  const { sameEvidence, branchAsk, nativeStop, blocker } = goalScenarios;
+  const messageOffset = messageTypes.length;
+  // Bypass the general tool approval gate so only the goal policy can refuse.
+  await runRpc([
+    beforeGoal,
+    { type: "rpc", command: () => ({ type: "get_state" }), inspect: sameSession },
+    { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => { beforeGoalLeaf = sessionLeaf(data); } },
+    { type: "goal", op: "create", objective, status: "active", inspect: sameGoal },
+    attempt(sameEvidence),
+    { type: "goal", op: "get", status: "active", inspect: sameGoal },
+    { type: "rpc", command: () => ({ type: "navigate_tree", entryId: beforeGoalLeaf }) },
+    { type: "rpc", command: () => ({ type: "get_entries" }), inspect: data => {
+      assert.equal(sessionLeaf(data), beforeGoalLeaf, "navigate to the leaf before the native goal record");
+    } },
+    { type: "rpc", command: () => ({ type: "get_state" }), inspect: sameSession },
+    { type: "goal", op: "get", status: "active", inspect: sameGoal },
+    attempt(branchAsk),
+    { type: "goal", op: "get", status: "active", inspect: sameGoal },
+    attempt(nativeStop),
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+    { type: "goal", op: "resume", status: "active", inspect: sameGoal },
+    attempt(blocker),
+    { type: "goal", op: "get", status: "paused", inspect: sameGoal },
+    { type: "goal", op: "resume", status: "active", inspect: sameGoal },
+    { type: "goal", op: "pause", status: "paused", inspect: sameGoal },
+    { type: "goal", op: "resume", status: "active", inspect: sameGoal },
+  ], { flags: ["--offline", "--skills", "superstack", "--approval-mode", "yolo"], tools: ["goal", "ask"], forbidDialogs: true });
+  assert.equal(messageTypes.slice(messageOffset).filter(type => type === "skill-prompt").length, 1,
+    "the whole-goal stop must be delivered through OMP's native skill dispatch");
+}
+
 async function checkExistingSuper(): Promise<void> {
+  const rejectionOffset = requests.length;
   const rejected = Bun.spawn([
     "omp", "--mode", "json", "--no-tools", "--no-extensions", "-e", packageRoot, "-e", providerExtension,
     "--model", "omo-super-probe/gpt-6.1-sol", "--cwd", root, "--no-session", "Must not start a model turn",
@@ -570,7 +768,7 @@ async function checkExistingSuper(): Promise<void> {
   const [rejectedExit, rejectedError] = await Promise.all([rejected.exited, new Response(rejected.stderr).text()]);
   assert.equal(rejectedExit, 2, rejectedError);
   assert.match(rejectedError, /--no-tools cannot be combined with --extension, -e/);
-  assert.equal(requests.length, 0, "the CLI must reject explicit extensions before a model turn");
+  assert.equal(requests.length, rejectionOffset, "the CLI must reject explicit extensions before a model turn");
 
   const directive = readFileSync(new URL("../skills/super/SKILL.md", import.meta.url), "utf8").split("<ultrawork-mode>")[1].split("</ultrawork-mode>")[0];
   for (const model of ["gpt-6-astra", "gpt-6-astra-fast", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna-fast", "claude-haiku-5.5", "gemini-4-argon"]) {
@@ -816,8 +1014,15 @@ async function checkExistingSuper(): Promise<void> {
 }
 
 try {
-  if (!process.argv.includes("--superstack-only")) await checkExistingSuper();
-  await checkSuperstack();
+  if (process.argv.includes("--goal-only")) {
+    await checkModelGoalInterruptions();
+  } else {
+    if (!process.argv.includes("--superstack-only")) {
+      await checkModelGoalInterruptions();
+      await checkExistingSuper();
+    }
+    await checkSuperstack();
+  }
 } finally {
   await server.stop(true);
   rmSync(root, { recursive: true, force: true });

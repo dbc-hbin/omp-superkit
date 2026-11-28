@@ -4,9 +4,13 @@ import { fileURLToPath } from "node:url";
 import { registerContinuationControls } from "./super-control";
 import { createSuperstack, superstackPrefix } from "./superstack";
 
-export type SuperSessionEntry = { readonly type: string; readonly customType?: string; readonly data?: unknown; readonly mode?: string };
+export type SuperSessionEntry = {
+  readonly type: string; readonly customType?: string; readonly data?: unknown; readonly mode?: string; readonly message?: unknown;
+  readonly timestamp?: string; readonly content?: unknown; readonly details?: unknown; readonly attribution?: string;
+  readonly display?: boolean; readonly excludeFromContext?: boolean;
+};
 export type SuperGoalEvent = {
-  readonly goal?: { readonly id?: string; readonly objective?: string; readonly status?: string } | null;
+  readonly goal?: { readonly id?: string; readonly objective?: string; readonly status?: string; readonly createdAt?: number } | null;
 };
 type NativeModes = { readonly goal: { readonly status: "inactive" | "active" | "paused"; readonly objective?: string } };
 
@@ -14,6 +18,9 @@ export interface SuperContext {
   cwd: string;
   model?: { id: string };
   mode?: string;
+  hasPendingMessages?(): boolean;
+  getAsyncJobSnapshot?(): { running: readonly unknown[]; delivery: { queued: number; delivering: boolean; pendingJobIds: readonly string[] } } | null;
+  runEphemeralTurn?(options: { promptText: string; tools: false; minimizeEffort: boolean; purpose: string }): Promise<{ replyText: string; assistantMessage: { stopReason: string } }>;
   agent: { kind: "main" | "sub" };
   sessionManager: {
     getSessionId(): string;
@@ -38,11 +45,11 @@ export interface SuperApi {
   registerCommand(name: string, options: { description: string; handler: (args: string, ctx: SuperContext) => Promise<void> }): void;
   getCommands(): readonly { readonly name: string; readonly source: string; readonly path?: string }[];
   sendUserMessage(content: string): void | Promise<void>;
-  getActiveTools?(): readonly string[];
   registerFlag(name: string, options: { description: string; type: "boolean"; default: boolean }): void;
   getFlag(name: string): boolean | string | undefined;
   appendEntry(customType: string, data: unknown): void;
   on(event: "input", handler: (event: InputEvent, ctx: SuperContext) => InputEventResult | void | Promise<InputEventResult | void>): void;
+  on(event: "tool_call", handler: (event: { toolName: string; input: Record<string, unknown> }, ctx: SuperContext) => Promise<{ block: true; reason: string } | undefined>): void;
   on(event: "goal_updated", handler: (event: SuperGoalEvent, ctx: SuperContext) => void): void;
   on(event: "session_start" | "session_switch" | "session_branch" | "session_tree" | "session_compact", handler: (event: unknown, ctx: SuperContext) => void): void;
   on(event: "before_agent_start", handler: (event: { prompt: string; reason?: "prompt" | "revive"; systemPrompt: string[] }, ctx: SuperContext) => { systemPrompt: string[]; message?: SuperMessage } | undefined): void;
@@ -216,8 +223,8 @@ export function registerSuper(pi: SuperApi): void {
     return { text: `${text.slice(0, end)} ${invocation.keyword}${text.slice(end)}` };
   };
 
-  const restore = (_event: unknown, ctx: SuperContext) => {
-    continuation.restore(ctx);
+  for (const event of ["session_start", "session_switch", "session_branch", "session_tree"] as const) pi.on(event, (_payload, ctx) => {
+    continuation.restore(ctx, event);
     stack.restore(ctx);
     armed = false;
     rearmed = false;
@@ -228,8 +235,7 @@ export function registerSuper(pi: SuperApi): void {
     for (const entry of ctx.sessionManager.getBranch()) {
       if (entry.type === "custom" && entry.customType === stateType && typeof entry.data === "boolean") armed = entry.data;
     }
-  };
-  for (const event of ["session_start", "session_switch", "session_branch", "session_tree"] as const) pi.on(event, restore);
+  });
   pi.on("session_compact", () => { rearmed = armed; });
   pi.on("input", (event, ctx) => {
     if (event.source !== "extension") {

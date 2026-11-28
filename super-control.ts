@@ -1,4 +1,5 @@
 import { readContinuation } from "./super-continuation";
+import { createInterruptionGuard } from "./goal-interruption";
 import type { SuperApi, SuperContext, SuperGoalEvent } from "./super";
 
 const controlType = "omo-ultrawork:continuation";
@@ -7,7 +8,7 @@ const disabledFlag = "omo-ulw-continuation-disabled";
 type Control = { readonly sessionId: string; readonly stopped: boolean; readonly pausedGoalId?: string };
 type Goal = NonNullable<SuperGoalEvent["goal"]>;
 
-function isGoal(value: unknown): value is Required<Goal> {
+function isGoal(value: unknown): value is Goal & { id: string; objective: string; status: string } {
   return typeof value === "object" && value !== null &&
     "id" in value && typeof value.id === "string" &&
     "objective" in value && typeof value.objective === "string" &&
@@ -22,13 +23,14 @@ function nativeHint(ctx: SuperContext, action: "pause" | "resume"): string {
 
 export function registerContinuationControls(pi: SuperApi, resetProgress: (fingerprint?: string) => void) {
   pi.registerFlag(disabledFlag, { description: "Disable SUPER Loop and SUPER Run continuation", type: "boolean", default: false });
+  const assessGoalInterruption = createInterruptionGuard(pi);
   let sessionId: string | undefined;
   let control: Control | undefined;
   let nativeGoal: Goal | undefined;
   let ownedGoalId: string | undefined;
   let expectedObjective: string | undefined;
 
-  const restore = (ctx: SuperContext) => {
+  const restoreSession = (ctx: SuperContext) => {
     const id = ctx.sessionManager.getSessionId();
     sessionId = id;
     control = undefined;
@@ -54,7 +56,7 @@ export function registerContinuationControls(pi: SuperApi, resetProgress: (finge
       mode.data !== null && "goal" in mode.data && isGoal(mode.data.goal)) nativeGoal = mode.data.goal;
   };
   const syncSession = (ctx: SuperContext) => {
-    if (sessionId !== ctx.sessionManager.getSessionId()) restore(ctx);
+    if (sessionId !== ctx.sessionManager.getSessionId()) restoreSession(ctx);
   };
 
   pi.on("goal_updated", (event, ctx) => {
@@ -65,6 +67,24 @@ export function registerContinuationControls(pi: SuperApi, resetProgress: (finge
     expectedObjective = undefined;
     ownedGoalId = nativeGoal.id;
     pi.appendEntry(ownerType, { sessionId: ctx.sessionManager.getSessionId(), goalId: ownedGoalId });
+  });
+
+  // Direct goal controls and host interrupts never enter model tool dispatch.
+  pi.on("tool_call", async (event, ctx) => {
+    const ask = event.toolName === "ask";
+    if (!ask && !(event.toolName === "goal" && event.input.op === "pause")) return;
+    syncSession(ctx);
+    const id = ctx.sessionManager.getSessionId();
+    const goal = nativeGoal;
+    if (ask && goal?.status !== "active") return;
+    if (!isGoal(goal) || goal.status !== "active" || ctx.agent.kind !== "main")
+      return { block: true, reason: "No active main-session goal available for this interruption." };
+    const refusal = await assessGoalInterruption(ctx, goal, ask ? "ask" : "pause", ask ? event.input.html : undefined);
+    if (refusal) return { block: true, reason: refusal };
+    if (ctx.sessionManager.getSessionId() !== id || sessionId !== id || nativeGoal?.id !== goal.id ||
+      nativeGoal.objective !== goal.objective || nativeGoal.status !== "active") {
+      return { block: true, reason: "The assessed goal is no longer current." };
+    }
   });
 
   const save = async (ctx: SuperContext, next: Control) => {
@@ -175,7 +195,12 @@ export function registerContinuationControls(pi: SuperApi, resetProgress: (finge
 
   return {
     read,
-    restore,
+    restore(ctx: SuperContext, event: "session_start" | "session_switch" | "session_branch" | "session_tree") {
+      // A tree move changes the transcript leaf, not OMP's live goal. The
+      // selected branch may predate that goal or contain an obsolete one.
+      if (event === "session_tree") syncSession(ctx);
+      else restoreSession(ctx);
+    },
     isEnabled: () => !pi.getFlag(disabledFlag),
     isStopped(ctx: SuperContext): boolean {
       syncSession(ctx);
